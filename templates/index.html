@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dateien_Aktionen 🗂️ macOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .truncate-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
+                    📁
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight text-slate-800">Dateien_Aktionen</h1>
+                    <p class="text-xs text-slate-500">KI- & OCR-Dateimanager für macOS</p>
+                </div>
+            </div>
+
+            <!-- Status Badges -->
+            <div class="flex items-center gap-2.5 text-xs" id="status-badges">
+                <span id="badge-version" class="px-2 py-1 rounded-full bg-slate-100 text-slate-500 font-mono font-semibold">v1.0.0</span>
+                <span id="update-badge" class="hidden px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer transition flex items-center gap-1 shadow-xs animate-pulse" onclick="openUpdateModal()">✨ Update verfügbar!</span>
+                <span id="badge-ocr" class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">OCR: Lädt...</span>
+                <span id="badge-ai" class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">KI: Lädt...</span>
+                <button onclick="openTab('settings')" class="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition">
+                    ⚙️ Einstellungen
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Ordnerauswahl Box -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-8">
+            <div class="flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-1 w-full">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Quellordner zum Scannen & Organisieren:</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="folder-path" placeholder="/Users/.../Downloads" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-slate-50">
+                        <button onclick="pickFolder()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition flex items-center gap-1.5 whitespace-nowrap">
+                            📂 Durchsuchen...
+                        </button>
+                    </div>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="startCatalog()" id="btn-catalog" class="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm">
+                        🔍 1. Katalogisieren
+                    </button>
+                    <button onclick="startPreview()" id="btn-preview" class="flex-1 md:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm">
+                        🧠 2. KI-Vorschau
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="flex border-b border-slate-200 mb-6 gap-2 overflow-x-auto">
+            <button onclick="openTab('catalog')" id="tab-btn-catalog" class="tab-btn active px-4 py-2.5 font-medium text-sm border-b-2 border-blue-600 text-blue-600 whitespace-nowrap flex items-center gap-2">
+                <span>📊 Dateikatalog</span>
+                <span id="tab-badge-files" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">0</span>
+            </button>
+            <button onclick="openTab('duplicates')" id="tab-btn-duplicates" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
+                <span>⚠️ Duplikate-Manager</span>
+                <span id="tab-badge-dups" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">0</span>
+            </button>
+            <button onclick="openTab('preview')" id="tab-btn-preview" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+                ✨ KI-Umbenennung & Vorschau
+            </button>
+            <button onclick="openTab('history')" id="tab-btn-history" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+                🕒 Protokoll & Rückgängig
+            </button>
+            <button onclick="openTab('settings')" id="tab-btn-settings" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+                ⚙️ Einstellungen
+            </button>
+        </div>
+
+        <!-- ==================== TAB 1: KATALOG & DATEILISTE ==================== -->
+        <div id="tab-catalog" class="tab-content">
+            <div id="catalog-placeholder" class="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
+                <div class="text-4xl mb-3">📊</div>
+                <h3 class="font-semibold text-slate-700 text-lg">Noch kein Ordner katalogisiert</h3>
+                <p class="text-sm text-slate-500 mt-1">Klicken Sie oben auf „1. Katalogisieren“, um alle Dateien einzulesen.</p>
+            </div>
+
+            <div id="catalog-results" class="hidden space-y-6">
+                <!-- Summary Stats (4 Widgets) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="stats-grid"></div>
+
+                <!-- Categories Quick Overview -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            📁 Dateitypen-Übersicht
+                        </h4>
+                        <span class="text-xs text-slate-400">Klicken Sie auf eine Kategorie, um die Liste unten zu filtern</span>
+                    </div>
+                    <div id="categories-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3"></div>
+                </div>
+
+                <!-- DATEIEN-TABELLE (OPTIMIERT & MIT PAGINATION) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- Filter Toolbar -->
+                    <div class="p-4 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-slate-50">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                                <span>📄 Gefundene Dateien</span>
+                                <span id="cat-table-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">0</span>
+                            </h4>
+                        </div>
+                        
+                        <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                            <!-- Suchfeld -->
+                            <div class="relative flex-1 md:w-56">
+                                <input type="text" id="file-search-input" oninput="onSearchChange()" placeholder="Dateiname filtern..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+                            </div>
+
+                            <!-- Filter: Kategorie -->
+                            <select id="file-category-filter" onchange="onCategoryFilterChange()" class="px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium text-slate-700">
+                                <option value="ALL">Alle Kategorien</option>
+                            </select>
+
+                            <!-- Filter: Konkreter Dateityp / Endung -->
+                            <select id="file-ext-filter" onchange="onExtensionFilterChange()" class="px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium text-slate-700">
+                                <option value="ALL">Alle Dateitypen</option>
+                            </select>
+
+                            <!-- Sortier-Dropdown -->
+                            <div class="flex items-center gap-1 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5">
+                                <span class="text-xs text-slate-400 font-semibold whitespace-nowrap">Sortierung:</span>
+                                <select id="sort-select" onchange="onSortDropdownChange()" class="bg-transparent text-sm focus:outline-none font-medium text-slate-700 pr-1 cursor-pointer">
+                                    <option value="filename:asc">Name (A → Z)</option>
+                                    <option value="filename:desc">Name (Z → A)</option>
+                                    <option value="size_bytes:desc">Größe (Größte zuerst)</option>
+                                    <option value="size_bytes:asc">Größe (Kleinste zuerst)</option>
+                                    <option value="modified_at:desc">Datum (Neueste zuerst)</option>
+                                    <option value="modified_at:asc">Datum (Älteste zuerst)</option>
+                                    <option value="extension:asc">Dateityp (.pdf, .jpg...)</option>
+                                </select>
+                            </div>
+
+                            <!-- Einträge pro Seite -->
+                            <select id="page-size-select" onchange="onPageSizeChange()" class="px-2.5 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600">
+                                <option value="50">50 / Seite</option>
+                                <option value="100">100 / Seite</option>
+                                <option value="250">250 / Seite</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Klickbare Schnellfilter-Pills für Dateiendungen -->
+                    <div id="extension-pills-bar" class="p-2.5 px-6 bg-slate-100/60 border-b border-slate-200 flex flex-wrap items-center gap-1.5 text-xs">
+                        <!-- Dynamische Buttons z.B. [.pdf (1.100)] [.docx (95)] per JS -->
+                    </div>
+
+                    <!-- BATCH ACTION BAR (Erscheint dynamisch bei Auswahl von Dateien) -->
+                    <div id="catalog-selection-bar" class="hidden p-3 px-6 bg-blue-50 border-b border-blue-200 flex flex-wrap items-center justify-between gap-3 text-xs transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="font-bold text-blue-900 flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                <span><b id="catalog-selected-count">0</b> Dateien ausgewählt</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 border-l border-blue-200 pl-3">
+                                <button onclick="selectAllFiltered(true)" class="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-100 text-blue-700 font-semibold transition border border-blue-200 shadow-xs">
+                                    Alle gefilterten (<span id="btn-select-all-count">0</span>) auswählen
+                                </button>
+                                <button onclick="clearCatalogSelection()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-600 font-medium transition border border-slate-200 shadow-xs">
+                                    Auswahl aufheben
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <!-- Flag / Präfix Eingabefeld für KI -->
+                            <div class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-blue-200 shadow-xs">
+                                <span class="font-semibold text-slate-700" title="Optional: Präfix/Flag, das beim Umbenennen an den Anfang gestellt wird (z. B. 01_ oder A_ oder ein Stichwort)">🏷️ KI-Präfix:</span>
+                                <input type="text" id="ai-prefix-input" placeholder="z. B. 01_" class="px-2 py-0.5 w-24 font-mono text-xs text-blue-950 font-bold bg-transparent focus:outline-none placeholder:text-slate-400 placeholder:font-normal">
+                            </div>
+
+                            <!-- Aktion 1: KI-Umbenennung gezielt für markierte Dateien -->
+                            <button onclick="startAiPreviewForSelected()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition">
+                                <span>🧠 KI-Vorschau für Auswahl (<span class="selected-count-badge">0</span>)</span>
+                            </button>
+
+                            <!-- Aktion 2: Verschieben / Kopieren in Zielordner -->
+                            <button onclick="openMoveModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition">
+                                <span>📁 In Ordner verschieben / kopieren...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Saubere Tabelle mit festem Layout und Sortierung -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm table-fixed border-collapse min-w-[950px]">
+                            <thead class="bg-slate-100 text-slate-700 font-semibold text-xs uppercase tracking-wider border-b border-slate-200 select-none">
+                                <tr>
+                                    <th class="p-3.5 pl-5 w-12 text-center">
+                                        <input type="checkbox" id="catalog-select-page-chk" onchange="toggleSelectCurrentPage(this.checked)" class="rounded text-blue-600 focus:ring-0 cursor-pointer w-4 h-4" title="Alle auf dieser Seite auswählen/abwählen">
+                                    </th>
+                                    <th onclick="toggleSort('filename')" class="p-3.5 w-5/12 cursor-pointer hover:bg-slate-200 select-none transition">
+                                        Dateiname <span id="sort-icon-filename" class="text-blue-600 font-bold ml-1">↕</span>
+                                    </th>
+                                    <th onclick="toggleSort('relative_path')" class="p-3.5 w-2/12 cursor-pointer hover:bg-slate-200 select-none transition">
+                                        Unterordner <span id="sort-icon-relative_path" class="text-slate-400 font-bold ml-1">↕</span>
+                                    </th>
+                                    <th onclick="toggleSort('category')" class="p-3.5 w-2/12 cursor-pointer hover:bg-slate-200 select-none transition">
+                                        Kategorie <span id="sort-icon-category" class="text-slate-400 font-bold ml-1">↕</span>
+                                    </th>
+                                    <th onclick="toggleSort('size_bytes')" class="p-3.5 w-1/12 cursor-pointer hover:bg-slate-200 select-none transition">
+                                        Größe <span id="sort-icon-size_bytes" class="text-slate-400 font-bold ml-1">↕</span>
+                                    </th>
+                                    <th onclick="toggleSort('modified_at')" class="p-3.5 w-1/12 cursor-pointer hover:bg-slate-200 select-none transition">
+                                        Datum <span id="sort-icon-modified_at" class="text-slate-400 font-bold ml-1">↕</span>
+                                    </th>
+                                    <th class="p-3.5 pr-6 w-28 text-center">
+                                        Vorschau
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="catalog-files-tbody" class="divide-y divide-slate-100">
+                                <!-- Zeilen werden per JS eingefügt -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination Navigation Bar -->
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+                        <div id="pagination-info">Zeige 0 bis 0 von 0 Dateien</div>
+                        <div class="flex items-center gap-1.5" id="pagination-controls">
+                            <!-- Buttons per JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 2: DUPLIKATE-MANAGER (NEU!) ==================== -->
+        <div id="tab-duplicates" class="tab-content hidden">
+            <div id="duplicates-placeholder" class="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
+                <div class="text-4xl mb-3">🔍</div>
+                <h3 class="font-semibold text-slate-700 text-lg">Keine Duplikate geladen</h3>
+                <p class="text-sm text-slate-500 mt-1">Klicken Sie oben auf „1. Katalogisieren“, um Duplikate zu analysieren.</p>
+            </div>
+
+            <div id="duplicates-content" class="hidden space-y-6">
+                <!-- Action Header -->
+                <div class="bg-amber-50 rounded-2xl p-6 border border-amber-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-amber-950 flex items-center gap-2">
+                            <span>⚠️ Duplikate-Bereinigung</span>
+                            <span id="dup-badge-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">0</span>
+                        </h3>
+                        <p class="text-xs text-amber-800 mt-1 max-w-xl">
+                            Dateien mit exakt identischem Inhalt (SHA-256 Prüfsumme). Gelöschte Dateien werden sicher in den <b>macOS-Papierkorb</b> verschoben und können bei Bedarf jederzeit wiederhergestellt werden.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2 bg-white/80 p-1.5 rounded-xl border border-amber-200 text-xs">
+                            <span class="font-semibold text-slate-700 px-2">Auswahl:</span>
+                            <button onclick="autoSelectDuplicates('keep_oldest')" class="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-medium transition">
+                                Älteste behalten
+                            </button>
+                            <button onclick="autoSelectDuplicates('keep_newest')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">
+                                Neueste behalten
+                            </button>
+                            <button onclick="autoSelectDuplicates('none')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">
+                                Keine
+                            </button>
+                        </div>
+
+                        <button onclick="trashSelectedDuplicates()" id="btn-trash-dups" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+                            🗑️ Ausgewählte Duplikate in den Papierkorb
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Duplikate-Karten Container -->
+                <div id="duplicates-groups-container" class="space-y-4">
+                    <!-- Gruppen per JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 3: KI-UMBENENNUNG & VORSCHAU ==================== -->
+        <div id="tab-preview" class="tab-content hidden">
+            <div id="preview-placeholder" class="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
+                <div class="text-4xl mb-3">🪄</div>
+                <h3 class="font-semibold text-slate-700 text-lg">Noch keine KI-Vorschau geladen</h3>
+                <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                    Klicken Sie oben auf <b>„🧠 2. KI-Vorschau“</b>, damit Gemini die Dokumente liest und strukturierte Namensvorschläge generiert.
+                </p>
+            </div>
+
+            <div id="preview-results" class="hidden">
+                <!-- Action Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4 bg-blue-50/70 p-4 rounded-xl border border-blue-100">
+                    <div class="text-sm text-blue-900">
+                        <span id="selected-count" class="font-bold">0</span> Dateien ausgewählt zur Organisation.
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="checkbox" id="copy-mode" class="rounded text-blue-600">
+                            Kopieren (statt Verschieben)
+                        </label>
+                        <button onclick="executeRenaming()" id="btn-execute" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2">
+                            🚀 Jetzt anwenden (<span id="btn-exec-count">0</span>)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm table-fixed">
+                            <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+                                <tr>
+                                    <th class="p-4 w-12 text-center">
+                                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" checked class="rounded text-blue-600">
+                                    </th>
+                                    <th class="p-4 w-4/12">Ursprüngliche Datei</th>
+                                    <th class="p-4 w-4/12">Neuer Name (editierbar)</th>
+                                    <th class="p-4 w-2/12">Zielordner</th>
+                                    <th class="p-4 w-2/12">KI-Erkennung</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-tbody" class="divide-y divide-slate-100">
+                                <!-- Zeilen werden per JS eingefügt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 4: PROTOKOLL / UNDO ==================== -->
+        <div id="tab-history" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h4 class="font-bold text-slate-800 mb-2">Vergangene Ausführungen (Manifeste)</h4>
+                <p class="text-sm text-slate-500 mb-6">Sie können jede frühere Dateiaktion mit einem einzigen Klick wieder in den Ursprungszustand zurückversetzen.</p>
+                <div id="history-list" class="space-y-3">
+                    <p class="text-slate-400 text-sm">Lade Historie...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 5: EINSTELLUNGEN ==================== -->
+        <div id="tab-settings" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-2xl">
+                <h4 class="font-bold text-slate-800 mb-4">Einstellungen & KI-Konfiguration</h4>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">KI-Provider</label>
+                        <select id="cfg-provider" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                            <option value="gemini">Google Gemini API (Cloud / Entwickler-Account)</option>
+                            <option value="local">Lokaler KI-Server (LM Studio / MLX / Ollama)</option>
+                            <option value="offline">Offline-Heuristik (ohne KI, via Regex & Metadaten)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Gemini API-Schlüssel</label>
+                        <input type="password" id="cfg-gemini-key" placeholder="AIzaSy..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                        <p class="text-xs text-slate-400 mt-1">Ihr bestehender Schlüssel aus Google AI Studio / WebApp.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Gemini Modell</label>
+                        <input type="text" id="cfg-gemini-model" placeholder="gemini-3.7-flash" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                        <p class="text-xs text-slate-400 mt-1">z. B. gemini-3.7-flash, gemini-3.8-flash, gemini-2.5-flash</p>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Lokale Server-URL (für LM Studio / MLX)</label>
+                        <input type="text" id="cfg-local-url" placeholder="http://localhost:1234/v1/chat/completions" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                    </div>
+
+                    <button onclick="saveConfig()" class="w-full mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition">
+                        Einstellungen speichern
+                    </button>
+                    <div id="save-msg" class="text-xs text-emerald-600 font-medium text-center hidden">✓ Gespeichert!</div>
+
+                    <!-- GitHub Software-Aktualisierung -->
+                    <div class="mt-8 pt-6 border-t border-slate-200">
+                        <h5 class="font-bold text-slate-800 text-sm mb-1 flex items-center gap-2">
+                            <span>🐙 Software-Aktualisierung (GitHub)</span>
+                        </h5>
+                        <p class="text-xs text-slate-500 mb-3">
+                            Installierte Version: <span id="settings-version-label" class="font-mono font-bold text-slate-800">1.0.0</span> • Repository: <a id="settings-repo-link" href="https://github.com/pebe1965/Dateien_Aktionen" target="_blank" class="font-mono text-blue-600 hover:underline">pebe1965/Dateien_Aktionen</a>
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <button onclick="checkForUpdates(true)" id="btn-check-updates" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-xs">
+                                🔄 Auf GitHub nach Updates suchen
+                            </button>
+                            <span id="update-check-msg" class="text-xs text-slate-500 font-medium"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: UNIVERSAL VORSCHAU & OCR INSPEKTOR -->
+    <div id="ocr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <!-- Header -->
+            <div class="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div class="min-w-0 pr-4">
+                    <h3 id="ocr-modal-title" class="font-bold text-slate-800 text-base truncate">Dateiname</h3>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span id="ocr-modal-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">BILD</span>
+                        <p id="ocr-modal-method" class="text-xs text-slate-500">Methode: Lädt...</p>
+                    </div>
+                </div>
+                <button onclick="closeOcrModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition flex-shrink-0">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="overflow-y-auto flex-1 p-5 space-y-4">
+                <!-- Bild-Vorschau (nur wenn Bild) -->
+                <div id="modal-image-container" class="hidden bg-slate-950 rounded-xl p-3 flex flex-col items-center justify-center border border-slate-800">
+                    <img id="modal-img" src="" alt="Vorschau" class="max-h-[350px] max-w-full rounded-lg object-contain shadow-md">
+                </div>
+
+                <!-- Audio-Player (nur wenn Audio) -->
+                <div id="modal-audio-container" class="hidden p-6 bg-slate-100 rounded-xl flex flex-col items-center gap-3 border border-slate-200">
+                    <div class="text-4xl">🎵</div>
+                    <audio id="modal-audio" controls class="w-full max-w-md"></audio>
+                </div>
+
+                <!-- Text- / OCR-Vorschau -->
+                <div id="modal-text-container" class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-600">
+                        <span id="ocr-section-title">📄 Erkannter Inhalt / Text (OCR):</span>
+                        <span id="ocr-char-count" class="text-slate-400 font-mono">0 Zeichen</span>
+                    </div>
+                    <div class="p-4 rounded-xl font-mono text-xs bg-slate-900 text-slate-100 whitespace-pre-wrap leading-relaxed select-all max-h-[250px] overflow-y-auto border border-slate-800" id="ocr-modal-content">
+                        Lese Datei...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-slate-200 flex justify-end bg-slate-50">
+                <button onclick="closeOcrModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition shadow-xs">
+                    Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DATEIEN IN ORDNER VERSCHIEBEN / KOPIEREN -->
+    <div id="move-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full flex flex-col overflow-hidden border border-slate-200">
+            <!-- Header -->
+            <div class="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg font-bold">
+                        📁
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base leading-tight">Dateien verschieben / kopieren</h3>
+                        <p class="text-xs text-slate-500 mt-0.5"><span id="move-modal-count" class="font-bold text-blue-600">0</span> markierte Datei(en)</p>
+                    </div>
+                </div>
+                <button onclick="closeMoveModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Ziel-Basisordner:</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="move-target-dir" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button onclick="pickMoveFolder()" class="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5">
+                            📂 Wählen...
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Neuen Unterordner erstellen (optional):</label>
+                    <input type="text" id="move-new-subfolder" placeholder="z. B. Rechnungen_2026 oder 01_Projekte" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-[11px] text-slate-400 mt-1">Wird im Zielordner angelegt, falls er noch nicht existiert.</p>
+                </div>
+
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="block text-xs font-bold text-slate-700 mb-2">Aktionsart:</span>
+                    <div class="flex items-center gap-6 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
+                            <input type="radio" name="move-mode" value="move" checked class="text-blue-600">
+                            <span>Verschieben (empfohlen)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
+                            <input type="radio" name="move-mode" value="copy" class="text-blue-600">
+                            <span>Kopieren (Originale bleiben)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-500 bg-amber-50 p-3 rounded-xl border border-amber-200 flex items-start gap-2">
+                    <span class="text-sm">ℹ️</span>
+                    <span>Jede Aktion wird im Manifest protokolliert und kann im Tab „Protokoll & Rückgängig“ mit 1 Klick komplett rückgängig gemacht werden.</span>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 px-6 border-t border-slate-200 flex justify-end gap-2.5 bg-slate-50">
+                <button onclick="closeMoveModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition">
+                    Abbrechen
+                </button>
+                <button onclick="executeBatchMove()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition shadow-xs flex items-center gap-1.5">
+                    🚀 Jetzt ausführen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GITHUB UPDATE -->
+    <div id="update-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-emerald-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold">
+                        ✨
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-emerald-950 text-base leading-tight">Neues Update verfügbar!</h3>
+                        <p class="text-xs text-emerald-800 mt-0.5"><span id="update-modal-ver" class="font-bold">v1.1.0</span> steht auf GitHub bereit</p>
+                    </div>
+                </div>
+                <button onclick="closeUpdateModal()" class="w-8 h-8 rounded-lg hover:bg-emerald-100 flex items-center justify-center text-slate-500 font-bold transition">✕</button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div>
+                    <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Was ist neu in dieser Version:</h5>
+                    <div id="update-modal-notes" class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
+                        Lade Release-Notes...
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-500 bg-blue-50 p-3 rounded-xl border border-blue-200 flex items-start gap-2">
+                    <span class="text-sm">💡</span>
+                    <span>Nach dem Download einfach die neue <b>Dateien_Aktionen.dmg</b> öffnen und in Ihren Programme-Ordner ziehen (auf „Ersetzen“ klicken).</span>
+                </div>
+            </div>
+
+            <div class="p-4 px-6 border-t border-slate-200 flex justify-end gap-2.5 bg-slate-50">
+                <button onclick="closeUpdateModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition">
+                    Später
+                </button>
+                <a id="update-download-btn" href="#" target="_blank" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-xs flex items-center gap-1.5">
+                    📥 Update herunterladen (.dmg)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner Modal -->
+    <div id="loading-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 max-w-sm text-center">
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div>
+                <h4 id="loading-title" class="font-bold text-slate-800">Verarbeite...</h4>
+                <p id="loading-desc" class="text-xs text-slate-500 mt-1">Bitte einen Moment Geduld.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCatalogFiles = [];
+        let filteredCatalogFiles = [];
+        let duplicateGroups = {}; // hash -> list of file objects
+        let currentPlan = [];
+        let activeCategoryFilter = 'ALL';
+        let currentPage = 1;
+        let pageSize = 50;
+        let selectedCatalogPaths = new Set();
+
+        function showLoading(title, desc) {
+            document.getElementById('loading-title').innerText = title;
+            document.getElementById('loading-desc').innerText = desc || 'Bitte warten...';
+            document.getElementById('loading-modal').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-modal').classList.add('hidden');
+        }
+
+        function openTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-slate-500');
+            });
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('tab-btn-' + tabId);
+            activeBtn.classList.remove('border-transparent', 'text-slate-500');
+            activeBtn.classList.add('border-blue-600', 'text-blue-600');
+
+            if (tabId === 'history') loadHistory();
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                // OCR Badge
+                const bOcr = document.getElementById('badge-ocr');
+                if (data.ocr_ready) {
+                    bOcr.className = 'px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium';
+                    bOcr.innerText = '✓ Apple Vision OCR aktiv';
+                } else {
+                    bOcr.className = 'px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium';
+                    bOcr.innerText = '⚠ OCR nicht bereit';
+                }
+
+                // AI Badge
+                const bAi = document.getElementById('badge-ai');
+                if (data.ai_provider === 'gemini') {
+                    if (data.gemini_key_set) {
+                        bAi.className = 'px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium';
+                        bAi.innerText = `Gemini (${data.gemini_model})`;
+                    } else {
+                        bAi.className = 'px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-medium cursor-pointer';
+                        bAi.innerText = '⚠ Gemini Key fehlt (hier klicken)';
+                        bAi.onclick = () => openTab('settings');
+                    }
+                } else {
+                    bAi.className = 'px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium';
+                    bAi.innerText = `KI: ${data.ai_provider}`;
+                }
+
+                // Version & Repo Labels
+                if (data.app_version) {
+                    const bVer = document.getElementById('badge-version');
+                    if (bVer) bVer.innerText = `v${data.app_version}`;
+                    const sVer = document.getElementById('settings-version-label');
+                    if (sVer) sVer.innerText = data.app_version;
+                }
+                if (data.github_repo) {
+                    const rLink = document.getElementById('settings-repo-link');
+                    if (rLink) {
+                        rLink.innerText = data.github_repo;
+                        rLink.href = `https://github.com/${data.github_repo}`;
+                    }
+                }
+
+                // Pre-fill settings
+                document.getElementById('cfg-provider').value = data.ai_provider;
+                document.getElementById('cfg-gemini-model').value = data.gemini_model;
+                document.getElementById('cfg-local-url').value = data.local_url;
+                if (data.folder_suggestion && !document.getElementById('folder-path').value) {
+                    document.getElementById('folder-path').value = data.folder_suggestion;
+                }
+
+                // Im Hintergrund leise nach GitHub Updates schauen
+                checkForUpdates(false);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        let latestUpdateData = null;
+
+        async function checkForUpdates(manual = false) {
+            const msgEl = document.getElementById('update-check-msg');
+            const btnEl = document.getElementById('btn-check-updates');
+            if (manual && msgEl) msgEl.innerText = 'Prüfe GitHub...';
+
+            try {
+                const res = await fetch('/api/check_update');
+                const data = await res.json();
+                latestUpdateData = data;
+
+                if (data.update_available) {
+                    document.getElementById('update-badge').classList.remove('hidden');
+                    if (manual && msgEl) {
+                        msgEl.className = 'text-xs text-emerald-600 font-bold';
+                        msgEl.innerText = `✓ Version ${data.latest_version} verfügbar!`;
+                        openUpdateModal();
+                    }
+                } else {
+                    document.getElementById('update-badge').classList.add('hidden');
+                    if (manual && msgEl) {
+                        msgEl.className = 'text-xs text-slate-500 font-medium';
+                        msgEl.innerText = '✓ Sie verwenden die neueste Version.';
+                    }
+                }
+            } catch (e) {
+                if (manual && msgEl) msgEl.innerText = 'Konnte GitHub nicht erreichen.';
+            }
+        }
+
+        function openUpdateModal() {
+            if (!latestUpdateData) return;
+            document.getElementById('update-modal-ver').innerText = `v${latestUpdateData.latest_version}`;
+            document.getElementById('update-modal-notes').innerText = latestUpdateData.release_notes || 'Allgemeine Verbesserungen und neue Funktionen.';
+            const btn = document.getElementById('update-download-btn');
+            btn.href = latestUpdateData.download_url || latestUpdateData.html_url;
+            document.getElementById('update-modal').classList.remove('hidden');
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('update-modal').classList.add('hidden');
+        }
+
+        async function pickFolder() {
+            showLoading('Ordner auswählen', 'Warten auf Finder-Dialog...');
+            try {
+                const res = await fetch('/api/pick_folder', { method: 'POST' });
+                const data = await res.json();
+                if (data.path) {
+                    document.getElementById('folder-path').value = data.path;
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function startCatalog() {
+            const folder = document.getElementById('folder-path').value.trim();
+            if (!folder) return alert('Bitte zuerst einen Ordner angeben oder durchsuchen.');
+
+            showLoading('Katalogisiere Ordner', 'Dateien werden gescannt, dedupliziert und sortiert...');
+            try {
+                const res = await fetch('/api/catalog', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: folder })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                allCatalogFiles = data.files || [];
+                duplicateGroups = data.duplicates || {};
+                selectedCatalogPaths.clear();
+                updateCatalogSelectionUI();
+
+                renderCatalog(data);
+                renderDuplicates(data.duplicates, data.summary);
+                openTab('catalog');
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            const val = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
+            return val.toLocaleString('de-DE') + ' ' + sizes[i];
+        }
+
+        function getFileIcon(cat, ext) {
+            if (cat === 'DOKUMENTE') {
+                if (ext === '.pdf') return '📕';
+                if (['.docx', '.doc', '.pages'].includes(ext)) return '📝';
+                if (['.xlsx', '.xls', '.numbers'].includes(ext)) return '📊';
+                return '📄';
+            }
+            if (cat === 'BILDER') return '🖼️';
+            if (cat === 'VIDEOS') return '🎬';
+            if (cat === 'AUDIO') return '🎵';
+            if (cat === 'ARCHIVE') return '📦';
+            if (cat === 'CODE_DATEN') return '💻';
+            return '📁';
+        }
+
+        function getCategoryBadge(cat) {
+            const colors = {
+                'DOKUMENTE': 'bg-blue-100 text-blue-800 border-blue-200',
+                'BILDER': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                'VIDEOS': 'bg-purple-100 text-purple-800 border-purple-200',
+                'AUDIO': 'bg-amber-100 text-amber-800 border-amber-200',
+                'ARCHIVE': 'bg-orange-100 text-orange-800 border-orange-200',
+                'CODE_DATEN': 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                'SONSTIGES': 'bg-slate-100 text-slate-800 border-slate-200'
+            };
+            const c = colors[cat] || colors['SONSTIGES'];
+            return `<span class="px-2 py-0.5 rounded-full text-xs font-semibold border ${c} whitespace-nowrap">${cat}</span>`;
+        }
+
+        function renderCatalog(data) {
+            document.getElementById('catalog-placeholder').classList.add('hidden');
+            document.getElementById('catalog-results').classList.remove('hidden');
+
+            const s = data.summary;
+            const sizeFormatted = formatBytes(s.total_bytes);
+            const wastedFormatted = formatBytes(s.wasted_bytes);
+            const totalMb = (s.total_bytes / (1024*1024)).toLocaleString('de-DE', {maximumFractionDigits: 1});
+
+            // Update Tab Badges
+            document.getElementById('tab-badge-files').innerText = s.total_files.toLocaleString('de-DE');
+            document.getElementById('tab-badge-files').classList.remove('hidden');
+
+            document.getElementById('tab-badge-dups').innerText = s.duplicate_files_count.toLocaleString('de-DE');
+            if (s.duplicate_files_count > 0) {
+                document.getElementById('tab-badge-dups').classList.remove('hidden');
+            }
+
+            document.getElementById('stats-grid').innerHTML = `
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                        <span>Dateien insgesamt</span>
+                        <span class="text-base">📄</span>
+                    </div>
+                    <div class="text-2xl font-bold text-slate-800 mt-2">${s.total_files.toLocaleString('de-DE')}</div>
+                    <div class="text-xs text-slate-400 mt-1">Eingelesene Elemente</div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                        <span>Ordnergröße gesamt</span>
+                        <span class="text-base">💾</span>
+                    </div>
+                    <div class="text-2xl font-bold text-indigo-600 mt-2">${sizeFormatted}</div>
+                    <div class="text-xs text-slate-400 mt-1">${totalMb} MB auf Datenträger</div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                        <span>Kategorien</span>
+                        <span class="text-base">📁</span>
+                    </div>
+                    <div class="text-2xl font-bold text-blue-600 mt-2">${Object.keys(s.category_stats).length}</div>
+                    <div class="text-xs text-slate-400 mt-1">Dokumente, Bilder, Medien etc.</div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between cursor-pointer hover:border-amber-300 transition" onclick="openTab('duplicates')">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                        <span>Duplikate</span>
+                        <span class="text-base">⚠️</span>
+                    </div>
+                    <div class="text-2xl font-bold ${s.duplicate_files_count > 0 ? 'text-amber-500' : 'text-emerald-600'} mt-2">${s.duplicate_files_count.toLocaleString('de-DE')}</div>
+                    <div class="text-xs text-slate-400 mt-1">${wastedFormatted} verschwendet (Klick)</div>
+                </div>
+            `;
+
+            // Categories Filter Dropdown befüllen
+            const selectEl = document.getElementById('file-category-filter');
+            selectEl.innerHTML = '<option value="ALL">Alle Kategorien (' + allCatalogFiles.length + ')</option>';
+            Object.entries(s.category_stats).forEach(([cat, info]) => {
+                selectEl.innerHTML += `<option value="${cat}">${cat} (${info.count})</option>`;
+            });
+
+            // Categories Quick Overview Grid
+            const catHtml = Object.entries(s.category_stats).map(([cat, info]) => `
+                <div onclick="setCategoryFilter('${cat}')" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border border-transparent cursor-pointer transition text-xs flex flex-col justify-between">
+                    <span class="font-bold text-slate-700 truncate">${cat}</span>
+                    <span class="text-slate-400 font-mono mt-1">${info.count} Dateien</span>
+                </div>
+            `).join('');
+            document.getElementById('categories-list').innerHTML = catHtml || '<p class="text-xs text-slate-400">Keine Daten</p>';
+
+            activeExtensionFilter = 'ALL';
+            updateExtensionFilters();
+            currentPage = 1;
+            applyCatalogFilter();
+        }
+
+        let activeExtensionFilter = 'ALL';
+        let currentSortField = 'filename';
+        let currentSortDirection = 'asc';
+
+        function updateExtensionFilters() {
+            const cat = document.getElementById('file-category-filter').value;
+            // Finde alle Dateien, die der aktuellen Kategorie entsprechen
+            const catFiles = allCatalogFiles.filter(item => (cat === 'ALL' || item.category === cat));
+
+            // Zähle Dateiendungen
+            const extCounts = {};
+            catFiles.forEach(item => {
+                const ext = item.extension ? item.extension.toLowerCase() : '(ohne)';
+                extCounts[ext] = (extCounts[ext] || 0) + 1;
+            });
+
+            // Sortiere Endungen nach Häufigkeit
+            const sortedExts = Object.entries(extCounts).sort((a, b) => b[1] - a[1]);
+
+            // 1. Dropdown befüllen
+            const extSelect = document.getElementById('file-ext-filter');
+            let opts = `<option value="ALL">Alle Dateitypen (${catFiles.length})</option>`;
+            sortedExts.forEach(([ext, count]) => {
+                opts += `<option value="${ext}">${ext} (${count})</option>`;
+            });
+            extSelect.innerHTML = opts;
+
+            // Falls activeExtensionFilter in dieser Kategorie nicht existiert, zurücksetzen
+            if (activeExtensionFilter !== 'ALL' && !extCounts[activeExtensionFilter]) {
+                activeExtensionFilter = 'ALL';
+            }
+            extSelect.value = activeExtensionFilter;
+
+            // 2. Klickbare Pills befüllen
+            const pillsBar = document.getElementById('extension-pills-bar');
+            let pillsHtml = `
+                <span class="text-slate-400 font-semibold mr-1 flex items-center gap-1 select-none">
+                    🏷️ Typ:
+                </span>
+                <button onclick="setExtensionFilter('ALL')" class="px-2.5 py-1 rounded-lg font-semibold transition ${activeExtensionFilter === 'ALL' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'}">
+                    Alle (${catFiles.length})
+                </button>
+            `;
+
+            sortedExts.slice(0, 10).forEach(([ext, count]) => {
+                const isActive = (activeExtensionFilter === ext);
+                pillsHtml += `
+                    <button onclick="setExtensionFilter('${ext}')" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${isActive ? 'bg-blue-600 text-white shadow-xs' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'}">
+                        ${ext} <span class="text-[10px] ${isActive ? 'text-blue-200' : 'text-slate-400'} font-sans">(${count})</span>
+                    </button>
+                `;
+            });
+
+            if (sortedExts.length > 10) {
+                pillsHtml += `<span class="text-slate-400 text-[11px] self-center ml-1 select-none">+ ${sortedExts.length - 10} weitere im Dropdown</span>`;
+            }
+
+            pillsBar.innerHTML = pillsHtml;
+        }
+
+        function setExtensionFilter(ext) {
+            activeExtensionFilter = ext;
+            document.getElementById('file-ext-filter').value = ext;
+            updateExtensionFilters();
+            currentPage = 1;
+            applyCatalogFilter();
+        }
+
+        function onExtensionFilterChange() {
+            activeExtensionFilter = document.getElementById('file-ext-filter').value;
+            updateExtensionFilters();
+            currentPage = 1;
+            applyCatalogFilter();
+        }
+
+        function setCategoryFilter(cat) {
+            document.getElementById('file-category-filter').value = cat;
+            activeExtensionFilter = 'ALL';
+            updateExtensionFilters();
+            currentPage = 1;
+            applyCatalogFilter();
+        }
+
+        function onCategoryFilterChange() {
+            activeExtensionFilter = 'ALL';
+            updateExtensionFilters();
+            currentPage = 1;
+            applyCatalogFilter();
+        }
+
+        function onSearchChange() {
+            currentPage = 1;
+            applyCatalogFilter();
+        }
+
+        function onPageSizeChange() {
+            pageSize = parseInt(document.getElementById('page-size-select').value) || 50;
+            currentPage = 1;
+            renderCatalogTablePage();
+        }
+
+        function onSortDropdownChange() {
+            const val = document.getElementById('sort-select').value;
+            const parts = val.split(':');
+            currentSortField = parts[0];
+            currentSortDirection = parts[1];
+            updateSortIcons();
+            applySort();
+            currentPage = 1;
+            renderCatalogTablePage();
+        }
+
+        function toggleSort(field) {
+            if (currentSortField === field) {
+                currentSortDirection = (currentSortDirection === 'asc') ? 'desc' : 'asc';
+            } else {
+                currentSortField = field;
+                // Standard für Zahlen und Datum: absteigend (größte / neueste zuerst)
+                currentSortDirection = (field === 'size_bytes' || field === 'modified_at') ? 'desc' : 'asc';
+            }
+            // Dropdown synchronisieren
+            const targetVal = currentSortField + ':' + currentSortDirection;
+            const sortDropdown = document.getElementById('sort-select');
+            if (sortDropdown) {
+                for (let i = 0; i < sortDropdown.options.length; i++) {
+                    if (sortDropdown.options[i].value === targetVal) {
+                        sortDropdown.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            updateSortIcons();
+            applySort();
+            currentPage = 1;
+            renderCatalogTablePage();
+        }
+
+        function updateSortIcons() {
+            ['filename', 'relative_path', 'category', 'size_bytes', 'modified_at'].forEach(f => {
+                const iconEl = document.getElementById('sort-icon-' + f);
+                if (iconEl) {
+                    if (f === currentSortField) {
+                        iconEl.innerText = (currentSortDirection === 'asc') ? '▲' : '▼';
+                        iconEl.className = 'text-blue-600 font-bold ml-1';
+                    } else {
+                        iconEl.innerText = '↕';
+                        iconEl.className = 'text-slate-300 font-normal ml-1';
+                    }
+                }
+            });
+        }
+
+        function applySort() {
+            filteredCatalogFiles.sort((a, b) => {
+                let valA = a[currentSortField];
+                let valB = b[currentSortField];
+
+                if (currentSortField === 'size_bytes') {
+                    return currentSortDirection === 'asc' ? (valA - valB) : (valB - valA);
+                }
+                if (currentSortField === 'modified_at') {
+                    const dateA = new Date(valA || 0);
+                    const dateB = new Date(valB || 0);
+                    return currentSortDirection === 'asc' ? (dateA - dateB) : (dateB - dateA);
+                }
+                if (currentSortField === 'extension') {
+                    const extA = (a.extension || '').toLowerCase();
+                    const extB = (b.extension || '').toLowerCase();
+                    const cmp = extA.localeCompare(extB);
+                    return currentSortDirection === 'asc' ? cmp : -cmp;
+                }
+                // Strings
+                valA = (valA || '').toString().toLowerCase();
+                valB = (valB || '').toString().toLowerCase();
+                const cmp = valA.localeCompare(valB, 'de', { numeric: true });
+                return currentSortDirection === 'asc' ? cmp : -cmp;
+            });
+        }
+
+        function applyCatalogFilter() {
+            const query = (document.getElementById('file-search-input').value || '').toLowerCase().trim();
+            const cat = document.getElementById('file-category-filter').value;
+            const ext = activeExtensionFilter;
+
+            filteredCatalogFiles = allCatalogFiles.filter(item => {
+                const matchesCat = (cat === 'ALL' || item.category === cat);
+                const matchesExt = (ext === 'ALL' || (item.extension && item.extension.toLowerCase() === ext.toLowerCase()));
+                const matchesQuery = !query || 
+                    item.filename.toLowerCase().includes(query) || 
+                    (item.relative_path && item.relative_path.toLowerCase().includes(query));
+                return matchesCat && matchesExt && matchesQuery;
+            });
+
+            applySort();
+            document.getElementById('cat-table-count').innerText = filteredCatalogFiles.length.toLocaleString('de-DE');
+            renderCatalogTablePage();
+        }
+
+        function renderCatalogTablePage() {
+            const tbody = document.getElementById('catalog-files-tbody');
+            const total = filteredCatalogFiles.length;
+
+            if (total === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">Keine Dateien gefunden.</td></tr>';
+                document.getElementById('pagination-info').innerText = '0 von 0 Dateien';
+                document.getElementById('pagination-controls').innerHTML = '';
+                updateCatalogSelectionUI();
+                return;
+            }
+
+            const totalPages = Math.ceil(total / pageSize);
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIdx = (currentPage - 1) * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, total);
+            const pageItems = filteredCatalogFiles.slice(startIdx, endIdx);
+
+            tbody.innerHTML = pageItems.map(item => {
+                const icon = getFileIcon(item.category, item.extension);
+                const relSub = item.relative_path.includes('/') ? item.relative_path.substring(0, item.relative_path.lastIndexOf('/')) : '-';
+                const dateStr = item.modified_at ? item.modified_at.substring(0, 10) : '-';
+                const isSelected = selectedCatalogPaths.has(item.path);
+
+                return `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100 ${isSelected ? 'bg-blue-50/60 font-medium' : ''}">
+                        <td class="p-3.5 pl-5 w-12 text-center">
+                            <input type="checkbox" class="cat-item-chk rounded text-blue-600 focus:ring-0 cursor-pointer w-4 h-4" ${isSelected ? 'checked' : ''} onchange="toggleSelectFile('${encodeURIComponent(item.path)}', this.checked)">
+                        </td>
+                        <td class="p-3.5 w-5/12 overflow-hidden">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="text-lg flex-shrink-0">${icon}</span>
+                                <div class="font-medium text-slate-800 truncate" title="${item.filename}">
+                                    ${item.filename}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-3.5 w-2/12 text-xs text-slate-500 font-mono truncate" title="${relSub}">
+                            ${relSub}
+                        </td>
+                        <td class="p-3.5 w-2/12">
+                            ${getCategoryBadge(item.category)}
+                        </td>
+                        <td class="p-3.5 w-1/12 text-xs font-mono text-slate-600 whitespace-nowrap">
+                            ${item.human_size}
+                        </td>
+                        <td class="p-3.5 w-1/12 text-xs text-slate-500 whitespace-nowrap">
+                            ${dateStr}
+                        </td>
+                        <td class="p-3.5 pr-6 w-28 text-center whitespace-nowrap">
+                            <button onclick="inspectFileContent('${encodeURIComponent(item.path)}', '${encodeURIComponent(item.filename)}', '${item.category}', '${item.extension}')" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs">
+                                👁️ Vorschau
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Pagination Controls
+            document.getElementById('pagination-info').innerText = `Zeige ${startIdx + 1} bis ${endIdx} von ${total.toLocaleString('de-DE')} Dateien`;
+
+            let paginationHtml = `
+                <button onclick="changePage(1)" ${currentPage === 1 ? 'disabled class="px-2.5 py-1 rounded bg-slate-100 text-slate-400 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border text-slate-700"'}>«</button>
+                <button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled class="px-2.5 py-1 rounded bg-slate-100 text-slate-400 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border text-slate-700"'}>‹</button>
+                <span class="px-3 py-1 font-semibold text-slate-700">Seite ${currentPage} von ${totalPages}</span>
+                <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded bg-slate-100 text-slate-400 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border text-slate-700"'}>›</button>
+                <button onclick="changePage(${totalPages})" ${currentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded bg-slate-100 text-slate-400 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border text-slate-700"'}>»</button>
+            `;
+            document.getElementById('pagination-controls').innerHTML = paginationHtml;
+
+            updateCatalogSelectionUI();
+        }
+
+        function changePage(newPage) {
+            currentPage = newPage;
+            renderCatalogTablePage();
+        }
+
+        // ==================== KATALOG MULTI-SELECTION & BATCH ACTIONS ====================
+        function toggleSelectFile(encodedPath, isChecked) {
+            const p = decodeURIComponent(encodedPath);
+            if (isChecked) {
+                selectedCatalogPaths.add(p);
+            } else {
+                selectedCatalogPaths.delete(p);
+            }
+            updateCatalogSelectionUI();
+            renderCatalogTablePage();
+        }
+
+        function toggleSelectCurrentPage(isChecked) {
+            const total = filteredCatalogFiles.length;
+            const startIdx = (currentPage - 1) * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, total);
+            const pageItems = filteredCatalogFiles.slice(startIdx, endIdx);
+
+            pageItems.forEach(item => {
+                if (isChecked) {
+                    selectedCatalogPaths.add(item.path);
+                } else {
+                    selectedCatalogPaths.delete(item.path);
+                }
+            });
+            updateCatalogSelectionUI();
+            renderCatalogTablePage();
+        }
+
+        function selectAllFiltered(select) {
+            if (select) {
+                filteredCatalogFiles.forEach(item => selectedCatalogPaths.add(item.path));
+            } else {
+                clearCatalogSelection();
+            }
+            updateCatalogSelectionUI();
+            renderCatalogTablePage();
+        }
+
+        function clearCatalogSelection() {
+            selectedCatalogPaths.clear();
+            updateCatalogSelectionUI();
+            renderCatalogTablePage();
+        }
+
+        function updateCatalogSelectionUI() {
+            const count = selectedCatalogPaths.size;
+            const bar = document.getElementById('catalog-selection-bar');
+            const countEl = document.getElementById('catalog-selected-count');
+            const allCountEl = document.getElementById('btn-select-all-count');
+
+            if (countEl) countEl.innerText = count.toLocaleString('de-DE');
+            if (allCountEl) allCountEl.innerText = filteredCatalogFiles.length.toLocaleString('de-DE');
+            document.querySelectorAll('.selected-count-badge').forEach(b => b.innerText = count.toLocaleString('de-DE'));
+
+            if (bar) {
+                if (count > 0) {
+                    bar.classList.remove('hidden');
+                } else {
+                    bar.classList.add('hidden');
+                }
+            }
+
+            // Sync Header Checkbox
+            const headerChk = document.getElementById('catalog-select-page-chk');
+            if (headerChk) {
+                const total = filteredCatalogFiles.length;
+                if (total === 0) {
+                    headerChk.checked = false;
+                    headerChk.indeterminate = false;
+                } else {
+                    const startIdx = (currentPage - 1) * pageSize;
+                    const endIdx = Math.min(startIdx + pageSize, total);
+                    const pageItems = filteredCatalogFiles.slice(startIdx, endIdx);
+
+                    if (pageItems.length === 0) {
+                        headerChk.checked = false;
+                        headerChk.indeterminate = false;
+                    } else {
+                        const pageSelectedCount = pageItems.filter(i => selectedCatalogPaths.has(i.path)).length;
+                        if (pageSelectedCount === pageItems.length) {
+                            headerChk.checked = true;
+                            headerChk.indeterminate = false;
+                        } else if (pageSelectedCount > 0) {
+                            headerChk.checked = false;
+                            headerChk.indeterminate = true;
+                        } else {
+                            headerChk.checked = false;
+                            headerChk.indeterminate = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        async function startAiPreviewForSelected() {
+            if (selectedCatalogPaths.size === 0) {
+                return alert('Bitte wählen Sie zuerst eine oder mehrere Dateien aus der Tabelle aus.');
+            }
+
+            const folder = document.getElementById('folder-path').value.trim();
+            const prefixVal = (document.getElementById('ai-prefix-input').value || '').trim();
+            const paths = Array.from(selectedCatalogPaths);
+
+            const prefixMsg = prefixVal ? ` mit Flag / Präfix "${prefixVal}"` : '';
+            showLoading('KI-Analyse für Auswahl', `Analysiere ${paths.length} ausgewählte Datei(en)${prefixMsg}...`);
+            try {
+                const res = await fetch('/api/preview', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        path: folder,
+                        paths: paths,
+                        prefix: prefixVal || null
+                    })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                currentPlan = data.plan;
+                renderPreview(currentPlan);
+                openTab('preview');
+            } catch (e) {
+                alert('Fehler bei der KI-Analyse: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openMoveModal() {
+            if (selectedCatalogPaths.size === 0) {
+                return alert('Bitte wählen Sie zuerst eine oder mehrere Dateien aus der Tabelle aus.');
+            }
+            const folder = document.getElementById('folder-path').value.trim();
+            document.getElementById('move-target-dir').value = folder;
+            document.getElementById('move-modal-count').innerText = selectedCatalogPaths.size.toLocaleString('de-DE');
+            document.getElementById('move-new-subfolder').value = '';
+            document.getElementById('move-modal').classList.remove('hidden');
+        }
+
+        function closeMoveModal() {
+            document.getElementById('move-modal').classList.add('hidden');
+        }
+
+        async function pickMoveFolder() {
+            showLoading('Ordner auswählen', 'Warten auf Finder-Dialog...');
+            try {
+                const res = await fetch('/api/pick_folder', { method: 'POST' });
+                const data = await res.json();
+                if (data.path) {
+                    document.getElementById('move-target-dir').value = data.path;
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function executeBatchMove() {
+            const paths = Array.from(selectedCatalogPaths);
+            if (paths.length === 0) return alert('Keine Dateien ausgewählt.');
+
+            const targetDir = document.getElementById('move-target-dir').value.trim();
+            if (!targetDir) return alert('Bitte einen Ziel-Basisordner angeben.');
+
+            const newSubfolder = document.getElementById('move-new-subfolder').value.trim();
+            const copyMode = document.querySelector('input[name="move-mode"]:checked').value === 'copy';
+
+            const actionWord = copyMode ? 'kopiert' : 'verschoben';
+            const targetDestDesc = newSubfolder ? `${targetDir}/${newSubfolder}` : targetDir;
+
+            const confirmMsg = `Möchten Sie ${paths.length} Datei(en) wirklich nach "${targetDestDesc}" ${actionWord}?`;
+            if (!confirm(confirmMsg)) return;
+
+            closeMoveModal();
+            showLoading(copyMode ? 'Kopiere Dateien...' : 'Verschiebe Dateien...', `Verarbeite ${paths.length} Datei(en)...`);
+
+            try {
+                const res = await fetch('/api/batch_move', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        paths: paths,
+                        target_dir: targetDir,
+                        new_folder_name: newSubfolder,
+                        copy_mode: copyMode
+                    })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                let successMsg = `✓ ${data.moved_count} Datei(en) erfolgreich ${actionWord}!\nZiel: ${data.target_dir}\nManifest: ${data.manifest}`;
+                if (data.errors && data.errors.length > 0) {
+                    successMsg += `\n\nWarnung: ${data.errors.length} Fehler aufgetreten:\n` + data.errors.join('\n');
+                }
+                alert(successMsg);
+
+                clearCatalogSelection();
+                startCatalog();
+            } catch (e) {
+                alert('Fehler beim Verschieben: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ==================== DUPLIKATE-MANAGER RENDERING ====================
+        function renderDuplicates(dups, summary) {
+            const container = document.getElementById('duplicates-groups-container');
+            const dupCount = summary.duplicate_files_count || 0;
+            document.getElementById('dup-badge-count').innerText = `${dupCount} Duplikate (${(summary.wasted_bytes / (1024*1024)).toFixed(1)} MB)`;
+
+            if (Object.keys(dups).length === 0) {
+                document.getElementById('duplicates-placeholder').classList.remove('hidden');
+                document.getElementById('duplicates-content').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('duplicates-placeholder').classList.add('hidden');
+            document.getElementById('duplicates-content').classList.remove('hidden');
+
+            let html = '';
+            let groupIndex = 0;
+
+            for (const [hash, fileList] of Object.entries(dups)) {
+                groupIndex++;
+                const sample = fileList[0];
+                const sizeMb = (sample.size_bytes / (1024*1024)).toFixed(2);
+
+                html += `
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm dup-group" data-hash="${hash}">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-800 text-sm truncate max-w-lg" title="${sample.filename}">${sample.filename}</span>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">${fileList.length} identische Kopien (${sample.human_size})</span>
+                            </div>
+                            <span class="text-[11px] font-mono text-slate-400">SHA: ${hash.substring(0, 12)}...</span>
+                        </div>
+
+                        <div class="space-y-2">
+                `;
+
+                // Sortiere nach Erstellungsdatum (ältestes zuerst)
+                const sortedFiles = [...fileList].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+                sortedFiles.forEach((file, idx) => {
+                    const isOldest = (idx === 0);
+                    const isChecked = !isOldest; // Standard: Behalte älteste, markiere Kopien zum Löschen
+
+                    html += `
+                        <label class="flex items-center justify-between p-3 rounded-xl ${isChecked ? 'bg-rose-50/60 border border-rose-200/80' : 'bg-emerald-50/60 border border-emerald-200/80'} cursor-pointer hover:shadow-xs transition">
+                            <div class="flex items-center gap-3 min-w-0 pr-4">
+                                <input type="checkbox" class="dup-checkbox rounded text-rose-600 focus:ring-rose-500 w-4 h-4" data-path="${encodeURIComponent(file.path)}" ${isChecked ? 'checked' : ''} onchange="updateTrashButtonCount()">
+                                <div class="min-w-0">
+                                    <div class="font-mono text-xs text-slate-700 truncate" title="${file.path}">${file.path}</div>
+                                    <div class="text-[11px] text-slate-400 mt-0.5">Erstellt am: ${file.created_at ? file.created_at.substring(0, 19).replace('T', ' ') : 'unbekannt'}</div>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                ${isOldest ? '<span class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">★ ÄLTESTES ORIGINAL</span>' : '<span class="px-2 py-1 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">KOPIE</span>'}
+                            </div>
+                        </label>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            updateTrashButtonCount();
+        }
+
+        function autoSelectDuplicates(strategy) {
+            document.querySelectorAll('.dup-group').forEach(group => {
+                const checkboxes = group.querySelectorAll('.dup-checkbox');
+                if (strategy === 'none') {
+                    checkboxes.forEach(cb => cb.checked = false);
+                } else if (strategy === 'keep_oldest') {
+                    checkboxes.forEach((cb, idx) => cb.checked = (idx !== 0));
+                } else if (strategy === 'keep_newest') {
+                    checkboxes.forEach((cb, idx) => cb.checked = (idx !== checkboxes.length - 1));
+                }
+            });
+            updateTrashButtonCount();
+        }
+
+        function updateTrashButtonCount() {
+            const count = document.querySelectorAll('.dup-checkbox:checked').length;
+            const btn = document.getElementById('btn-trash-dups');
+            btn.innerHTML = `🗑️ ${count} Duplikate in den Papierkorb verschieben`;
+            btn.disabled = (count === 0);
+            if (count === 0) {
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        async function trashSelectedDuplicates() {
+            const selectedBoxes = document.querySelectorAll('.dup-checkbox:checked');
+            const paths = Array.from(selectedBoxes).map(cb => decodeURIComponent(cb.getAttribute('data-path')));
+
+            if (paths.length === 0) return alert('Keine Duplikate zum Löschen ausgewählt.');
+
+            const confirmMsg = `Möchten Sie ${paths.length} doppelte Dateien jetzt in den macOS-Papierkorb verschieben?\n\n(Sie können die Dateien im Papierkorb bei Bedarf jederzeit wiederherstellen)`;
+            if (!confirm(confirmMsg)) return;
+
+            showLoading('Verschiebe in den Papierkorb...', `${paths.length} Dateien werden sicher in ~/.Trash gelegt...`);
+            try {
+                const res = await fetch('/api/trash_duplicates', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ paths: paths })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                alert(`✓ ${data.trashed_count} Duplikate wurden erfolgreich in den Papierkorb verschoben!\nFreigegebener Speicher: ca. ${data.freed_mb} MB.`);
+                // Erneut katalogisieren
+                startCatalog();
+            } catch (e) {
+                alert('Fehler beim Löschen: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function inspectFileContent(encodedPath, encodedName, category, extension) {
+            const filePath = decodeURIComponent(encodedPath);
+            const fileName = decodeURIComponent(encodedName);
+            const ext = (extension || '').toLowerCase();
+
+            document.getElementById('ocr-modal-title').innerText = fileName;
+            document.getElementById('ocr-modal-badge').innerText = (category || 'DATEI').toUpperCase();
+            document.getElementById('ocr-modal-method').innerText = 'Lese Datei...';
+            document.getElementById('ocr-modal-content').innerText = 'Lade Vorschau...';
+            document.getElementById('ocr-char-count').innerText = '';
+
+            const imgContainer = document.getElementById('modal-image-container');
+            const audioContainer = document.getElementById('modal-audio-container');
+            const modalImg = document.getElementById('modal-img');
+            const modalAudio = document.getElementById('modal-audio');
+
+            imgContainer.classList.add('hidden');
+            audioContainer.classList.add('hidden');
+            modalAudio.pause();
+
+            const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.ico', '.tiff', '.tif'].includes(ext);
+            const isAudio = ['.mp3', '.m4a', '.wav', '.flac', '.aac', '.ogg'].includes(ext);
+
+            if (isImage) {
+                imgContainer.classList.remove('hidden');
+                modalImg.src = '/api/file_preview?path=' + encodedPath;
+                document.getElementById('ocr-section-title').innerText = '🖼️ Erkannter Text im Bild (Apple Vision OCR):';
+                document.getElementById('ocr-modal-content').innerText = 'Führe Texterkennung auf Apple Neural Engine durch...';
+            } else if (isAudio) {
+                audioContainer.classList.remove('hidden');
+                modalAudio.src = '/api/file_preview?path=' + encodedPath;
+                document.getElementById('ocr-section-title').innerText = '🎵 Metadaten / Audio-Informationen:';
+                document.getElementById('ocr-modal-content').innerText = 'Audio-Datei bereit. Klicken Sie oben auf Play.';
+            } else {
+                document.getElementById('ocr-section-title').innerText = '📄 Dokumenten-Inhalt / Extrahierter Text:';
+            }
+
+            document.getElementById('ocr-modal').classList.remove('hidden');
+
+            try {
+                const res = await fetch('/api/inspect_content', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: filePath })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('ocr-modal-method').innerText = 'Methode: ' + (data.method || 'Extraktion');
+                document.getElementById('ocr-char-count').innerText = (data.char_count || 0) + ' Zeichen';
+
+                if (data.text && data.text.trim()) {
+                    document.getElementById('ocr-modal-content').innerText = data.text;
+                } else {
+                    if (isImage) {
+                        document.getElementById('ocr-modal-content').innerText = '[Kein lesbarer Text in diesem Bild gefunden / Reines Foto]';
+                    } else {
+                        document.getElementById('ocr-modal-content').innerText = '[Kein lesbarer Text extrahiert]';
+                    }
+                }
+            } catch (e) {
+                document.getElementById('ocr-modal-content').innerText = 'Hinweis: ' + e.message;
+            }
+        }
+
+        function closeOcrModal() {
+            document.getElementById('ocr-modal').classList.add('hidden');
+        }
+
+        async function startPreview() {
+            const folder = document.getElementById('folder-path').value.trim();
+            if (!folder) return alert('Bitte zuerst einen Ordner angeben.');
+
+            showLoading('KI-Analyse läuft', 'Extrahiere Text, führe OCR durch und befrage Gemini...');
+            try {
+                const res = await fetch('/api/preview', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: folder })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                currentPlan = data.plan;
+                renderPreview(currentPlan);
+                openTab('preview');
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderPreview(plan) {
+            document.getElementById('preview-placeholder').classList.add('hidden');
+            document.getElementById('preview-results').classList.remove('hidden');
+
+            const tbody = document.getElementById('preview-tbody');
+            if (plan.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400">Keine Dateien gefunden.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = plan.map((item, idx) => `
+                <tr class="hover:bg-slate-50 transition" data-idx="${idx}">
+                    <td class="p-4 text-center">
+                        <input type="checkbox" class="file-chk rounded text-blue-600" checked onchange="updateSelectedCount()">
+                    </td>
+                    <td class="p-4 w-4/12 overflow-hidden">
+                        <div class="font-medium text-slate-800 truncate" title="${item.original_name}">${item.original_name}</div>
+                        <div class="text-xs text-slate-400 truncate mt-0.5" title="${item.source_path}">${item.source_path}</div>
+                    </td>
+                    <td class="p-4 w-4/12">
+                        <input type="text" value="${item.new_name}" class="new-name-input w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-semibold text-emerald-700 bg-emerald-50/30">
+                    </td>
+                    <td class="p-4 w-2/12">
+                        <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">${item.analysis.suggested_folder}</span>
+                    </td>
+                    <td class="p-4 w-2/12 text-xs">
+                        <div class="font-semibold text-slate-800">${item.analysis.doc_type} • <span class="text-blue-700 font-bold">${item.analysis.sender}</span></div>
+                        <div class="text-slate-500 mt-0.5">Datum: <b>${item.analysis.doc_date || 'Kein Datum'}</b></div>
+                        <div class="mt-1.5 flex items-center gap-1.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${item.analysis.provider_used.includes('gemini') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}">${item.analysis.provider_used}</span>
+                        </div>
+                        ${item.analysis.summary ? `<div class="text-slate-400 text-[11px] mt-1 italic">${item.analysis.summary}</div>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+
+            updateSelectedCount();
+        }
+
+        function toggleSelectAll(master) {
+            document.querySelectorAll('.file-chk').forEach(c => c.checked = master.checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const count = document.querySelectorAll('.file-chk:checked').length;
+            document.getElementById('selected-count').innerText = count;
+            document.getElementById('btn-exec-count').innerText = count;
+        }
+
+        async function executeRenaming() {
+            const checkboxes = document.querySelectorAll('.file-chk');
+            const itemsToExecute = [];
+
+            checkboxes.forEach((cb, idx) => {
+                if (cb.checked) {
+                    const planItem = currentPlan[idx];
+                    const row = cb.closest('tr');
+                    const inputVal = row.querySelector('.new-name-input').value.trim();
+                    planItem.new_name = inputVal;
+                    itemsToExecute.push(planItem);
+                }
+            });
+
+            if (itemsToExecute.length === 0) return alert('Keine Dateien ausgewählt.');
+
+            const copyMode = document.getElementById('copy-mode').checked;
+            const msg = `Möchten Sie ${itemsToExecute.length} Dateien jetzt wirklich ${copyMode ? 'kopieren' : 'verschieben/umbenennen'}?`;
+            if (!confirm(msg)) return;
+
+            showLoading('Wende Änderungen an...', 'Dateien werden sortiert und umbenannt...');
+            try {
+                const res = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        items: itemsToExecute,
+                        copy_mode: copyMode
+                    })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                alert(`✓ Erfolgreich abgeschlossen!\nManifest: ${data.manifest}`);
+                openTab('history');
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                const list = document.getElementById('history-list');
+
+                if (data.manifests.length === 0) {
+                    list.innerHTML = '<p class="text-xs text-slate-400">Bisher keine Aktionen durchgeführt.</p>';
+                    return;
+                }
+
+                list.innerHTML = data.manifests.map(m => `
+                    <div class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50">
+                        <div>
+                            <div class="font-semibold text-slate-800 text-sm">${m.filename}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">${m.total_actions} Aktionen am ${m.date}</div>
+                        </div>
+                        <button onclick="undoManifest('${m.filename}')" class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition border border-rose-200">
+                            ↩️ Rückgängig machen
+                        </button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function undoManifest(filename) {
+            if (!confirm(`Sollen alle Aktionen aus '${filename}' rückgängig gemacht werden?`)) return;
+
+            showLoading('Rückgängig machen...', 'Dateien werden an ihren Ursprungsort zurückversetzt...');
+            try {
+                const res = await fetch('/api/undo', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ manifest: filename })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                alert(`✓ ${data.restored} Dateien wurden erfolgreich wiederhergestellt!`);
+                loadHistory();
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function saveConfig() {
+            const payload = {
+                ai_provider: document.getElementById('cfg-provider').value,
+                gemini_api_key: document.getElementById('cfg-gemini-key').value,
+                gemini_model: document.getElementById('cfg-gemini-model').value,
+                local_url: document.getElementById('cfg-local-url').value
+            };
+
+            try {
+                const res = await fetch('/api/save_config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const msg = document.getElementById('save-msg');
+                    msg.classList.remove('hidden');
+                    setTimeout(() => msg.classList.add('hidden'), 3000);
+                    fetchStatus();
+                }
+            } catch (e) {
+                alert('Fehler beim Speichern');
+            }
+        }
+
+        // Init
+        fetchStatus();
+    </script>
+</body>
+</html>
