@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional, Tuple
 
-from config import OCR_BINARY, OCR_MAX_PAGES
+from config import OCR_BINARY, OCR_MAX_PAGES, ICLOUD_BINARY
 
 # Versuche pypdf zu importieren (bereits auf dem System vorhanden)
 try:
@@ -170,13 +170,48 @@ def is_dataless_file(file_path: Path) -> bool:
         return False
 
 
-def extract_content(file_path: Path) -> Tuple[str, str]:
+def download_cloud_file(file_path: Path, timeout: int = 20) -> bool:
+    """
+    Lädt eine ausgelagerte Datei aus der iCloud / Cloud auf den lokalen Mac herunter.
+    Nutzt das native macOS Foundation Tool `bin/icloud_download`.
+    Gibt True zurück, wenn die Datei nun lokal verfügbar ist, sonst False.
+    """
+    if not is_dataless_file(file_path):
+        return True
+
+    if ICLOUD_BINARY.exists():
+        try:
+            print(f"☁️ [iCloud] Lade ausgelagerte Datei herunter: {file_path.name}...")
+            res = subprocess.run(
+                [str(ICLOUD_BINARY), str(file_path), str(timeout)],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout + 5
+            )
+            if res.returncode == 0 and not is_dataless_file(file_path):
+                print(f"✓ [iCloud] Datei erfolgreich heruntergeladen: {file_path.name}")
+                return True
+        except Exception as e:
+            print(f"⚠️ [iCloud] Fehler beim Laden von {file_path.name}: {e}")
+
+    return not is_dataless_file(file_path)
+
+
+def extract_content(file_path: Path, auto_download_cloud: bool = True) -> Tuple[str, str]:
     """
     Hauptfunktion: Ermittelt die passende Extraktionsmethode
     und gibt (extrahierter_text, extraktions_methode) zurück.
+    Falls auto_download_cloud=True ist, werden ausgelagerte iCloud-Dateien
+    automatisch auf Abruf heruntergeladen.
     """
     if is_dataless_file(file_path):
-        return ("[Ausgelagerte Cloud-Datei: Vor Analyse bitte im Finder anklicken/herunterladen]", "cloud_placeholder")
+        if auto_download_cloud:
+            downloaded = download_cloud_file(file_path, timeout=20)
+            if not downloaded:
+                return ("[Ausgelagerte Cloud-Datei: Konnte nicht aus iCloud geladen werden (evtl. offline)]", "cloud_placeholder")
+        else:
+            return ("[Ausgelagerte Cloud-Datei: Vor Analyse bitte im Finder anklicken/herunterladen]", "cloud_placeholder")
 
     ext = file_path.suffix.lower()
 

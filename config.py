@@ -10,7 +10,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # .env-Datei automatisch laden (falls vorhanden), ganz ohne externe Bibliothek
@@ -43,9 +43,10 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 LOCAL_API_URL = os.getenv("LOCAL_API_URL", "http://localhost:1234/v1/chat/completions")
 LOCAL_MODEL = os.getenv("LOCAL_MODEL", "local-model")
 
-# --- OCR-EINSTELLUNGEN ---
+# --- OCR & CLOUD-EINSTELLUNGEN ---
 # Pfad zum kompilierten nativen macOS Vision-OCR-Tool
 OCR_BINARY = BASE_DIR / "bin" / "vision_ocr"
+ICLOUD_BINARY = BASE_DIR / "bin" / "icloud_download"
 OCR_LANGUAGES = ["de-DE", "en-US"]
 OCR_MAX_PAGES = 5  # Wie viele Seiten eines PDFs maximal per OCR gescannt werden
 

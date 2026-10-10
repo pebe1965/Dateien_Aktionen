@@ -1119,6 +1119,7 @@
                                 <div class="font-medium text-slate-800 truncate" title="${item.filename}">
                                     ${item.filename}
                                 </div>
+                                ${item.is_cloud_placeholder ? `<span class="flex-shrink-0 text-[10px] font-medium text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200" title="Ausgelagerte Cloud-Datei (wird bei KI-Erkennung automatisch geladen)">☁️ iCloud</span>` : ''}
                             </div>
                         </td>
                         <td class="p-3.5 w-2/12 text-xs text-slate-500 font-mono truncate" title="${relSub}">
@@ -1266,8 +1267,8 @@
             const prefixVal = (document.getElementById('ai-prefix-input').value || '').trim();
             const paths = Array.from(selectedCatalogPaths);
 
-            const prefixMsg = prefixVal ? ` mit Flag / Präfix "${prefixVal}"` : '';
-            showLoading('KI-Analyse für Auswahl', `Analysiere ${paths.length} ausgewählte Datei(en)${prefixMsg}...`);
+            const prefixMsg = prefixVal ? ` mit Flag "${prefixVal}"` : '';
+            showLoading('KI-Analyse läuft', `Analysiere ${paths.length} ausgewählte Datei(en)${prefixMsg} (ausgelagerte Cloud-Dateien werden bei Bedarf automatisch geladen)...`);
             try {
                 const res = await fetch('/api/preview', {
                     method: 'POST',
@@ -1566,7 +1567,7 @@
             const folder = document.getElementById('folder-path').value.trim();
             if (!folder) return alert('Bitte zuerst einen Ordner angeben.');
 
-            showLoading('KI-Analyse läuft', 'Extrahiere Text, führe OCR durch und befrage Gemini...');
+            showLoading('KI-Analyse läuft', 'Extrahiere Text, führe OCR durch (Cloud-Dateien werden bei Bedarf geladen) und befrage Gemini...');
             try {
                 const res = await fetch('/api/preview', {
                     method: 'POST',
