@@ -10,7 +10,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # .env-Datei automatisch laden (falls vorhanden), ganz ohne externe Bibliothek

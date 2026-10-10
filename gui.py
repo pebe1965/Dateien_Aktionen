@@ -1083,7 +1083,7 @@ LOCAL_MODEL=local-model
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-        if url.path == "/api/trash_duplicates":
+        if url.path in ["/api/trash_duplicates", "/api/trash_files"]:
             paths = params.get("paths", [])
             if not paths:
                 self.send_error_response("Keine Dateien zum Löschen übergeben.")
@@ -1095,9 +1095,12 @@ LOCAL_MODEL=local-model
 
             for p_str in paths:
                 p = Path(p_str).resolve()
-                if p.exists() and p.is_file():
+                if p.exists():
                     try:
-                        size = p.stat().st_size
+                        if p.is_file():
+                            size = p.stat().st_size
+                        else:
+                            size = sum(f.stat().st_size for f in p.glob("**/*") if f.is_file())
                     except Exception:
                         size = 0
                     if move_to_macos_trash(p):
@@ -1124,6 +1127,8 @@ LOCAL_MODEL=local-model
                 "success": True,
                 "trashed_count": len(trashed),
                 "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+                "failed_count": len(failed),
+                "failed_files": failed,
                 "log": log_file.name
             }).encode("utf-8"))
             return

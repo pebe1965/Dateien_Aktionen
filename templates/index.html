@@ -198,6 +198,11 @@
                             <button onclick="openMoveModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition">
                                 <span>📁 In Ordner verschieben / kopieren...</span>
                             </button>
+
+                            <!-- Aktion 3: In Papierkorb verschieben / Löschen -->
+                            <button onclick="trashSelectedCatalogFiles()" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition" title="Ausgewählte Dateien in den macOS-Papierkorb verschieben">
+                                <span>🗑️ Löschen (<span class="selected-count-badge">0</span>)</span>
+                            </button>
                         </div>
                     </div>
 
@@ -224,8 +229,8 @@
                                     <th onclick="toggleSort('modified_at')" class="p-3.5 w-1/12 cursor-pointer hover:bg-slate-200 select-none transition">
                                         Datum <span id="sort-icon-modified_at" class="text-slate-400 font-bold ml-1">↕</span>
                                     </th>
-                                    <th class="p-3.5 pr-6 w-28 text-center">
-                                        Vorschau
+                                    <th class="p-3.5 pr-6 w-32 text-center">
+                                        Aktionen
                                     </th>
                                 </tr>
                             </thead>
@@ -456,7 +461,10 @@
             </div>
 
             <!-- Footer -->
-            <div class="p-4 border-t border-slate-200 flex justify-end bg-slate-50">
+            <div class="p-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+                <button onclick="trashInspectedFile()" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 text-xs font-semibold rounded-xl transition border border-rose-200 flex items-center gap-1.5 shadow-xs" title="Diese Datei in den macOS-Papierkorb verschieben">
+                    <span>🗑️ In Papierkorb</span>
+                </button>
                 <button onclick="closeOcrModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition shadow-xs">
                     Schließen
                 </button>
@@ -1134,10 +1142,15 @@
                         <td class="p-3.5 w-1/12 text-xs text-slate-500 whitespace-nowrap">
                             ${dateStr}
                         </td>
-                        <td class="p-3.5 pr-6 w-28 text-center whitespace-nowrap">
-                            <button onclick="inspectFileContent('${encodeURIComponent(item.path)}', '${encodeURIComponent(item.filename)}', '${item.category}', '${item.extension}')" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs">
-                                👁️ Vorschau
-                            </button>
+                        <td class="p-3.5 pr-6 w-32 text-center whitespace-nowrap">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button onclick="inspectFileContent('${encodeURIComponent(item.path)}', '${encodeURIComponent(item.filename)}', '${item.category}', '${item.extension}')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs" title="Vorschau & Textinhalt ansehen">
+                                    👁️ Vorschau
+                                </button>
+                                <button onclick="trashSingleFile('${encodeURIComponent(item.path)}', '${encodeURIComponent(item.filename)}')" class="px-2 py-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 text-xs font-medium rounded-lg transition border border-rose-200 shadow-xs" title="Datei in macOS-Papierkorb verschieben">
+                                    🗑️
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1370,6 +1383,71 @@
             }
         }
 
+        // ==================== KATALOG DATEIEN LÖSCHEN (IN MACOS PAPIERKORB) ====================
+        async function trashSelectedCatalogFiles() {
+            const paths = Array.from(selectedCatalogPaths);
+            if (paths.length === 0) return alert('Bitte wählen Sie zuerst eine oder mehrere Dateien aus der Tabelle aus.');
+
+            const confirmMsg = paths.length === 1
+                ? `Möchten Sie die ausgewählte Datei wirklich in den macOS-Papierkorb verschieben?\n\n(Sie können die Datei im macOS-Papierkorb bei Bedarf jederzeit wiederherstellen)`
+                : `Möchten Sie alle ${paths.length} ausgewählten Dateien wirklich in den macOS-Papierkorb verschieben?\n\n(Sie können die Dateien im macOS-Papierkorb bei Bedarf jederzeit wiederherstellen)`;
+
+            if (!confirm(confirmMsg)) return;
+
+            await performTrashFiles(paths);
+        }
+
+        async function trashSingleFile(encodedPath, encodedName) {
+            const filePath = decodeURIComponent(encodedPath);
+            const fileName = decodeURIComponent(encodedName);
+
+            const confirmMsg = `Möchten Sie die Datei "${fileName}" wirklich in den macOS-Papierkorb verschieben?\n\n(Die Datei kann im macOS-Papierkorb bei Bedarf jederzeit wiederherstellen)`;
+            if (!confirm(confirmMsg)) return;
+
+            await performTrashFiles([filePath]);
+        }
+
+        async function trashInspectedFile() {
+            if (!currentInspectedPath) return;
+            const confirmMsg = `Möchten Sie die Datei "${currentInspectedName}" wirklich in den macOS-Papierkorb verschieben?\n\n(Die Datei kann im macOS-Papierkorb bei Bedarf jederzeit wiederherstellen)`;
+            if (!confirm(confirmMsg)) return;
+
+            closeOcrModal();
+            await performTrashFiles([currentInspectedPath]);
+        }
+
+        async function performTrashFiles(paths) {
+            if (!paths || paths.length === 0) return;
+
+            showLoading('Verschiebe in den Papierkorb...', `${paths.length} Datei(en) werden sicher in ~/.Trash gelegt...`);
+            try {
+                const res = await fetch('/api/trash_files', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ paths: paths })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                let msg = `✓ ${data.trashed_count} Datei(en) erfolgreich in den Papierkorb verschoben!\nFreigegebener Speicher: ca. ${data.freed_mb} MB.`;
+                if (data.failed_count && data.failed_count > 0) {
+                    msg += `\n\n⚠️ ${data.failed_count} Datei(en) konnten nicht verschoben werden.`;
+                }
+                alert(msg);
+
+                // Ausgewählte Pfade aktualisieren
+                paths.forEach(p => selectedCatalogPaths.delete(p));
+                updateCatalogSelectionUI();
+
+                // Katalog neu laden
+                startCatalog();
+            } catch (e) {
+                alert('Fehler beim Löschen: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
         // ==================== DUPLIKATE-MANAGER RENDERING ====================
         function renderDuplicates(dups, summary) {
             const container = document.getElementById('duplicates-groups-container');
@@ -1494,9 +1572,14 @@
             }
         }
 
+        let currentInspectedPath = '';
+        let currentInspectedName = '';
+
         async function inspectFileContent(encodedPath, encodedName, category, extension) {
             const filePath = decodeURIComponent(encodedPath);
             const fileName = decodeURIComponent(encodedName);
+            currentInspectedPath = filePath;
+            currentInspectedName = fileName;
             const ext = (extension || '').toLowerCase();
 
             document.getElementById('ocr-modal-title').innerText = fileName;
@@ -1561,6 +1644,8 @@
 
         function closeOcrModal() {
             document.getElementById('ocr-modal').classList.add('hidden');
+            currentInspectedPath = '';
+            currentInspectedName = '';
         }
 
         async function startPreview() {
