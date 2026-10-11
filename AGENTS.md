@@ -41,7 +41,16 @@ heruntergeladen. **Alles, was im Code oder im Paket steht, ist öffentlich.**
 - Ein **eigener** Gemini-Schlüssel des Nutzers (`AI_PROVIDER=gemini`) bleibt
   möglich — mitgeliefert wird nie einer.
 
-## 3. Vor jedem Release
+## 3. Start und Updates
+
+- Die Oberfläche läuft als lokaler Server auf Port 8765 (Webapps der Nutzer
+  zeigen auf diese Adresse). `start_gui()` fragt laufende Instanzen nach ihrer
+  Version (`/api/status` → `app_version`): gleiche Version → nur Browser
+  öffnen; andere Version → alte beenden und selbst auf 8765 starten. Ohne das
+  lief nach einem Update die alte Fassung weiter. `app_version` in
+  `/api/status` deshalb nie entfernen.
+
+## 4. Vor jedem Release
 
 1. `APP_VERSION` in `config.py` und `CFBundleShortVersionString` in
    `Dateien_Aktionen.app/Contents/Info.plist` auf die neue Version setzen —

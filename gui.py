@@ -1173,8 +1173,11 @@ LOCAL_MODEL=local-model
         self.wfile.write(json.dumps({"error": message}).encode("utf-8"))
 
 
-def is_server_already_running(port: int) -> bool:
-    """Prüft, ob auf dem Port bereits eine Instanz von Dateien_Aktionen läuft."""
+def laufende_version(port: int):
+    """Version der Dateien_Aktionen-Instanz auf dem Port — oder None, wenn dort keine läuft.
+
+    "unbekannt", wenn eine Instanz antwortet, aber (sehr alt) keine Version meldet.
+    """
     try:
         import urllib.request
         req = urllib.request.Request(
@@ -1184,9 +1187,48 @@ def is_server_already_running(port: int) -> bool:
         with urllib.request.urlopen(req, timeout=1.0) as resp:
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
-                return "ai_provider" in data or "app_version" in data
+                if "ai_provider" in data or "app_version" in data:
+                    return str(data.get("app_version") or "unbekannt")
     except Exception:
         pass
+    return None
+
+
+def is_server_already_running(port: int) -> bool:
+    """Prüft, ob auf dem Port bereits eine Instanz von Dateien_Aktionen läuft."""
+    return laufende_version(port) is not None
+
+
+def beende_alte_instanz(port: int) -> bool:
+    """Beendet die Dateien_Aktionen-Instanz, die auf dem Port lauscht.
+
+    Nach einem Update lief sonst die alte Fassung weiter: Die neue sah „läuft
+    schon", öffnete nur das Browserfenster und beendete sich. Man landete beim
+    alten Server — neue Oberfläche (die wird bei jedem Aufruf frisch gelesen),
+    alter Code, und neue Funktionen antworteten mit 404.
+
+    Beendet wird nur, was vorher auf /api/status als Dateien_Aktionen
+    geantwortet hat (Aufrufer prüft das), und nur der lauschende Prozess.
+    """
+    import signal
+    import time
+    try:
+        res = subprocess.run(
+            ["lsof", "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=5
+        )
+        pids = [int(p) for p in res.stdout.split() if p.strip().isdigit() and int(p) != os.getpid()]
+    except Exception:
+        pids = []
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+    for _ in range(30):
+        if laufende_version(port) is None:
+            return True
+        time.sleep(0.1)
     return False
 
 
@@ -1195,6 +1237,10 @@ def find_free_port(preferred_ports=(8765, 8766, 8767, 8768)) -> int:
     for port in preferred_ports:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
+                # Wie der Server selbst (allow_reuse_address): Ein gerade beendeter
+                # Vorgänger hält den Port sonst noch kurz fest, und die neue
+                # Version wich auf 8766 aus — die Webapp auf 8765 lief ins Leere.
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 s.bind(('127.0.0.1', port))
                 return port
             except OSError:
@@ -1206,15 +1252,26 @@ def find_free_port(preferred_ports=(8765, 8766, 8767, 8768)) -> int:
 
 
 def start_gui():
-    # 1. Wenn die App bereits läuft: Browser öffnen und bestehende Instanz nutzen
-    if is_server_already_running(PORT):
-        url = f"http://127.0.0.1:{PORT}"
-        print(f"\n============================================================")
-        print(f"  ℹ️  Dateien_Aktionen läuft bereits im Hintergrund auf: {url}")
-        print(f"  Öffne bestehendes Fenster im Browser...")
-        print(f"============================================================\n")
-        webbrowser.open(url)
-        return
+    eigene = getattr(config, "APP_VERSION", "1.0.0")
+
+    # 1. Läuft dieselbe Version schon: Browser öffnen und bestehende Instanz nutzen.
+    #    Läuft eine andere (nach einem Update die alte), wird sie beendet.
+    for p in (PORT, 8766, 8767, 8768):
+        v = laufende_version(p)
+        if v is None:
+            continue
+        if v == eigene:
+            url = f"http://127.0.0.1:{p}"
+            print(f"\n============================================================")
+            print(f"  ℹ️  Dateien_Aktionen läuft bereits im Hintergrund auf: {url}")
+            print(f"  Öffne bestehendes Fenster im Browser...")
+            print(f"============================================================\n")
+            webbrowser.open(url)
+            return
+        if v != eigene:
+            print(f"🔄 Beende ältere Version {v} auf Port {p} (diese Version: {eigene})...")
+            if not beende_alte_instanz(p):
+                print(f"⚠️ Version {v} auf Port {p} ließ sich nicht beenden.")
 
     # 2. Freien Port ermitteln (bevorzugt 8765, sonst nächsten freien Port)
     port = find_free_port(preferred_ports=(PORT, 8766, 8767, 8768))
