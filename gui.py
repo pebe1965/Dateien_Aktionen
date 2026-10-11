@@ -8,12 +8,13 @@ Startet einen lokalen Server und öffnet das Dashboard automatisch im Browser.
 import os
 import sys
 import json
+import socket
 import webbrowser
 import subprocess
 import shutil
 from datetime import datetime
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 # Projektpfad einbinden
@@ -1143,11 +1144,59 @@ LOCAL_MODEL=local-model
         self.wfile.write(json.dumps({"error": message}).encode("utf-8"))
 
 
+def is_server_already_running(port: int) -> bool:
+    """Prüft, ob auf dem Port bereits eine Instanz von Dateien_Aktionen läuft."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/status",
+            headers={"User-Agent": "Dateien-Aktionen-Ping"}
+        )
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                return "ai_provider" in data or "app_version" in data
+    except Exception:
+        pass
+    return False
+
+
+def find_free_port(preferred_ports=(8765, 8766, 8767, 8768)) -> int:
+    """Findet einen freien Port, bevorzugt aus der Liste oder vom Betriebssystem."""
+    for port in preferred_ports:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('127.0.0.1', port))
+                return port
+            except OSError:
+                continue
+    # Zufälligen freien Port vom System zuweisen lassen
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
 def start_gui():
-    server = HTTPServer(("127.0.0.1", PORT), DashboardHandler)
-    url = f"http://127.0.0.1:{PORT}"
+    # 1. Wenn die App bereits läuft: Browser öffnen und bestehende Instanz nutzen
+    if is_server_already_running(PORT):
+        url = f"http://127.0.0.1:{PORT}"
+        print(f"\n============================================================")
+        print(f"  ℹ️  Dateien_Aktionen läuft bereits im Hintergrund auf: {url}")
+        print(f"  Öffne bestehendes Fenster im Browser...")
+        print(f"============================================================\n")
+        webbrowser.open(url)
+        return
+
+    # 2. Freien Port ermitteln (bevorzugt 8765, sonst nächsten freien Port)
+    port = find_free_port(preferred_ports=(PORT, 8766, 8767, 8768))
+    url = f"http://127.0.0.1:{port}"
+
+    ThreadingHTTPServer.allow_reuse_address = True
+    server = ThreadingHTTPServer(("127.0.0.1", port), DashboardHandler)
+    server.daemon_threads = True
+
     print(f"\n============================================================")
-    print(f"  Dateien_Aktionen GUI gestartet auf: {url}")
+    print(f"  🚀 Dateien_Aktionen GUI gestartet auf: {url}")
     print(f"  Öffne Browser...")
     print(f"  Zum Beenden: Ctrl + C im Terminal drücken")
     print(f"============================================================\n")
@@ -1158,7 +1207,7 @@ def start_gui():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nServer beendet.")
+        print("\n👋 Server beendet.")
         server.server_close()
 
 
