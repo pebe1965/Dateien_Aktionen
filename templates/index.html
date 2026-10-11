@@ -424,7 +424,7 @@
     </main>
 
     <!-- MODAL: UNIVERSAL VORSCHAU & OCR INSPEKTOR -->
-    <div id="ocr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+    <div id="ocr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4" onclick="if(event.target === this) closeOcrModal()">
         <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
             <!-- Header -->
             <div class="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -1648,10 +1648,29 @@
         }
 
         function closeOcrModal() {
+            const modalAudio = document.getElementById('modal-audio');
+            if (modalAudio) {
+                modalAudio.pause();
+                modalAudio.currentTime = 0;
+                modalAudio.src = '';
+            }
+            const modalImg = document.getElementById('modal-img');
+            if (modalImg) {
+                modalImg.src = '';
+            }
             document.getElementById('ocr-modal').classList.add('hidden');
             currentInspectedPath = '';
             currentInspectedName = '';
         }
+
+        // Tastaturkürzel: Escape schließt geöffnete Modals und stoppt Audio
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeOcrModal();
+                closeMoveModal();
+                closeUpdateModal();
+            }
+        });
 
         async function startPreview() {
             const folder = document.getElementById('folder-path').value.trim();
