@@ -2,7 +2,8 @@
 Modul: ai_engine.py
 Das semantische Gehirn für die Inhaltsanalyse und intelligente Benennung.
 Unterstützt:
-- Google Gemini API (z. B. gemini-3.7-flash, gemini-3.8-flash, gemini-2.5-flash)
+- KI über das NotionaryAtlas-Konto (Zugangscode, Standard)
+- Google Gemini API mit eigenem Schlüssel (z. B. gemini-3.7-flash, gemini-3.8-flash, gemini-2.5-flash)
 - Lokale KI-Server (OpenAI-kompatibel via MLX, Ollama, LM Studio)
 - Intelligente Offline-Heuristik (Fallback mit Regex & Metadaten)
 """
@@ -17,13 +18,10 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 
-from config import (
-    AI_PROVIDER,
-    GEMINI_API_KEY,
-    GEMINI_MODEL,
-    LOCAL_API_URL,
-    LOCAL_MODEL
-)
+# Bewusst das Modul statt einzelner Namen: Die Oberfläche ändert die Werte zur
+# Laufzeit (config.GEMINI_API_KEY = …). Mit `from config import …` hätte die
+# Analyse bis zum Neustart mit den alten weitergearbeitet.
+import config
 
 
 def _get_ssl_context() -> ssl.SSLContext:
@@ -110,9 +108,40 @@ Wichtig:
 
 
 def _query_gemini(prompt: str, api_key: str, model: str) -> Optional[Dict[str, Any]]:
-    """Sendet eine Anfrage an die Google Gemini API mit SSL-Absicherung."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    
+    """Sendet eine Anfrage an die Google Gemini API (eigener Schlüssel)."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    return _query_generate(prompt, url, {"x-goog-api-key": api_key}, "Gemini API")
+
+
+def _query_app(prompt: str, zugangscode: str) -> Optional[Dict[str, Any]]:
+    """Dieselbe Anfrage, aber über NotionaryAtlas — Modell und Schlüssel bestimmt die App."""
+    return _query_generate(
+        prompt, config.NOTIONARY_KI_URL, {"Authorization": f"Bearer {zugangscode}"}, "NotionaryAtlas"
+    )
+
+
+def pruefe_zugangscode(zugangscode: str) -> Dict[str, Any]:
+    """Fragt die App, ob der Zugangscode gilt. Verbraucht keine Credits."""
+    req = urllib.request.Request(
+        config.NOTIONARY_KI_URL,
+        headers={"Authorization": f"Bearer {zugangscode.strip()}"},
+        method="GET"
+    )
+    try:
+        with urllib.request.urlopen(req, context=_get_ssl_context(), timeout=15) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8")).get("error", {}).get("message")
+        except Exception:
+            msg = None
+        return {"verbunden": False, "fehler": msg or f"HTTP {e.code}"}
+    except Exception:
+        return {"verbunden": False, "fehler": "NotionaryAtlas ist nicht erreichbar. Besteht eine Internetverbindung?"}
+
+
+def _query_generate(prompt: str, url: str, auth_headers: Dict[str, str], ziel: str) -> Optional[Dict[str, Any]]:
+    """Gemeinsamer Weg für Gemini direkt und über die App (gleiches Anfrageformat)."""
     payload = {
         "contents": [
             {
@@ -130,13 +159,13 @@ def _query_gemini(prompt: str, api_key: str, model: str) -> Optional[Dict[str, A
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **auth_headers},
         method="POST"
     )
 
     try:
         ctx = _get_ssl_context()
-        with urllib.request.urlopen(req, context=ctx, timeout=25) as response:
+        with urllib.request.urlopen(req, context=ctx, timeout=60) as response:
             result = json.loads(response.read().decode("utf-8"))
             candidates = result.get("candidates", [])
             if candidates:
@@ -150,10 +179,10 @@ def _query_gemini(prompt: str, api_key: str, model: str) -> Optional[Dict[str, A
                     return json.loads(raw_text)
     except urllib.error.HTTPError as e:
         err_msg = e.read().decode("utf-8", errors="ignore")
-        print(f"[Gemini API HTTP Error {e.code}] {err_msg}")
+        print(f"[{ziel} HTTP Error {e.code}] {err_msg}")
         return None
     except Exception as e:
-        print(f"[Gemini API Verbindungsfehler] {e}")
+        print(f"[{ziel} Verbindungsfehler] {e}")
         return None
     return None
 
@@ -295,7 +324,7 @@ def analyze_file_content(
     Falls ein Präfix angegeben ist (z.B. "01_"), wird es vorangestellt.
     """
     ext = Path(filename).suffix.lower()
-    active_provider = provider if provider else AI_PROVIDER
+    active_provider = provider if provider else config.AI_PROVIDER
 
     text_snippet = text_content[:5000].strip()
 
@@ -307,20 +336,28 @@ def analyze_file_content(
     ai_data: Optional[Dict[str, Any]] = None
     used_provider = "offline_heuristik"
 
-    # 1. Gemini
-    if active_provider == "gemini" and GEMINI_API_KEY:
-        print(f"🤖 [KI-Anfrage] Sende '{filename}' an Gemini ({GEMINI_MODEL})...")
-        ai_data = _query_gemini(prompt, GEMINI_API_KEY, GEMINI_MODEL)
+    # 1. Über NotionaryAtlas (Zugangscode)
+    if active_provider == "app" and config.NOTIONARY_ZUGANGSCODE:
+        print(f"🤖 [KI-Anfrage] Sende '{filename}' über NotionaryAtlas...")
+        ai_data = _query_app(prompt, config.NOTIONARY_ZUGANGSCODE)
         if ai_data:
-            used_provider = f"gemini ({GEMINI_MODEL})"
+            used_provider = "NotionaryAtlas"
             print(f"✓ [KI-Erfolg] Erkannt: {ai_data.get('sender')} | {ai_data.get('doc_type')} | {ai_data.get('suggested_filename')}")
 
-    # 2. Lokaler Server
+    # 2. Gemini mit eigenem Schlüssel
+    elif active_provider == "gemini" and config.GEMINI_API_KEY:
+        print(f"🤖 [KI-Anfrage] Sende '{filename}' an Gemini ({config.GEMINI_MODEL})...")
+        ai_data = _query_gemini(prompt, config.GEMINI_API_KEY, config.GEMINI_MODEL)
+        if ai_data:
+            used_provider = f"gemini ({config.GEMINI_MODEL})"
+            print(f"✓ [KI-Erfolg] Erkannt: {ai_data.get('sender')} | {ai_data.get('doc_type')} | {ai_data.get('suggested_filename')}")
+
+    # 3. Lokaler Server
     elif active_provider == "local":
         print(f"🤖 [KI-Anfrage] Sende '{filename}' an lokalen Server...")
-        ai_data = _query_local_llm(prompt, LOCAL_API_URL, LOCAL_MODEL)
+        ai_data = _query_local_llm(prompt, config.LOCAL_API_URL, config.LOCAL_MODEL)
         if ai_data:
-            used_provider = f"local ({LOCAL_MODEL})"
+            used_provider = f"local ({config.LOCAL_MODEL})"
 
     # 3. Fallback Heuristik
     if not ai_data:

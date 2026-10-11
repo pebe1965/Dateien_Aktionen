@@ -375,14 +375,30 @@
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1">KI-Provider</label>
                         <select id="cfg-provider" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                            <option value="gemini">Google Gemini API (Cloud / Entwickler-Account)</option>
+                            <option value="app">KI über NotionaryAtlas (Zugangscode, empfohlen)</option>
+                            <option value="gemini">Eigener Google-Gemini-Schlüssel</option>
                             <option value="local">Lokaler KI-Server (LM Studio / MLX / Ollama)</option>
                             <option value="offline">Offline-Heuristik (ohne KI, via Regex & Metadaten)</option>
                         </select>
                     </div>
 
+                    <div class="p-4 rounded-xl bg-violet-50 border border-violet-200">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">NotionaryAtlas-Zugangscode</label>
+                        <p class="text-xs text-slate-500 mb-2">
+                            Die KI läuft über dein NotionaryAtlas-Konto und dessen KI-Credits – ein eigener Gemini-Schlüssel ist nicht nötig.
+                            Den Code erstellst du im
+                            <a id="cfg-marketplace-link" href="https://app.pberthold.com/marketplace" target="_blank" class="text-violet-700 font-semibold hover:underline">Marketplace bei Dateien_Aktionen</a>.
+                        </p>
+                        <div class="flex gap-2">
+                            <input type="password" id="cfg-zugangscode" placeholder="na_..." class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm font-mono bg-white">
+                            <button type="button" onclick="testZugang()" class="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold">Verbindung testen</button>
+                        </div>
+                        <p id="cfg-zugang-status" class="text-xs mt-2 hidden"></p>
+                        <p class="text-xs text-slate-400 mt-1">Bleibt leer, wenn schon ein Code gespeichert ist und du ihn behalten willst.</p>
+                    </div>
+
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">Gemini API-Schlüssel</label>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Eigener Gemini API-Schlüssel (optional)</label>
                         <input type="password" id="cfg-gemini-key" placeholder="AIzaSy..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
                         <p class="text-xs text-slate-400 mt-1">Ihr bestehender Schlüssel aus Google AI Studio / WebApp.</p>
                     </div>
@@ -649,7 +665,16 @@
 
                 // AI Badge
                 const bAi = document.getElementById('badge-ai');
-                if (data.ai_provider === 'gemini') {
+                if (data.ai_provider === 'app') {
+                    if (data.app_code_set) {
+                        bAi.className = 'px-2.5 py-1 rounded-full bg-violet-100 text-violet-700 font-medium';
+                        bAi.innerText = 'KI über NotionaryAtlas';
+                    } else {
+                        bAi.className = 'px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-medium cursor-pointer';
+                        bAi.innerText = '⚠ Zugangscode fehlt (hier klicken)';
+                        bAi.onclick = () => openTab('settings');
+                    }
+                } else if (data.ai_provider === 'gemini') {
                     if (data.gemini_key_set) {
                         bAi.className = 'px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium';
                         bAi.innerText = `Gemini (${data.gemini_model})`;
@@ -680,6 +705,8 @@
 
                 // Pre-fill settings
                 document.getElementById('cfg-provider').value = data.ai_provider;
+                if (data.marketplace_url) document.getElementById('cfg-marketplace-link').href = data.marketplace_url;
+                document.getElementById('cfg-zugangscode').placeholder = data.app_code_set ? 'Gespeichert – zum Ändern neuen Code einfügen' : 'na_...';
                 document.getElementById('cfg-gemini-model').value = data.gemini_model;
                 document.getElementById('cfg-local-url').value = data.local_url;
                 if (data.folder_suggestion && !document.getElementById('folder-path').value) {
@@ -1841,6 +1868,10 @@
             const payload = {
                 ai_provider: document.getElementById('cfg-provider').value,
                 gemini_api_key: document.getElementById('cfg-gemini-key').value,
+                // Leer heißt: gespeicherten Code behalten (der Server kennt ihn, die Seite nicht).
+                ...(document.getElementById('cfg-zugangscode').value.trim()
+                    ? { notionary_zugangscode: document.getElementById('cfg-zugangscode').value.trim() }
+                    : {}),
                 gemini_model: document.getElementById('cfg-gemini-model').value,
                 local_url: document.getElementById('cfg-local-url').value
             };
@@ -1860,6 +1891,33 @@
                 }
             } catch (e) {
                 alert('Fehler beim Speichern');
+            }
+        }
+
+        async function testZugang() {
+            const status = document.getElementById('cfg-zugang-status');
+            const code = document.getElementById('cfg-zugangscode').value.trim();
+            status.className = 'text-xs mt-2 text-slate-500';
+            status.innerText = 'Prüfe…';
+            try {
+                const res = await fetch('/api/test_zugang', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(code ? { notionary_zugangscode: code } : {})
+                });
+                const data = await res.json();
+                if (data.verbunden) {
+                    const credits = data.credits === null ? ' · KI unbegrenzt'
+                        : (typeof data.credits === 'number' ? ` · ${data.credits} Credits übrig` : '');
+                    status.className = 'text-xs mt-2 text-emerald-700';
+                    status.innerText = `✓ Verbunden${data.konto ? ' mit ' + data.konto : ''}${credits}` + (code ? ' – jetzt noch „Speichern“ klicken.' : '');
+                } else {
+                    status.className = 'text-xs mt-2 text-red-600';
+                    status.innerText = '✗ ' + (data.fehler || 'Der Zugangscode wurde nicht angenommen.');
+                }
+            } catch (e) {
+                status.className = 'text-xs mt-2 text-red-600';
+                status.innerText = '✗ Prüfung fehlgeschlagen.';
             }
         }
 

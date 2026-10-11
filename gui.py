@@ -672,6 +672,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             data = {
                 "ai_provider": config.AI_PROVIDER,
                 "gemini_key_set": bool(config.GEMINI_API_KEY),
+                "app_code_set": bool(config.NOTIONARY_ZUGANGSCODE),
+                "marketplace_url": config.NOTIONARY_MARKETPLACE_URL,
                 "gemini_model": config.GEMINI_MODEL,
                 "local_url": config.LOCAL_API_URL,
                 "local_model": config.LOCAL_MODEL,
@@ -1059,15 +1061,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_error_response(str(e))
             return
 
+        if url.path == "/api/test_zugang":
+            from ai_engine import pruefe_zugangscode
+            code = str(params.get("notionary_zugangscode", "")).strip() or config.NOTIONARY_ZUGANGSCODE
+            if not code:
+                result = {"verbunden": False, "fehler": "Kein Zugangscode eingetragen."}
+            else:
+                result = pruefe_zugangscode(code)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode("utf-8"))
+            return
+
         if url.path == "/api/save_config":
             # Speichere in .env
             env_file = BASE_DIR / ".env"
-            prov = params.get("ai_provider", "gemini")
+            prov = params.get("ai_provider", "app")
             g_key = params.get("gemini_api_key", "").strip()
+            # Fehlt das Feld (alte Oberfläche), bleibt der gespeicherte Code stehen.
+            z_code = params.get("notionary_zugangscode")
+            z_code = config.NOTIONARY_ZUGANGSCODE if z_code is None else str(z_code).strip()
             g_mod = params.get("gemini_model", "gemini-2.5-flash").strip()
             l_url = params.get("local_url", "http://localhost:1234/v1/chat/completions").strip()
 
             content = f"""AI_PROVIDER={prov}
+NOTIONARY_ZUGANGSCODE={z_code}
 GEMINI_API_KEY={g_key or config.GEMINI_API_KEY}
 GEMINI_MODEL={g_mod or 'gemini-2.5-flash'}
 LOCAL_API_URL={l_url or 'http://localhost:1234/v1/chat/completions'}
@@ -1078,6 +1097,7 @@ LOCAL_MODEL=local-model
 
             # Im laufenden Prozess aktualisieren
             config.AI_PROVIDER = prov
+            config.NOTIONARY_ZUGANGSCODE = z_code
             if g_key:
                 config.GEMINI_API_KEY = g_key
             config.GEMINI_MODEL = g_mod
@@ -1086,6 +1106,11 @@ LOCAL_MODEL=local-model
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
+            # Ohne Antwort und return lief die Anfrage in den Papierkorb-Zweig
+            # weiter und bekam dort eine zweite (Fehler-)Antwort angehängt.
+            self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            return
+
         if url.path in ["/api/trash_duplicates", "/api/trash_files"]:
             paths = params.get("paths", [])
             if not paths:

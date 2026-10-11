@@ -34,6 +34,16 @@ if [ -d "$PROJECT_DIR/bin" ]; then
     chmod +x "$APP_DIR/bin/"* 2>/dev/null || true
 fi
 
+# Keine Zugangsdaten ausliefern: Das Bundle wird nicht neu angelegt, sondern
+# nur ueberschrieben — eine einmal hineinkopierte .env bliebe sonst fuer immer
+# darin und landete in jedem veroeffentlichten DMG.
+rm -f "$APP_DIR/.env" "$APP_DIR"/.env.*.local
+rm -rf "$APP_DIR/history"/*.json 2>/dev/null || true
+if find "$APP_BUNDLE" -name ".env" | grep -q .; then
+    echo "❌ Abbruch: Im App-Bundle liegt noch eine .env-Datei."
+    exit 1
+fi
+
 # Launcher ausführbar machen
 chmod +x "$APP_BUNDLE/Contents/MacOS/launcher"
 chmod +x "$PROJECT_DIR/Dateien_Aktionen.command"

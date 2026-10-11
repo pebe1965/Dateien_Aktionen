@@ -10,7 +10,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.1.0"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # .env-Datei automatisch laden (falls vorhanden), ganz ohne externe Bibliothek
@@ -29,10 +29,19 @@ if env_path.exists():
 
 # --- KI-KONFIGURATION ---
 # Provider-Auswahl:
-#   "gemini"  -> Google Gemini API
+#   "app"     -> KI über das NotionaryAtlas-Konto (Zugangscode aus dem Marketplace)
+#   "gemini"  -> Eigener Google-Gemini-Schlüssel
 #   "local"   -> Lokaler Server (z.B. MLX / LM Studio / Ollama unter LOCAL_API_URL)
 #   "offline" -> Regelbasierte Heuristik (ohne KI, via Regex & Metadaten)
-AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")
+AI_PROVIDER = os.getenv("AI_PROVIDER", "app")
+
+# KI über NotionaryAtlas: Das Programm enthält bewusst KEINEN Gemini-Schlüssel.
+# Im Marketplace der App erstellt man einen persönlichen Zugangscode; die App
+# reicht die Anfrage mit ihrem Schlüssel an Gemini weiter und rechnet über die
+# KI-Credits des Kontos ab. Der Code liegt nur in der lokalen .env.
+NOTIONARY_ZUGANGSCODE = os.getenv("NOTIONARY_ZUGANGSCODE", "")
+NOTIONARY_KI_URL = os.getenv("NOTIONARY_KI_URL", "https://app.pberthold.com/api/ai/desktop-tool")
+NOTIONARY_MARKETPLACE_URL = "https://app.pberthold.com/marketplace"
 
 # Gemini-Einstellungen
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

@@ -200,6 +200,9 @@ def cmd_config(args):
     """Zeigt die aktuelle Konfiguration an."""
     print_header("AKTUELLE KONFIGURATION")
     print(f"{C_BOLD}KI-Provider:{C_RESET}        {AI_PROVIDER}")
+    import config as _cfg
+    code_display = f"{C_GREEN}Gesetzt (…{_cfg.NOTIONARY_ZUGANGSCODE[-4:]}){C_RESET}" if _cfg.NOTIONARY_ZUGANGSCODE else f"{C_RED}Nicht gesetzt (NOTIONARY_ZUGANGSCODE){C_RESET}"
+    print(f"{C_BOLD}NotionaryAtlas-Code:{C_RESET} {code_display}")
     print(f"{C_BOLD}Gemini-Modell:{C_RESET}      {GEMINI_MODEL}")
     has_gemini_key = bool(GEMINI_API_KEY)
     key_display = f"{C_GREEN}Gesetzt ({GEMINI_API_KEY[:6]}...){C_RESET}" if has_gemini_key else f"{C_RED}Nicht gesetzt (GEMINI_API_KEY){C_RESET}"
@@ -224,7 +227,7 @@ def main():
     # Subcommand: preview
     p_prev = subparsers.add_parser("preview", help="Dry-Run: Zeigt KI-Namensvorschläge ohne Änderungen")
     p_prev.add_argument("path", help="Pfad zum Ordner")
-    p_prev.add_argument("--provider", choices=["gemini", "local", "offline"], help="KI-Provider überschreiben")
+    p_prev.add_argument("--provider", choices=["app", "gemini", "local", "offline"], help="KI-Provider überschreiben")
     p_prev.add_argument("--filter", help="Nur bestimmte Kategorie (z. B. DOKUMENTE, BILDER)")
     p_prev.add_argument("--limit", type=int, help="Maximale Anzahl an Dateien zur Analyse")
 
@@ -233,7 +236,7 @@ def main():
     p_run.add_argument("path", help="Pfad zum Quellordner")
     p_run.add_argument("--target-dir", help="Optionaler Zielordner (Standard: Quellordner)")
     p_run.add_argument("--copy", action="store_true", help="Kopieren statt Verschieben")
-    p_run.add_argument("--provider", choices=["gemini", "local", "offline"], help="KI-Provider")
+    p_run.add_argument("--provider", choices=["app", "gemini", "local", "offline"], help="KI-Provider")
     p_run.add_argument("--filter", help="Kategorie-Filter")
     p_run.add_argument("--limit", type=int, help="Limit")
 
