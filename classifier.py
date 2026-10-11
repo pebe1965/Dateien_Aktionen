@@ -75,18 +75,32 @@ class FileItem:
 
     def __init__(self, path: Path):
         self.path = path.resolve()
-        self.filename = path.name
-        self.extension = path.suffix.lower()
+        name = path.name
+
+        # Erkennt macOS iCloud Drive Platzhalter-Dateien (.Dokument.pdf.icloud)
+        if name.startswith(".") and name.endswith(".icloud"):
+            clean_name = name[1:-7]  # Schneidet führenden Punkt '.' und Endung '.icloud' ab
+            self.filename = clean_name
+            self.extension = Path(clean_name).suffix.lower()
+            self.is_cloud_placeholder = True
+        else:
+            self.filename = name
+            self.extension = path.suffix.lower()
+            self.is_cloud_placeholder = is_dataless_cloud_file(self.path)
+
         self.category = get_file_category(self.extension)
-        
-        stat_res = self.path.stat()
-        self.size_bytes = stat_res.st_size
-        self.created_at = datetime.fromtimestamp(stat_res.st_ctime)
-        self.modified_at = datetime.fromtimestamp(stat_res.st_mtime)
+
+        try:
+            stat_res = self.path.stat()
+            self.size_bytes = stat_res.st_size
+            self.created_at = datetime.fromtimestamp(stat_res.st_ctime)
+            self.modified_at = datetime.fromtimestamp(stat_res.st_mtime)
+        except Exception:
+            self.size_bytes = 0
+            self.created_at = datetime.now()
+            self.modified_at = datetime.now()
+
         self.file_hash: Optional[str] = None
-        
-        # Cloud-Status prüfen (iCloud / Nextcloud online-only)
-        self.is_cloud_placeholder = is_dataless_cloud_file(self.path, stat_res)
 
     def compute_hash(self) -> str:
         if self.file_hash is None:
@@ -121,7 +135,7 @@ class Catalog:
     """Verwaltet den Katalog aller gescannten Dateien."""
 
     def __init__(self, root_dir: Path):
-        self.root_dir = root_dir.resolve()
+        self.root_dir = root_dir.expanduser().resolve()
         self.items: List[FileItem] = []
         self.by_category: Dict[str, List[FileItem]] = {}
         self.duplicates: Dict[str, List[FileItem]] = {}
@@ -137,8 +151,12 @@ class Catalog:
         self.by_category.clear()
         self.duplicates.clear()
 
+        walk_errors = []
+        def on_walk_error(err):
+            walk_errors.append(err)
+
         # Phase 1: Rekursiver Inode-Scan (rasend schnell, liest keine Dateiinhalte)
-        for root, dirs, files in os.walk(self.root_dir, topdown=True, onerror=None):
+        for root, dirs, files in os.walk(self.root_dir, topdown=True, onerror=on_walk_error):
             # Ignorierte Ordner überspringen (inkl. .app Pakete und Frameworks)
             dirs[:] = [
                 d for d in dirs 
@@ -150,8 +168,10 @@ class Catalog:
             ]
 
             for file_name in files:
-                if file_name in IGNORED_FILES or file_name.startswith("."):
-                    continue
+                is_icloud_file = file_name.startswith(".") and file_name.endswith(".icloud")
+                if not is_icloud_file:
+                    if file_name in IGNORED_FILES or file_name.startswith("."):
+                        continue
 
                 full_path = Path(root) / file_name
                 try:
@@ -161,6 +181,11 @@ class Catalog:
                         self.by_category.setdefault(item.category, []).append(item)
                 except (PermissionError, OSError):
                     continue
+
+        if not self.items and walk_errors:
+            first_err = walk_errors[0]
+            if isinstance(first_err, PermissionError) or "Permission" in str(first_err) or "Operation not permitted" in str(first_err):
+                raise PermissionError(f"Zugriff verweigert auf: {self.root_dir}")
 
         # Phase 2: Intelligente & selektive Duplikaterkennung
         if compute_hashes and self.items:

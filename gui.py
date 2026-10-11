@@ -828,13 +828,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if url.path == "/api/catalog":
             folder_str = params.get("path", "")
             try:
-                folder = Path(folder_str).resolve()
+                folder = Path(folder_str).expanduser().resolve()
                 if not folder.exists() or not folder.is_dir():
                     self.send_error_response("Ordner existiert nicht oder ist kein Verzeichnis.")
                     return
+                # Vorab-Prüfung auf Lesezugriff (triggert macOS TCC Prompt falls nötig)
+                os.listdir(folder)
             except PermissionError:
                 self.send_error_response(
-                    "Zugriff verweigert (macOS Datenschutz): Bitte erlauben Sie 'Terminal' oder 'Python' den Zugriff auf diesen Ordner unter 'Systemeinstellungen > Datenschutz & Sicherheit > Dateien und Ordner'."
+                    "Zugriff verweigert (macOS Datenschutz): Bitte erlauben Sie 'Dateien_Aktionen' Zugriff auf diesen Ordner unter 'Systemeinstellungen > Datenschutz & Sicherheit > Dateien und Ordner' (oder Festplattenvollzugriff)."
                 )
                 return
             except Exception as e:
