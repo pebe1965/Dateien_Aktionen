@@ -9,6 +9,10 @@ heruntergeladen. **Alles, was im Code oder im Paket steht, ist öffentlich.**
   `templates/`, im App-Bundle oder im DMG — auch nicht kodiert oder als
   Standardwert. Schlüssel und Zugangscodes gehören **nur** in die lokale
   `.env` des Nutzers (steht in `.gitignore`).
+- **Daten des Nutzers liegen nie im Programm**, sondern in
+  `~/Library/Application Support/Dateien_Aktionen/` (`config.DATA_DIR`,
+  `ENV_PATH`, `HISTORY_DIR`). Nichts darf nach `BASE_DIR` schreiben — das ist
+  das Programmverzeichnis bzw. App-Bundle, das bei jedem Update ersetzt wird.
 - Hintergrund: Bis Version 1.0.2 lag eine `.env` mit dem
   Produktionsschlüssel von NotionaryAtlas im App-Bundle und damit in jedem
   veröffentlichten DMG. `scripts/build_release.sh` legt das Bundle nicht neu

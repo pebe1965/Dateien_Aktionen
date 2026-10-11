@@ -1075,8 +1075,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if url.path == "/api/save_config":
-            # Speichere in .env
-            env_file = BASE_DIR / ".env"
+            # Speichere in .env — im Benutzerordner, nicht im Programm (übersteht Updates)
+            env_file = config.ENV_PATH
+            env_file.parent.mkdir(parents=True, exist_ok=True)
             prov = params.get("ai_provider", "app")
             g_key = params.get("gemini_api_key", "").strip()
             # Fehlt das Feld (alte Oberfläche), bleibt der gespeicherte Code stehen.
@@ -1094,6 +1095,7 @@ LOCAL_MODEL=local-model
 """
             with open(env_file, "w", encoding="utf-8") as f:
                 f.write(content)
+            os.chmod(env_file, 0o600)  # enthält Zugangscode bzw. Schlüssel
 
             # Im laufenden Prozess aktualisieren
             config.AI_PROVIDER = prov

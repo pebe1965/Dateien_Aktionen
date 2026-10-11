@@ -14,14 +14,15 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from config import BASE_DIR
+from config import HISTORY_DIR
 from classifier import Catalog, FileItem
 from extractor import extract_content
 from ai_engine import analyze_file_content, AnalysisResult
 
 
-HISTORY_DIR = BASE_DIR / "history"
-HISTORY_DIR.mkdir(exist_ok=True)
+# Verlauf liegt im Benutzerordner (config.HISTORY_DIR), nicht im Programm —
+# sonst löschte jedes Update die Möglichkeit, Umbenennungen rückgängig zu machen.
+HISTORY_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class PlannedAction:

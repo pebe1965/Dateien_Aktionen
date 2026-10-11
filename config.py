@@ -4,17 +4,57 @@ Zentrale Einstellungen für KI, OCR, Kategorien und Namenskonventionen.
 """
 
 import os
+import shutil
 from pathlib import Path
 
-# Basis-Verzeichnis des Projekts
+# Basis-Verzeichnis des Programms (im App-Bundle: …/Contents/Resources/app)
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
+# --- DATEN DES NUTZERS ---
+# Einstellungen (.env) und Verlauf für „Rückgängig“ liegen NICHT im Programm,
+# sondern im Benutzerordner. Bis 1.1.0 lagen sie im App-Bundle: Ein Update
+# (Programm ersetzen) löschte beides — Zugangscode weg, Umbenennungen nicht
+# mehr rückgängig zu machen. Und weil das Bundle beim Bauen nur überschrieben
+# wurde, landete die .env samt API-Schlüssel im veröffentlichten DMG.
+DATA_DIR = Path(
+    os.getenv("DATEIEN_AKTIONEN_DATA_DIR")
+    or Path.home() / "Library" / "Application Support" / "Dateien_Aktionen"
+)
+ENV_PATH = DATA_DIR / ".env"
+HISTORY_DIR = DATA_DIR / "history"
+
+
+def _uebernehme_alte_daten() -> None:
+    """Einmalig: .env und Verlauf vom alten Ort (neben dem Programm) übernehmen.
+
+    Kopiert, verschiebt nicht — das Programmverzeichnis kann schreibgeschützt
+    sein (DMG), und ein Fehlschlag soll nichts verlieren. Bereits vorhandene
+    Dateien am neuen Ort werden nie überschrieben.
+    """
+    try:
+        HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        alt_env = BASE_DIR / ".env"
+        if alt_env.exists() and not ENV_PATH.exists():
+            shutil.copy2(alt_env, ENV_PATH)
+            os.chmod(ENV_PATH, 0o600)
+        alt_history = BASE_DIR / "history"
+        if alt_history.is_dir():
+            for f in alt_history.glob("*.json"):
+                ziel = HISTORY_DIR / f.name
+                if not ziel.exists():
+                    shutil.copy2(f, ziel)
+    except Exception as e:
+        print(f"⚠️ Alte Einstellungen/Verlauf konnten nicht übernommen werden: {e}")
+
+
+_uebernehme_alte_daten()
+
 # .env-Datei automatisch laden (falls vorhanden), ganz ohne externe Bibliothek
-env_path = BASE_DIR / ".env"
+env_path = ENV_PATH
 if env_path.exists():
     try:
         with open(env_path, "r", encoding="utf-8") as f:
