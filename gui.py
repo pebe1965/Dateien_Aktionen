@@ -651,6 +651,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        port = self.server.server_address[1]
+
+        # Host-Header Prüfung (Schutz gegen DNS-Rebinding)
+        host = self.headers.get("Host", "").strip().lower()
+        if host not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"Forbidden: Ungueltiger Host-Header")
+            return
+
+        # Origin-Header Prüfung (falls vorhanden, muss es der lokale Server sein)
+        origin = self.headers.get("Origin")
+        if origin and origin.strip().lower() not in {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}:
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"Forbidden: Ungueltiger Origin-Header")
+            return
+
         url = urlparse(self.path)
 
         if url.path == "/" or url.path == "/index.html":
@@ -783,10 +803,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ".webp": "image/webp",
                 ".svg": "image/svg+xml",
                 ".ico": "image/x-icon",
+                ".heic": "image/heic",
+                ".heif": "image/heif",
+                ".bmp": "image/bmp",
+                ".tiff": "image/tiff",
+                ".tif": "image/tiff",
                 ".pdf": "application/pdf",
                 ".mp3": "audio/mpeg",
                 ".m4a": "audio/mp4",
                 ".wav": "audio/wav",
+                ".flac": "audio/flac",
+                ".aac": "audio/aac",
+                ".ogg": "audio/ogg",
+                ".mp4": "video/mp4",
+                ".mov": "video/quicktime",
+                ".webm": "video/webm",
+                ".m4v": "video/mp4",
+                ".txt": "text/plain; charset=utf-8",
+                ".md": "text/markdown; charset=utf-8",
+                ".json": "application/json",
+                ".csv": "text/csv; charset=utf-8",
             }
             content_type = mime_map.get(ext, "application/octet-stream")
 
@@ -805,10 +841,43 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
+        port = self.server.server_address[1]
+
+        # 1. Host-Header Prüfung (Schutz gegen DNS-Rebinding)
+        host = self.headers.get("Host", "").strip().lower()
+        if host not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Forbidden: Ungültiger Host-Header"}).encode("utf-8"))
+            return
+
+        # 2. Origin-Header Prüfung (falls vorhanden, muss es der lokale Server sein)
+        origin = self.headers.get("Origin")
+        if origin and origin.strip().lower() not in {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}:
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Forbidden: Ungültiger Origin-Header"}).encode("utf-8"))
+            return
+
+        # 3. Content-Type Prüfung (muss application/json sein)
+        content_type = self.headers.get("Content-Type", "").split(";")[0].strip().lower()
+        if content_type != "application/json":
+            self.send_response(415)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Unsupported Media Type: Content-Type muss application/json sein"}).encode("utf-8"))
+            return
+
         url = urlparse(self.path)
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
-        params = json.loads(body) if body else {}
+        try:
+            params = json.loads(body) if body.strip() else {}
+        except json.JSONDecodeError:
+            self.send_error_response("Ungültiges JSON im Request-Body.")
+            return
 
         if url.path == "/api/pick_folder":
             # Öffnet den nativen macOS Ordnerauswahl-Dialog
@@ -1111,6 +1180,49 @@ LOCAL_MODEL=local-model
             # Ohne Antwort und return lief die Anfrage in den Papierkorb-Zweig
             # weiter und bekam dort eine zweite (Fehler-)Antwort angehängt.
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            return
+
+        if url.path == "/api/reveal_in_finder":
+            file_path = Path(params.get("path", "")).resolve()
+            if not file_path.exists():
+                self.send_error_response("Datei nicht gefunden.")
+                return
+            try:
+                subprocess.run(["open", "-R", str(file_path)], check=False)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            except Exception as e:
+                self.send_error_response(f"Fehler beim Anzeigen im Finder: {e}")
+            return
+
+        if url.path == "/api/open_file":
+            file_path = Path(params.get("path", "")).resolve()
+            if not file_path.exists():
+                self.send_error_response("Datei nicht gefunden.")
+                return
+
+            # Aus Sicherheitsgründen keine Programme oder Skripte ausführen
+            blocked_exts = {
+                ".app", ".command", ".sh", ".bash", ".zsh", ".pkg", ".dmg",
+                ".scpt", ".scptd", ".workflow", ".applescript", ".action",
+                ".tool", ".bin", ".exe", ".bat", ".cmd"
+            }
+            if file_path.suffix.lower() in blocked_exts or file_path.name.lower().endswith(".app"):
+                self.send_error_response(
+                    f"Aus Sicherheitsgründen können Programme und Skripte ({file_path.suffix or '.app'}) nicht geöffnet werden."
+                )
+                return
+
+            try:
+                subprocess.run(["open", str(file_path)], check=False)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            except Exception as e:
+                self.send_error_response(f"Fehler beim Öffnen: {e}")
             return
 
         if url.path in ["/api/trash_duplicates", "/api/trash_files"]:

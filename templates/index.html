@@ -450,6 +450,7 @@
                         <span id="ocr-modal-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">BILD</span>
                         <p id="ocr-modal-method" class="text-xs text-slate-500">Methode: Lädt...</p>
                     </div>
+                    <div id="ocr-modal-path" class="text-[11px] font-mono text-slate-400 truncate mt-0.5 select-all" title=""></div>
                 </div>
                 <button onclick="closeOcrModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition flex-shrink-0">
                     ✕
@@ -458,9 +459,31 @@
 
             <!-- Modal Body (Scrollable) -->
             <div class="overflow-y-auto flex-1 p-5 space-y-4">
+                <!-- Duplikat-Hinweis (nur wenn Teil einer Duplikat-Gruppe) -->
+                <div id="modal-dup-container" class="hidden bg-amber-50 rounded-xl p-3 border border-amber-200 text-xs text-amber-900 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold flex items-center gap-1.5">
+                            <span>⚠️ Duplikat-Gruppe:</span>
+                            <span id="modal-dup-count-badge" class="font-semibold text-amber-800">2 Kopien</span>
+                        </span>
+                        <span class="text-[11px] text-amber-700">100% identischer Dateiinhalt</span>
+                    </div>
+                    <div id="modal-dup-list" class="space-y-1.5 max-h-36 overflow-y-auto"></div>
+                </div>
+
                 <!-- Bild-Vorschau (nur wenn Bild) -->
                 <div id="modal-image-container" class="hidden bg-slate-950 rounded-xl p-3 flex flex-col items-center justify-center border border-slate-800">
                     <img id="modal-img" src="" alt="Vorschau" class="max-h-[350px] max-w-full rounded-lg object-contain shadow-md">
+                </div>
+
+                <!-- PDF-Vorschau (nur wenn PDF) -->
+                <div id="modal-pdf-container" class="hidden bg-slate-100 rounded-xl overflow-hidden border border-slate-300 h-[450px]">
+                    <iframe id="modal-pdf" src="" class="w-full h-full border-0"></iframe>
+                </div>
+
+                <!-- Video-Player (nur wenn Video) -->
+                <div id="modal-video-container" class="hidden bg-slate-950 rounded-xl p-3 flex flex-col items-center justify-center border border-slate-800">
+                    <video id="modal-video" controls class="max-h-[350px] max-w-full rounded-lg shadow-md"></video>
                 </div>
 
                 <!-- Audio-Player (nur wenn Audio) -->
@@ -482,13 +505,21 @@
             </div>
 
             <!-- Footer -->
-            <div class="p-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+            <div class="p-4 border-t border-slate-200 flex flex-wrap items-center justify-between bg-slate-50 gap-2">
                 <button onclick="trashInspectedFile()" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 text-xs font-semibold rounded-xl transition border border-rose-200 flex items-center gap-1.5 shadow-xs" title="Diese Datei in den macOS-Papierkorb verschieben">
                     <span>🗑️ In Papierkorb</span>
                 </button>
-                <button onclick="closeOcrModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition shadow-xs">
-                    Schließen
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="revealCurrentInspectedInFinder()" class="px-3 py-2 bg-white hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition border border-slate-300 flex items-center gap-1.5 shadow-xs" title="Im macOS Finder anzeigen">
+                        <span>📁 Im Finder</span>
+                    </button>
+                    <button onclick="openCurrentInspectedFile()" class="px-3 py-2 bg-white hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition border border-slate-300 flex items-center gap-1.5 shadow-xs" title="Mit Standard-Programm auf dem Mac öffnen">
+                        <span>↗️ Öffnen</span>
+                    </button>
+                    <button onclick="closeOcrModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition shadow-xs">
+                        Schließen
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -634,7 +665,10 @@
             document.getElementById('loading-modal').classList.add('hidden');
         }
 
+        let currentActiveTab = 'catalog';
+
         function openTab(tabId) {
+            currentActiveTab = tabId;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('border-blue-600', 'text-blue-600');
@@ -642,8 +676,10 @@
             });
             document.getElementById('tab-' + tabId).classList.remove('hidden');
             const activeBtn = document.getElementById('tab-btn-' + tabId);
-            activeBtn.classList.remove('border-transparent', 'text-slate-500');
-            activeBtn.classList.add('border-blue-600', 'text-blue-600');
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent', 'text-slate-500');
+                activeBtn.classList.add('border-blue-600', 'text-blue-600');
+            }
 
             if (tabId === 'history') loadHistory();
         }
@@ -767,7 +803,11 @@
         async function pickFolder() {
             showLoading('Ordner auswählen', 'Warten auf Finder-Dialog...');
             try {
-                const res = await fetch('/api/pick_folder', { method: 'POST' });
+                const res = await fetch('/api/pick_folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
                 const data = await res.json();
                 if (data.path) {
                     document.getElementById('folder-path').value = data.path;
@@ -779,7 +819,7 @@
             }
         }
 
-        async function startCatalog() {
+        async function startCatalog(keepCurrentTab = false) {
             const folder = document.getElementById('folder-path').value.trim();
             if (!folder) return alert('Bitte zuerst einen Ordner angeben oder durchsuchen.');
 
@@ -800,7 +840,11 @@
 
                 renderCatalog(data);
                 renderDuplicates(data.duplicates, data.summary);
-                openTab('catalog');
+                if (keepCurrentTab && currentActiveTab) {
+                    openTab(currentActiveTab);
+                } else {
+                    openTab('catalog');
+                }
             } catch (e) {
                 alert('Fehler: ' + e.message);
             } finally {
@@ -1355,7 +1399,11 @@
         async function pickMoveFolder() {
             showLoading('Ordner auswählen', 'Warten auf Finder-Dialog...');
             try {
-                const res = await fetch('/api/pick_folder', { method: 'POST' });
+                const res = await fetch('/api/pick_folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
                 const data = await res.json();
                 if (data.path) {
                     document.getElementById('move-target-dir').value = data.path;
@@ -1471,8 +1519,8 @@
                 paths.forEach(p => selectedCatalogPaths.delete(p));
                 updateCatalogSelectionUI();
 
-                // Katalog neu laden
-                startCatalog();
+                // Katalog neu laden (Reiter beibehalten)
+                startCatalog(true);
             } catch (e) {
                 alert('Fehler beim Löschen: ' + e.message);
             } finally {
@@ -1487,7 +1535,13 @@
             document.getElementById('dup-badge-count').innerText = `${dupCount} Duplikate (${(summary.wasted_bytes / (1024*1024)).toFixed(1)} MB)`;
 
             if (Object.keys(dups).length === 0) {
-                document.getElementById('duplicates-placeholder').classList.remove('hidden');
+                const placeholder = document.getElementById('duplicates-placeholder');
+                placeholder.innerHTML = `
+                    <div class="text-4xl mb-3">🎉</div>
+                    <h3 class="font-semibold text-emerald-700 text-lg">Keine Duplikate gefunden!</h3>
+                    <p class="text-sm text-slate-500 mt-1">Alle erfassten Dateien sind inhaltlich einzigartig.</p>
+                `;
+                placeholder.classList.remove('hidden');
                 document.getElementById('duplicates-content').classList.add('hidden');
                 return;
             }
@@ -1502,40 +1556,56 @@
                 groupIndex++;
                 const sample = fileList[0];
                 const sizeMb = (sample.size_bytes / (1024*1024)).toFixed(2);
+                const sortedFiles = [...fileList].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
                 html += `
                     <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm dup-group" data-hash="${hash}">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold text-slate-800 text-sm truncate max-w-lg" title="${sample.filename}">${sample.filename}</span>
-                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">${fileList.length} identische Kopien (${sample.human_size})</span>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 mb-3 gap-2">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="font-bold text-slate-800 text-sm truncate max-w-md" title="${sample.filename}">${sample.filename}</span>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 whitespace-nowrap">${fileList.length} identische Kopien (${sample.human_size})</span>
                             </div>
-                            <span class="text-[11px] font-mono text-slate-400">SHA: ${hash.substring(0, 12)}...</span>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button onclick="inspectFileContent('${encodeURIComponent(sample.path)}', '${encodeURIComponent(sample.filename)}', '${sample.category}', '${sample.extension}')" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-xs font-semibold rounded-xl transition border border-blue-200 shadow-xs flex items-center gap-1.5" title="Vorschau dieser Datei anzeigen">
+                                    <span>👁️ Vorschau</span>
+                                </button>
+                                <span class="text-[11px] font-mono text-slate-400">SHA: ${hash.substring(0, 10)}...</span>
+                            </div>
                         </div>
 
                         <div class="space-y-2">
                 `;
-
-                // Sortiere nach Erstellungsdatum (ältestes zuerst)
-                const sortedFiles = [...fileList].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
                 sortedFiles.forEach((file, idx) => {
                     const isOldest = (idx === 0);
                     const isChecked = !isOldest; // Standard: Behalte älteste, markiere Kopien zum Löschen
 
                     html += `
-                        <label class="flex items-center justify-between p-3 rounded-xl ${isChecked ? 'bg-rose-50/60 border border-rose-200/80' : 'bg-emerald-50/60 border border-emerald-200/80'} cursor-pointer hover:shadow-xs transition">
-                            <div class="flex items-center gap-3 min-w-0 pr-4">
-                                <input type="checkbox" class="dup-checkbox rounded text-rose-600 focus:ring-rose-500 w-4 h-4" data-path="${encodeURIComponent(file.path)}" ${isChecked ? 'checked' : ''} onchange="updateTrashButtonCount()">
+                        <div class="dup-row flex items-center justify-between p-3 rounded-xl ${isChecked ? 'bg-rose-50/60 border border-rose-200/80' : 'bg-emerald-50/60 border border-emerald-200/80'} transition hover:shadow-xs" data-path="${encodeURIComponent(file.path)}">
+                            <label class="flex items-center gap-3 min-w-0 pr-3 cursor-pointer flex-1">
+                                <input type="checkbox" class="dup-checkbox rounded text-rose-600 focus:ring-rose-500 w-4 h-4 flex-shrink-0" data-path="${encodeURIComponent(file.path)}" ${isChecked ? 'checked' : ''} onchange="onDupRowCheckboxChanged(this)">
                                 <div class="min-w-0">
                                     <div class="font-mono text-xs text-slate-700 truncate" title="${file.path}">${file.path}</div>
-                                    <div class="text-[11px] text-slate-400 mt-0.5">Erstellt am: ${file.created_at ? file.created_at.substring(0, 19).replace('T', ' ') : 'unbekannt'}</div>
+                                    <div class="text-[11px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-2 sm:gap-3">
+                                        <span>Erstellt: ${file.created_at ? file.created_at.substring(0, 19).replace('T', ' ') : 'unbekannt'}</span>
+                                        <span class="text-slate-300">•</span>
+                                        <span>Größe: ${file.human_size}</span>
+                                    </div>
                                 </div>
+                            </label>
+
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <div class="status-badge">
+                                    ${isOldest ? '<span class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">★ ÄLTESTES ORIGINAL</span>' : '<span class="px-2 py-1 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">KOPIE</span>'}
+                                </div>
+                                <button onclick="event.stopPropagation(); inspectFileContent('${encodeURIComponent(file.path)}', '${encodeURIComponent(file.filename)}', '${file.category}', '${file.extension}')" class="px-2.5 py-1.5 bg-white hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs flex items-center gap-1" title="Vorschau & Details dieser Datei anzeigen">
+                                    <span>👁️ Vorschau</span>
+                                </button>
+                                <button onclick="event.stopPropagation(); revealInFinder('${encodeURIComponent(file.path)}')" class="px-2 py-1.5 bg-white hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs flex items-center gap-1" title="Im macOS Finder anzeigen">
+                                    <span>📁</span>
+                                </button>
                             </div>
-                            <div class="flex-shrink-0">
-                                ${isOldest ? '<span class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">★ ÄLTESTES ORIGINAL</span>' : '<span class="px-2 py-1 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">KOPIE</span>'}
-                            </div>
-                        </label>
+                        </div>
                     `;
                 });
 
@@ -1549,15 +1619,38 @@
             updateTrashButtonCount();
         }
 
+        function onDupRowCheckboxChanged(cb) {
+            const row = cb.closest('.dup-row');
+            if (row) {
+                if (cb.checked) {
+                    row.classList.remove('bg-emerald-50/60', 'border-emerald-200/80');
+                    row.classList.add('bg-rose-50/60', 'border-rose-200/80');
+                } else {
+                    row.classList.remove('bg-rose-50/60', 'border-rose-200/80');
+                    row.classList.add('bg-emerald-50/60', 'border-emerald-200/80');
+                }
+            }
+            updateTrashButtonCount();
+        }
+
         function autoSelectDuplicates(strategy) {
             document.querySelectorAll('.dup-group').forEach(group => {
                 const checkboxes = group.querySelectorAll('.dup-checkbox');
                 if (strategy === 'none') {
-                    checkboxes.forEach(cb => cb.checked = false);
+                    checkboxes.forEach(cb => {
+                        cb.checked = false;
+                        onDupRowCheckboxChanged(cb);
+                    });
                 } else if (strategy === 'keep_oldest') {
-                    checkboxes.forEach((cb, idx) => cb.checked = (idx !== 0));
+                    checkboxes.forEach((cb, idx) => {
+                        cb.checked = (idx !== 0);
+                        onDupRowCheckboxChanged(cb);
+                    });
                 } else if (strategy === 'keep_newest') {
-                    checkboxes.forEach((cb, idx) => cb.checked = (idx !== checkboxes.length - 1));
+                    checkboxes.forEach((cb, idx) => {
+                        cb.checked = (idx !== checkboxes.length - 1);
+                        onDupRowCheckboxChanged(cb);
+                    });
                 }
             });
             updateTrashButtonCount();
@@ -1595,8 +1688,8 @@
                 if (data.error) throw new Error(data.error);
 
                 alert(`✓ ${data.trashed_count} Duplikate wurden erfolgreich in den Papierkorb verschoben!\nFreigegebener Speicher: ca. ${data.freed_mb} MB.`);
-                // Erneut katalogisieren
-                startCatalog();
+                // Erneut katalogisieren (Reiter beibehalten)
+                startCatalog(true);
             } catch (e) {
                 alert('Fehler beim Löschen: ' + e.message);
             } finally {
@@ -1606,15 +1699,24 @@
 
         let currentInspectedPath = '';
         let currentInspectedName = '';
+        let currentInspectedCategory = '';
+        let currentInspectedExt = '';
 
         async function inspectFileContent(encodedPath, encodedName, category, extension) {
             const filePath = decodeURIComponent(encodedPath);
             const fileName = decodeURIComponent(encodedName);
             currentInspectedPath = filePath;
             currentInspectedName = fileName;
+            currentInspectedCategory = category || '';
+            currentInspectedExt = extension || '';
             const ext = (extension || '').toLowerCase();
 
             document.getElementById('ocr-modal-title').innerText = fileName;
+            const pathEl = document.getElementById('ocr-modal-path');
+            if (pathEl) {
+                pathEl.innerText = filePath;
+                pathEl.title = filePath;
+            }
             document.getElementById('ocr-modal-badge').innerText = (category || 'DATEI').toUpperCase();
             document.getElementById('ocr-modal-method').innerText = 'Lese Datei...';
             document.getElementById('ocr-modal-content').innerText = 'Lade Vorschau...';
@@ -1622,21 +1724,88 @@
 
             const imgContainer = document.getElementById('modal-image-container');
             const audioContainer = document.getElementById('modal-audio-container');
+            const pdfContainer = document.getElementById('modal-pdf-container');
+            const videoContainer = document.getElementById('modal-video-container');
+            const dupContainer = document.getElementById('modal-dup-container');
             const modalImg = document.getElementById('modal-img');
             const modalAudio = document.getElementById('modal-audio');
+            const modalPdf = document.getElementById('modal-pdf');
+            const modalVideo = document.getElementById('modal-video');
 
             imgContainer.classList.add('hidden');
             audioContainer.classList.add('hidden');
-            modalAudio.pause();
+            if (pdfContainer) pdfContainer.classList.add('hidden');
+            if (videoContainer) videoContainer.classList.add('hidden');
+            if (dupContainer) dupContainer.classList.add('hidden');
 
-            const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.ico', '.tiff', '.tif'].includes(ext);
+            modalAudio.pause();
+            modalAudio.src = '';
+            if (modalVideo) { modalVideo.pause(); modalVideo.src = ''; }
+            if (modalPdf) { modalPdf.src = ''; }
+            modalImg.src = '';
+
+            // Duplikate-Info prüfen und darstellen
+            if (duplicateGroups && dupContainer) {
+                let matchingGroup = null;
+                for (const [hash, fileList] of Object.entries(duplicateGroups)) {
+                    if (fileList.some(f => f.path === filePath)) {
+                        matchingGroup = fileList;
+                        break;
+                    }
+                }
+                if (matchingGroup && matchingGroup.length > 1) {
+                    dupContainer.classList.remove('hidden');
+                    document.getElementById('modal-dup-count-badge').innerText = `${matchingGroup.length} identische Kopien gefunden`;
+                    const sortedGroup = [...matchingGroup].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    const dupListEl = document.getElementById('modal-dup-list');
+                    dupListEl.innerHTML = sortedGroup.map((f, idx) => {
+                        const isCurrent = (f.path === filePath);
+                        const isOldest = (idx === 0);
+                        return `
+                            <div class="flex items-center justify-between p-2 rounded-lg ${isCurrent ? 'bg-amber-200/70 border border-amber-300 font-semibold' : 'bg-white/80 border border-amber-100'}">
+                                <div class="min-w-0 pr-2">
+                                    <div class="font-mono text-[11px] truncate text-slate-800" title="${f.path}">
+                                        ${isCurrent ? '👉 ' : ''}${f.path}
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 mt-0.5">
+                                        Erstellt: ${f.created_at ? f.created_at.substring(0, 19).replace('T', ' ') : 'unbekannt'}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    ${isOldest ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">ORIGINAL</span>' : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-800">KOPIE</span>'}
+                                    ${!isCurrent ? `<button onclick="inspectFileContent('${encodeURIComponent(f.path)}', '${encodeURIComponent(f.filename)}', '${f.category}', '${f.extension}')" class="px-2 py-0.5 bg-blue-100 hover:bg-blue-600 hover:text-white text-blue-800 text-[10px] font-medium rounded transition">Vorschau</button>` : '<span class="text-[10px] text-amber-800 font-bold px-1.5">Aktuell</span>'}
+                                    <button onclick="revealInFinder('${encodeURIComponent(f.path)}')" class="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] rounded transition" title="Im Finder zeigen">📁</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.ico', '.tiff', '.tif', '.heic', '.heif'].includes(ext);
             const isAudio = ['.mp3', '.m4a', '.wav', '.flac', '.aac', '.ogg'].includes(ext);
+            const isPdf = ext === '.pdf';
+            const isVideo = ['.mp4', '.mov', '.webm', '.m4v'].includes(ext);
 
             if (isImage) {
                 imgContainer.classList.remove('hidden');
                 modalImg.src = '/api/file_preview?path=' + encodedPath;
                 document.getElementById('ocr-section-title').innerText = '🖼️ Erkannter Text im Bild (Apple Vision OCR):';
                 document.getElementById('ocr-modal-content').innerText = 'Führe Texterkennung auf Apple Neural Engine durch...';
+            } else if (isPdf) {
+                if (pdfContainer && modalPdf) {
+                    pdfContainer.classList.remove('hidden');
+                    modalPdf.src = '/api/file_preview?path=' + encodedPath + '#toolbar=0';
+                }
+                document.getElementById('ocr-section-title').innerText = '📄 Extrahierter Dokumenten-Text (PDF):';
+                document.getElementById('ocr-modal-content').innerText = 'Lese PDF-Text...';
+            } else if (isVideo) {
+                if (videoContainer && modalVideo) {
+                    videoContainer.classList.remove('hidden');
+                    modalVideo.src = '/api/file_preview?path=' + encodedPath;
+                }
+                document.getElementById('ocr-section-title').innerText = '🎬 Video-Informationen:';
+                document.getElementById('ocr-modal-content').innerText = 'Video geladen.';
             } else if (isAudio) {
                 audioContainer.classList.remove('hidden');
                 modalAudio.src = '/api/file_preview?path=' + encodedPath;
@@ -1665,6 +1834,8 @@
                 } else {
                     if (isImage) {
                         document.getElementById('ocr-modal-content').innerText = '[Kein lesbarer Text in diesem Bild gefunden / Reines Foto]';
+                    } else if (isVideo) {
+                        document.getElementById('ocr-modal-content').innerText = '[Reine Videodatei - kein Textinhalt]';
                     } else {
                         document.getElementById('ocr-modal-content').innerText = '[Kein lesbarer Text extrahiert]';
                     }
@@ -1674,12 +1845,60 @@
             }
         }
 
+        async function revealInFinder(encodedPath) {
+            const path = decodeURIComponent(encodedPath);
+            try {
+                const res = await fetch('/api/reveal_in_finder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: path })
+                });
+                const data = await res.json();
+                if (data.error) alert('Fehler: ' + data.error);
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            }
+        }
+
+        async function openFile(encodedPath) {
+            const path = decodeURIComponent(encodedPath);
+            try {
+                const res = await fetch('/api/open_file', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: path })
+                });
+                const data = await res.json();
+                if (data.error) alert('Fehler: ' + data.error);
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            }
+        }
+
+        function revealCurrentInspectedInFinder() {
+            if (currentInspectedPath) revealInFinder(encodeURIComponent(currentInspectedPath));
+        }
+
+        function openCurrentInspectedFile() {
+            if (currentInspectedPath) openFile(encodeURIComponent(currentInspectedPath));
+        }
+
         function closeOcrModal() {
             const modalAudio = document.getElementById('modal-audio');
             if (modalAudio) {
                 modalAudio.pause();
                 modalAudio.currentTime = 0;
                 modalAudio.src = '';
+            }
+            const modalVideo = document.getElementById('modal-video');
+            if (modalVideo) {
+                modalVideo.pause();
+                modalVideo.currentTime = 0;
+                modalVideo.src = '';
+            }
+            const modalPdf = document.getElementById('modal-pdf');
+            if (modalPdf) {
+                modalPdf.src = '';
             }
             const modalImg = document.getElementById('modal-img');
             if (modalImg) {
