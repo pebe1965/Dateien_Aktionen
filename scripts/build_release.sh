@@ -27,6 +27,7 @@ cp "$PROJECT_DIR/organizer.py" "$APP_DIR/"
 cp "$PROJECT_DIR/ai_engine.py" "$APP_DIR/"
 cp "$PROJECT_DIR/main.py" "$APP_DIR/"
 cp "$PROJECT_DIR/templates/index.html" "$APP_DIR/templates/"
+cp "$PROJECT_DIR/templates/index.html" "$APP_DIR/index.html" 2>/dev/null || true
 
 # Native Binaries kopieren
 if [ -d "$PROJECT_DIR/bin" ]; then

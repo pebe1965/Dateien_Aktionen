@@ -24,22 +24,43 @@ sys.path.insert(0, str(BASE_DIR))
 import config
 from classifier import Catalog
 from extractor import extract_content
-from organizer import Organizer, rollback_manifest, HISTORY_DIR
+from organizer import Organizer, rollback_manifest, get_unique_target_path, HISTORY_DIR
 
 
 def move_to_macos_trash(file_path: Path) -> bool:
     """Verschiebt eine Datei sicher in den macOS Papierkorb (~/.Trash)."""
     try:
-        # 1. Bevorzuge Applescript Finder delete (nativer Papierkorb mit Zurücklegen-Option)
-        escaped_path = str(file_path.resolve()).replace('"', '\\"')
-        cmd = ["osascript", "-e", f'tell application "Finder" to delete (POSIX file "{escaped_path}")']
-        res = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=6)
-        if res.returncode == 0:
+        if not file_path.exists():
             return True
     except Exception:
         pass
 
-    # 2. Fallback: Direkt in ~/.Trash verschieben mit Zeitstempel bei Namensdopplung
+    resolved = file_path.resolve()
+
+    # 1. Bevorzuge /usr/bin/trash (Apple-eigenes CLI-Tool, kein Finder-AppleScript-Popup nötig)
+    if Path("/usr/bin/trash").is_file():
+        try:
+            res = subprocess.run(
+                ["/usr/bin/trash", str(resolved)],
+                capture_output=True, text=True, check=False, timeout=20
+            )
+            if res.returncode == 0 and not resolved.exists():
+                return True
+        except Exception:
+            pass
+
+    # 2. Applescript Finder delete (nativer Papierkorb mit Zurücklegen-Option)
+    try:
+        escaped_path = str(resolved).replace('\\', '\\\\').replace('"', '\\"')
+        cmd = ["osascript", "-e", f'tell application "Finder" to delete (POSIX file "{escaped_path}")']
+        # Timeout auf 30 Sekunden: Wenn macOS nach Erlaubnis fragt, hat der Nutzer Zeit zu reagieren
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
+        if res.returncode == 0 and not resolved.exists():
+            return True
+    except Exception:
+        pass
+
+    # 3. Fallback: Direkt in ~/.Trash verschieben mit Zeitstempel bei Namensdopplung
     try:
         trash_dir = Path.home() / ".Trash"
         if trash_dir.exists():
@@ -1015,7 +1036,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_error_response(f"Konnte Zielordner nicht erstellen: {e}")
                 return
 
-            from organizer import get_unique_target_path
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             manifest_file = HISTORY_DIR / f"manifest_move_{timestamp}.json"
             manifest_entries = []
@@ -1076,9 +1096,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if not items:
                 self.send_error_response("Keine Dateien zum Ausführen übergeben.")
                 return
-
-            import shutil
-            from datetime import datetime
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             manifest_file = HISTORY_DIR / f"manifest_{timestamp}.json"
@@ -1226,60 +1243,93 @@ LOCAL_MODEL=local-model
             return
 
         if url.path in ["/api/trash_duplicates", "/api/trash_files"]:
-            paths = params.get("paths", [])
-            if not paths:
-                self.send_error_response("Keine Dateien zum Löschen übergeben.")
-                return
+            try:
+                paths = params.get("paths", [])
+                if not paths:
+                    self.send_error_response("Keine Dateien zum Löschen übergeben.")
+                    return
 
-            trashed = []
-            failed = []
-            freed_bytes = 0
+                trashed = []
+                failed = []
+                freed_bytes = 0
 
-            for p_str in paths:
-                p = Path(p_str).resolve()
-                if p.exists():
+                # 1. Dateigrößen vorab erfassen
+                file_sizes = {}
+                for p_str in paths:
                     try:
-                        if p.is_file():
-                            size = p.stat().st_size
-                        else:
-                            size = sum(f.stat().st_size for f in p.glob("**/*") if f.is_file())
+                        p = Path(p_str).resolve()
+                        if p.exists():
+                            if p.is_file():
+                                file_sizes[p] = p.stat().st_size
+                            else:
+                                file_sizes[p] = sum(f.stat().st_size for f in p.glob("**/*") if f.is_file())
                     except Exception:
-                        size = 0
-                    if move_to_macos_trash(p):
+                        pass
+
+                # 2. Schneller Batch-Lauf über /usr/bin/trash (Apple-eigenes Tool, falls vorhanden)
+                existing_candidates = list(file_sizes.keys())
+                if existing_candidates and Path("/usr/bin/trash").is_file():
+                    try:
+                        cmd = ["/usr/bin/trash"] + [str(p) for p in existing_candidates]
+                        subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
+                    except Exception:
+                        pass
+
+                # 3. Status für alle Dateien prüfen bzw. per AppleScript / Fallback nachverschieben
+                for p, size in file_sizes.items():
+                    if not p.exists():
+                        trashed.append(str(p))
+                        freed_bytes += size
+                    elif move_to_macos_trash(p):
                         trashed.append(str(p))
                         freed_bytes += size
                     else:
                         failed.append(str(p))
 
-            # Protokoll speichern
-            log_file = HISTORY_DIR / f"trash_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            with open(log_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "timestamp": datetime.now().isoformat(),
-                    "trashed_count": len(trashed),
-                    "freed_bytes": freed_bytes,
-                    "trashed_files": trashed,
-                    "failed_files": failed
-                }, f, indent=2, ensure_ascii=False)
+                # Dateien, die schon vorab nicht mehr existierten, als trashed verbuchen
+                for p_str in paths:
+                    p = Path(p_str).resolve()
+                    if p not in file_sizes and not p.exists():
+                        trashed.append(str(p))
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "success": True,
-                "trashed_count": len(trashed),
-                "freed_mb": round(freed_bytes / (1024 * 1024), 2),
-                "failed_count": len(failed),
-                "failed_files": failed,
-                "log": log_file.name
-            }).encode("utf-8"))
-            return
+                # Protokoll im Benutzerordner speichern
+                log_name = None
+                try:
+                    log_file = HISTORY_DIR / f"trash_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    with open(log_file, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "timestamp": datetime.now().isoformat(),
+                            "trashed_count": len(trashed),
+                            "freed_bytes": freed_bytes,
+                            "trashed_files": trashed,
+                            "failed_files": failed
+                        }, f, indent=2, ensure_ascii=False)
+                    log_name = log_file.name
+                except Exception as e:
+                    sys.stderr.write(f"Fehler beim Speichern des Papierkorb-Protokolls: {e}\n")
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "trashed_count": len(trashed),
+                    "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+                    "failed_count": len(failed),
+                    "failed_files": failed,
+                    "log": log_name
+                }).encode("utf-8"))
+                return
+            except Exception as e:
+                sys.stderr.write(f"Fehler in trash_files: {e}\n")
+                self.send_error_response(f"Fehler beim Verschieben in den Papierkorb: {str(e)}", status_code=500)
+                return
 
         self.send_response(404)
         self.end_headers()
 
-    def send_error_response(self, message: str):
-        self.send_response(400)
+    def send_error_response(self, message: str, status_code: int = 400):
+        self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps({"error": message}).encode("utf-8"))

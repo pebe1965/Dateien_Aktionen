@@ -1499,19 +1499,29 @@
         async function performTrashFiles(paths) {
             if (!paths || paths.length === 0) return;
 
-            showLoading('Verschiebe in den Papierkorb...', `${paths.length} Datei(en) werden sicher in ~/.Trash gelegt...`);
+            showLoading('Verschiebe in den Papierkorb...', `${paths.length} Datei(en) werden in den macOS-Papierkorb verschoben...`);
             try {
                 const res = await fetch('/api/trash_files', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ paths: paths })
                 });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    throw new Error(`Server antwortete nicht wie erwartet (HTTP ${res.status})`);
+                }
+                if (!res.ok || data.error) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
 
                 let msg = `✓ ${data.trashed_count} Datei(en) erfolgreich in den Papierkorb verschoben!\nFreigegebener Speicher: ca. ${data.freed_mb} MB.`;
                 if (data.failed_count && data.failed_count > 0) {
                     msg += `\n\n⚠️ ${data.failed_count} Datei(en) konnten nicht verschoben werden.`;
+                    if (data.failed_files && data.failed_files.length > 0) {
+                        msg += `\nBetroffen:\n` + data.failed_files.slice(0, 5).join('\n');
+                    }
                 }
                 alert(msg);
 
@@ -1523,6 +1533,8 @@
                 startCatalog(true);
             } catch (e) {
                 alert('Fehler beim Löschen: ' + e.message);
+                // Selbst bei Fehler Katalog neu laden, damit tatsächlich gelöschte Dateien verschwinden
+                startCatalog(true);
             } finally {
                 hideLoading();
             }
@@ -1677,21 +1689,29 @@
             const confirmMsg = `Möchten Sie ${paths.length} doppelte Dateien jetzt in den macOS-Papierkorb verschieben?\n\n(Sie können die Dateien im Papierkorb bei Bedarf jederzeit wiederherstellen)`;
             if (!confirm(confirmMsg)) return;
 
-            showLoading('Verschiebe in den Papierkorb...', `${paths.length} Dateien werden sicher in ~/.Trash gelegt...`);
+            showLoading('Verschiebe in den Papierkorb...', `${paths.length} Duplikate werden in den macOS-Papierkorb verschoben...`);
             try {
                 const res = await fetch('/api/trash_duplicates', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ paths: paths })
                 });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    throw new Error(`Server antwortete nicht wie erwartet (HTTP ${res.status})`);
+                }
+                if (!res.ok || data.error) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
 
                 alert(`✓ ${data.trashed_count} Duplikate wurden erfolgreich in den Papierkorb verschoben!\nFreigegebener Speicher: ca. ${data.freed_mb} MB.`);
                 // Erneut katalogisieren (Reiter beibehalten)
                 startCatalog(true);
             } catch (e) {
                 alert('Fehler beim Löschen: ' + e.message);
+                startCatalog(true);
             } finally {
                 hideLoading();
             }
