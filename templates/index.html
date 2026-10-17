@@ -83,6 +83,10 @@
             <button onclick="openTab('preview')" id="tab-btn-preview" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
                 ✨ KI-Umbenennung & Vorschau
             </button>
+            <button onclick="openTab('autopilot')" id="tab-btn-autopilot" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
+                <span>⚡ Autopilot / Wächter</span>
+                <span id="tab-badge-autopilot" class="w-2 h-2 rounded-full bg-slate-300" title="Autopilot Status"></span>
+            </button>
             <button onclick="openTab('history')" id="tab-btn-history" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
                 🕒 Protokoll & Rückgängig
             </button>
@@ -317,13 +321,20 @@
             <div id="preview-results" class="hidden">
                 <!-- Action Bar -->
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4 bg-blue-50/70 p-4 rounded-xl border border-blue-100">
-                    <div class="text-sm text-blue-900">
-                        <span id="selected-count" class="font-bold">0</span> Dateien ausgewählt zur Organisation.
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-blue-900">
+                        <span><span id="selected-count" class="font-bold">0</span> Dateien ausgewählt zur Organisation.</span>
+                        <button onclick="startPreview(true)" class="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 transition shadow-xs" title="Ignoriert den lokalen KI-Cache und fragt die KI komplett neu an">
+                            🔄 Neu analysieren (Cache ignorieren)
+                        </button>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer" title="Schreibt Dokumenttyp, Absender & KI-Zusammenfassung direkt in die macOS Finder-Tags & Spotlight-Kommentare">
+                            <input type="checkbox" id="apply-tags-mode" checked class="rounded text-blue-600">
+                            <span>🏷️ macOS Finder-Tags & Spotlight-Kommentar setzen</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                             <input type="checkbox" id="copy-mode" class="rounded text-blue-600">
-                            Kopieren (statt Verschieben)
+                            <span>Kopieren (statt Verschieben)</span>
                         </label>
                         <button onclick="executeRenaming()" id="btn-execute" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2">
                             🚀 Jetzt anwenden (<span id="btn-exec-count">0</span>)
@@ -340,16 +351,145 @@
                                     <th class="p-4 w-12 text-center">
                                         <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" checked class="rounded text-blue-600">
                                     </th>
-                                    <th class="p-4 w-4/12">Ursprüngliche Datei</th>
+                                    <th class="p-4 w-3/12">Ursprüngliche Datei</th>
                                     <th class="p-4 w-4/12">Neuer Name (editierbar)</th>
-                                    <th class="p-4 w-2/12">Zielordner</th>
-                                    <th class="p-4 w-2/12">KI-Erkennung</th>
+                                    <th class="p-4 w-2/12">Zielordner (editierbar)</th>
+                                    <th class="p-4 w-3/12">KI-Erkennung</th>
                                 </tr>
                             </thead>
                             <tbody id="preview-tbody" class="divide-y divide-slate-100">
                                 <!-- Zeilen werden per JS eingefügt -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 3.5: AUTOPILOT / ORDNER-WÄCHTER ==================== -->
+        <div id="tab-autopilot" class="tab-content hidden space-y-6">
+            <!-- Status Banner & Steuerung -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-start gap-4">
+                    <div id="ap-status-icon" class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center text-2xl shrink-0">
+                        ⚡
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2.5">
+                            <h3 class="font-bold text-slate-800 text-lg">Hintergrund-Ordner-Wächter (Autopilot)</h3>
+                            <span id="ap-status-pill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Pausiert</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Überwacht ausgewählte Ordner (z. B. <code class="bg-slate-100 px-1.5 py-0.5 rounded">~/Downloads</code> oder <code class="bg-slate-100 px-1.5 py-0.5 rounded">~/Desktop</code>) automatisch im Hintergrund auf neue Dateien und sortiert sie per KI & Apple Vision OCR ein.
+                        </p>
+                        <div class="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center gap-4">
+                            <span>Letzter Prüflauf: <b id="ap-last-scan" class="text-slate-600">Noch keiner</b></span>
+                            <span>Sortiert in dieser Sitzung: <b id="ap-session-count" class="text-emerald-600">0 Dateien</b></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <button onclick="scanAutopilotNow()" id="btn-ap-scan-now" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                        🔍 Jetzt sofort prüfen
+                    </button>
+                    <button onclick="toggleAutopilot()" id="btn-ap-toggle" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2">
+                        ▶️ Autopilot starten
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Linke Spalte: Einstellungen & macOS LaunchAgent -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                        <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider text-slate-500">Wächter-Konfiguration</h4>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-bold text-slate-700">Überwachte Ordner (1 Pfad pro Zeile)</label>
+                                <button onclick="addAutopilotWatchFolder()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                    📂 Ordner hinzufügen...
+                                </button>
+                            </div>
+                            <textarea id="ap-watch-folders" rows="3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="/Users/name/Downloads"></textarea>
+                            <p class="text-[11px] text-slate-400 mt-1">Es werden nur neue Dateien auf oberster Ebene überwacht (unfertige Browser-Downloads werden automatisch ignoriert).</p>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-bold text-slate-700">Optionaler zentraler Zielordner</label>
+                                <button onclick="pickAutopilotTargetFolder()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                    📂 Wählen...
+                                </button>
+                            </div>
+                            <input type="text" id="ap-target-folder" placeholder="Leer lassen = Unterordner direkt im überwachten Ordner anlegen" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Prüf-Intervall (Sek.)</label>
+                                <input type="number" id="ap-interval" min="5" max="3600" value="30" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Mindestalter Datei (Sek.)</label>
+                                <input type="number" id="ap-min-age" min="2" max="600" value="10" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold" title="Wartet nach Download/Erstellung diese Zeit ab, bevor die Datei angefasst wird">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="ap-apply-tags" checked class="rounded text-blue-600">
+                                <span>🏷️ Native macOS Finder-Tags & Spotlight-Kommentar setzen</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="ap-notifications" checked class="rounded text-blue-600">
+                                <span>🔔 macOS System-Mitteilung bei Sortierung anzeigen</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="ap-copy-mode" class="rounded text-blue-600">
+                                <span>📋 Kopieren statt Verschieben (Originaldatei behalten)</span>
+                            </label>
+                        </div>
+
+                        <button onclick="saveAutopilotConfig()" class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition">
+                            💾 Autopilot-Einstellungen speichern
+                        </button>
+                        <div id="ap-save-msg" class="text-xs text-emerald-600 font-semibold text-center hidden">✓ Autopilot-Konfiguration gespeichert!</div>
+                    </div>
+
+                    <!-- macOS LaunchAgent Integration -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">🍏</span>
+                                <h5 class="font-bold text-slate-800 text-xs">macOS Hintergrunddienst (LaunchAgent)</h5>
+                                <span id="ap-agent-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">Inaktiv</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1">
+                                Startet den Ordner-Wächter automatisch beim Anmelden am Mac im Hintergrund – auch ohne geöffnetes Browserfenster.
+                            </p>
+                        </div>
+                        <button onclick="toggleLaunchAgent()" id="btn-ap-agent" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold whitespace-nowrap transition">
+                            Aktivieren
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Rechte Spalte: Live-Aktivitätsprotokoll -->
+                <div class="lg:col-span-7">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-base">📋 Automatisch sortierte Dateien (Live-Log)</h4>
+                                <p class="text-xs text-slate-400">Jede Autopilot-Aktion legt zudem ein Manifest an und kann jederzeit rückgängig gemacht werden.</p>
+                            </div>
+                            <button onclick="loadAutopilotStatus()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition">
+                                🔄 Aktualisieren
+                            </button>
+                        </div>
+                        <div id="ap-log-list" class="space-y-2.5 overflow-y-auto max-h-[520px] flex-1">
+                            <p class="text-xs text-slate-400 py-8 text-center">Noch keine automatischen Sortierungen protokolliert.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -636,11 +776,21 @@
 
     <!-- Loading Spinner Modal -->
     <div id="loading-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-        <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 max-w-sm text-center">
+        <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 w-full max-w-md text-center mx-4">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <div>
+            <div class="w-full">
                 <h4 id="loading-title" class="font-bold text-slate-800">Verarbeite...</h4>
                 <p id="loading-desc" class="text-xs text-slate-500 mt-1">Bitte einen Moment Geduld.</p>
+                <div id="loading-progress-wrap" class="hidden mt-4 w-full">
+                    <div class="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                        <span id="loading-progress-file" class="truncate max-w-[260px]">Starte...</span>
+                        <span id="loading-progress-nums">0 / 0</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div id="loading-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div id="loading-cache-hits" class="text-[10px] text-emerald-600 font-medium mt-1.5 hidden">⚡ 0 aus Blitz-Cache geladen</div>
+                </div>
             </div>
         </div>
     </div>
@@ -654,14 +804,47 @@
         let currentPage = 1;
         let pageSize = 50;
         let selectedCatalogPaths = new Set();
+        let progressInterval = null;
 
-        function showLoading(title, desc) {
+        function showLoading(title, desc, pollProgress = false) {
             document.getElementById('loading-title').innerText = title;
             document.getElementById('loading-desc').innerText = desc || 'Bitte warten...';
+            const wrap = document.getElementById('loading-progress-wrap');
+            if (pollProgress) {
+                wrap.classList.remove('hidden');
+                document.getElementById('loading-progress-bar').style.width = '2%';
+                document.getElementById('loading-progress-file').innerText = 'Initialisiere...';
+                document.getElementById('loading-progress-nums').innerText = '';
+                document.getElementById('loading-cache-hits').classList.add('hidden');
+                if (progressInterval) clearInterval(progressInterval);
+                progressInterval = setInterval(async () => {
+                    try {
+                        const r = await fetch('/api/progress');
+                        const p = await r.json();
+                        if (p.total > 0) {
+                            const pct = Math.min(100, Math.round((p.current / p.total) * 100));
+                            document.getElementById('loading-progress-bar').style.width = pct + '%';
+                            document.getElementById('loading-progress-file').innerText = p.current_file || 'Analysiere...';
+                            document.getElementById('loading-progress-nums').innerText = `${p.current} / ${p.total} (${pct}%)`;
+                            const ch = document.getElementById('loading-cache-hits');
+                            if (p.cached_hits > 0) {
+                                ch.innerText = `⚡ ${p.cached_hits} Datei(en) sofort aus dem Blitz-Cache geladen`;
+                                ch.classList.remove('hidden');
+                            }
+                        }
+                    } catch (e) {}
+                }, 400);
+            } else {
+                wrap.classList.add('hidden');
+            }
             document.getElementById('loading-modal').classList.remove('hidden');
         }
 
         function hideLoading() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
             document.getElementById('loading-modal').classList.add('hidden');
         }
 
@@ -682,6 +865,7 @@
             }
 
             if (tabId === 'history') loadHistory();
+            if (tabId === 'autopilot') loadAutopilotStatus(true);
         }
 
         async function fetchStatus() {
@@ -839,7 +1023,7 @@
                 updateCatalogSelectionUI();
 
                 renderCatalog(data);
-                renderDuplicates(data.duplicates, data.summary);
+                renderDuplicates(data.duplicates, data.summary, data.similar_images);
                 if (keepCurrentTab && currentActiveTab) {
                     openTab(currentActiveTab);
                 } else {
@@ -903,9 +1087,12 @@
             document.getElementById('tab-badge-files').innerText = s.total_files.toLocaleString('de-DE');
             document.getElementById('tab-badge-files').classList.remove('hidden');
 
-            document.getElementById('tab-badge-dups').innerText = s.duplicate_files_count.toLocaleString('de-DE');
-            if (s.duplicate_files_count > 0) {
+            const totalDupBadge = (s.duplicate_files_count || 0) + (s.similar_images_count || 0);
+            document.getElementById('tab-badge-dups').innerText = totalDupBadge.toLocaleString('de-DE');
+            if (totalDupBadge > 0) {
                 document.getElementById('tab-badge-dups').classList.remove('hidden');
+            } else {
+                document.getElementById('tab-badge-dups').classList.add('hidden');
             }
 
             document.getElementById('stats-grid').innerHTML = `
@@ -1357,7 +1544,7 @@
             const paths = Array.from(selectedCatalogPaths);
 
             const prefixMsg = prefixVal ? ` mit Flag "${prefixVal}"` : '';
-            showLoading('KI-Analyse läuft', `Analysiere ${paths.length} ausgewählte Datei(en)${prefixMsg} (ausgelagerte Cloud-Dateien werden bei Bedarf automatisch geladen)...`);
+            showLoading('KI-Analyse läuft', `Analysiere ${paths.length} ausgewählte Datei(en)${prefixMsg} (ausgelagerte Cloud-Dateien werden bei Bedarf automatisch geladen)...`, true);
             try {
                 const res = await fetch('/api/preview', {
                     method: 'POST',
@@ -1541,17 +1728,23 @@
         }
 
         // ==================== DUPLIKATE-MANAGER RENDERING ====================
-        function renderDuplicates(dups, summary) {
+        function renderDuplicates(dups, summary, similarImages = []) {
             const container = document.getElementById('duplicates-groups-container');
             const dupCount = summary.duplicate_files_count || 0;
-            document.getElementById('dup-badge-count').innerText = `${dupCount} Duplikate (${(summary.wasted_bytes / (1024*1024)).toFixed(1)} MB)`;
+            const simCount = summary.similar_images_count || 0;
+            const simLabel = simCount > 0 ? ` + ${simCount} ähnl. Fotos` : '';
+            document.getElementById('dup-badge-count').innerText = `${dupCount} Duplikate (${(summary.wasted_bytes / (1024*1024)).toFixed(1)} MB)${simLabel}`;
 
-            if (Object.keys(dups).length === 0) {
+            const simList = Array.isArray(similarImages)
+                ? similarImages
+                : Object.entries(similarImages || {}).map(([k, v]) => Array.isArray(v) ? { dhash: k, similarity_pct: 95, files: v } : v);
+
+            if (Object.keys(dups || {}).length === 0 && simList.length === 0) {
                 const placeholder = document.getElementById('duplicates-placeholder');
                 placeholder.innerHTML = `
                     <div class="text-4xl mb-3">🎉</div>
-                    <h3 class="font-semibold text-emerald-700 text-lg">Keine Duplikate gefunden!</h3>
-                    <p class="text-sm text-slate-500 mt-1">Alle erfassten Dateien sind inhaltlich einzigartig.</p>
+                    <h3 class="font-semibold text-emerald-700 text-lg">Keine Duplikate oder Serienbild-Doppelgänger gefunden!</h3>
+                    <p class="text-sm text-slate-500 mt-1">Alle erfassten Dateien und Fotos sind inhaltlich einzigartig.</p>
                 `;
                 placeholder.classList.remove('hidden');
                 document.getElementById('duplicates-content').classList.add('hidden');
@@ -1564,10 +1757,10 @@
             let html = '';
             let groupIndex = 0;
 
-            for (const [hash, fileList] of Object.entries(dups)) {
+            for (const [hash, fileList] of Object.entries(dups || {})) {
+                if (!Array.isArray(fileList) || fileList.length === 0) continue;
                 groupIndex++;
                 const sample = fileList[0];
-                const sizeMb = (sample.size_bytes / (1024*1024)).toFixed(2);
                 const sortedFiles = [...fileList].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
                 html += `
@@ -1625,6 +1818,71 @@
                         </div>
                     </div>
                 `;
+            }
+
+            if (simList.length > 0) {
+                html += `
+                    <div class="pt-4 pb-1">
+                        <h4 class="font-bold text-indigo-800 text-sm flex items-center gap-2">
+                            <span>📸 Visuell ähnliche Fotos / Serienbilder (Perceptual dHash)</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700">${simList.length} Gruppen</span>
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-0.5">Diese Bilder sind optisch fast identisch (z. B. Serienaufnahmen, skalierte Kopien oder WhatsApp-Kompressionen). Standardmäßig wird die größte/beste Auflösung behalten.</p>
+                    </div>
+                `;
+                for (const groupObj of simList) {
+                    const fileList = Array.isArray(groupObj) ? groupObj : (groupObj && Array.isArray(groupObj.files) ? groupObj.files : []);
+                    if (fileList.length === 0) continue;
+                    const simKey = (groupObj && groupObj.dhash) ? groupObj.dhash : 'dhash';
+                    const simPct = (groupObj && groupObj.similarity_pct) ? `${groupObj.similarity_pct}% Ähnlichkeit` : 'Visueller dHash';
+                    const sortedFiles = [...fileList].sort((a, b) => (b.size_bytes || 0) - (a.size_bytes || 0));
+                    const sample = sortedFiles[0];
+                    html += `
+                        <div class="bg-indigo-50/30 rounded-2xl p-5 border border-indigo-200 shadow-sm dup-group" data-hash="${simKey}">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-indigo-100 mb-3 gap-2">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <span class="font-bold text-slate-800 text-sm truncate max-w-md" title="${sample.filename}">📸 ${sample.filename}</span>
+                                    <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-100 text-indigo-800 whitespace-nowrap">${fileList.length} optisch ähnliche Bilder (${simPct})</span>
+                                </div>
+                                <span class="text-[11px] font-mono text-indigo-400">dHash: ${String(simKey).substring(0, 12)}</span>
+                            </div>
+                            <div class="space-y-2">
+                    `;
+                    sortedFiles.forEach((file, idx) => {
+                        const isBest = (idx === 0);
+                        const isChecked = false; // Bei ähnlichen Fotos standardmäßig nicht automatisch anhaken, damit Nutzer entscheiden kann
+                        html += `
+                            <div class="dup-row flex items-center justify-between p-3 rounded-xl ${isChecked ? 'bg-rose-50/60 border border-rose-200/80' : 'bg-white border border-slate-200'} transition hover:shadow-xs" data-path="${encodeURIComponent(file.path)}">
+                                <label class="flex items-center gap-3 min-w-0 pr-3 cursor-pointer flex-1">
+                                    <input type="checkbox" class="dup-checkbox rounded text-rose-600 focus:ring-rose-500 w-4 h-4 flex-shrink-0" data-path="${encodeURIComponent(file.path)}" ${isChecked ? 'checked' : ''} onchange="onDupRowCheckboxChanged(this)">
+                                    <div class="min-w-0">
+                                        <div class="font-mono text-xs text-slate-700 truncate" title="${file.path}">${file.path}</div>
+                                        <div class="text-[11px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-2 sm:gap-3">
+                                            <span>Erstellt: ${file.created_at ? file.created_at.substring(0, 19).replace('T', ' ') : 'unbekannt'}</span>
+                                            <span class="text-slate-300">•</span>
+                                            <span>Größe: <b>${file.human_size}</b></span>
+                                        </div>
+                                    </div>
+                                </label>
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <div class="status-badge">
+                                        ${isBest ? '<span class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">★ BESTE QUALITÄT</span>' : '<span class="px-2 py-1 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">ÄHNLICH / KLEINER</span>'}
+                                    </div>
+                                    <button onclick="event.stopPropagation(); inspectFileContent('${encodeURIComponent(file.path)}', '${encodeURIComponent(file.filename)}', '${file.category}', '${file.extension}')" class="px-2.5 py-1.5 bg-white hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs flex items-center gap-1">
+                                        <span>👁️ Vorschau</span>
+                                    </button>
+                                    <button onclick="event.stopPropagation(); revealInFinder('${encodeURIComponent(file.path)}')" class="px-2 py-1.5 bg-white hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition border border-slate-200 shadow-xs flex items-center gap-1" title="Im macOS Finder anzeigen">
+                                        <span>📁</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
             container.innerHTML = html;
@@ -1938,16 +2196,16 @@
             }
         });
 
-        async function startPreview() {
+        async function startPreview(forceRefresh = false) {
             const folder = document.getElementById('folder-path').value.trim();
             if (!folder) return alert('Bitte zuerst einen Ordner angeben.');
 
-            showLoading('KI-Analyse läuft', 'Extrahiere Text, führe OCR durch (Cloud-Dateien werden bei Bedarf geladen) und befrage Gemini...');
+            showLoading('KI-Analyse läuft', 'Extrahiere Text, Szenen-Labels & EXIF/GPS-Daten (Cloud-Dateien werden bei Bedarf geladen) und befrage KI...', true);
             try {
                 const res = await fetch('/api/preview', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ path: folder })
+                    body: JSON.stringify({ path: folder, force_refresh: forceRefresh })
                 });
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
@@ -1972,31 +2230,42 @@
                 return;
             }
 
-            tbody.innerHTML = plan.map((item, idx) => `
+            tbody.innerHTML = plan.map((item, idx) => {
+                const prov = item.analysis.provider_used || '';
+                const provClass = prov.includes('Cache')
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : (prov.includes('NotionaryAtlas')
+                        ? 'bg-purple-100 text-purple-700'
+                        : (prov.includes('gemini') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'));
+                return `
                 <tr class="hover:bg-slate-50 transition" data-idx="${idx}">
                     <td class="p-4 text-center">
                         <input type="checkbox" class="file-chk rounded text-blue-600" checked onchange="updateSelectedCount()">
                     </td>
-                    <td class="p-4 w-4/12 overflow-hidden">
+                    <td class="p-4 w-3/12 overflow-hidden">
                         <div class="font-medium text-slate-800 truncate" title="${item.original_name}">${item.original_name}</div>
                         <div class="text-xs text-slate-400 truncate mt-0.5" title="${item.source_path}">${item.source_path}</div>
                     </td>
                     <td class="p-4 w-4/12">
                         <input type="text" value="${item.new_name}" class="new-name-input w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-semibold text-emerald-700 bg-emerald-50/30">
                     </td>
-                    <td class="p-4 w-2/12">
-                        <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">${item.analysis.suggested_folder}</span>
+                    <td class="p-4 w-3/12">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-blue-500 text-xs">📂</span>
+                            <input type="text" value="${item.analysis.suggested_folder || ''}" class="new-folder-input w-full px-2.5 py-1.5 rounded-lg border border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-semibold text-blue-800 bg-blue-50/50" title="Ziel-Unterordner frei anpassbar (z.B. Finanzen/2026)">
+                        </div>
                     </td>
                     <td class="p-4 w-2/12 text-xs">
                         <div class="font-semibold text-slate-800">${item.analysis.doc_type} • <span class="text-blue-700 font-bold">${item.analysis.sender}</span></div>
                         <div class="text-slate-500 mt-0.5">Datum: <b>${item.analysis.doc_date || 'Kein Datum'}</b></div>
-                        <div class="mt-1.5 flex items-center gap-1.5">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${item.analysis.provider_used.includes('gemini') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}">${item.analysis.provider_used}</span>
+                        <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${provClass}">${prov}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-600" title="Wird als macOS Finder-Tag gesetzt">🏷️ Finder-Tags</span>
                         </div>
                         ${item.analysis.summary ? `<div class="text-slate-400 text-[11px] mt-1 italic">${item.analysis.summary}</div>` : ''}
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             updateSelectedCount();
         }
@@ -2021,7 +2290,10 @@
                     const planItem = currentPlan[idx];
                     const row = cb.closest('tr');
                     const inputVal = row.querySelector('.new-name-input').value.trim();
+                    const folderInput = row.querySelector('.new-folder-input');
+                    const folderVal = folderInput ? folderInput.value.trim() : planItem.analysis.suggested_folder;
                     planItem.new_name = inputVal;
+                    planItem.custom_folder = folderVal;
                     itemsToExecute.push(planItem);
                 }
             });
@@ -2029,17 +2301,20 @@
             if (itemsToExecute.length === 0) return alert('Keine Dateien ausgewählt.');
 
             const copyMode = document.getElementById('copy-mode').checked;
-            const msg = `Möchten Sie ${itemsToExecute.length} Dateien jetzt wirklich ${copyMode ? 'kopieren' : 'verschieben/umbenennen'}?`;
+            const applyTagsEl = document.getElementById('apply-tags-mode');
+            const applyTags = applyTagsEl ? applyTagsEl.checked : true;
+            const msg = `Möchten Sie ${itemsToExecute.length} Dateien jetzt wirklich ${copyMode ? 'kopieren' : 'verschieben/umbenennen'}${applyTags ? ' (inkl. macOS Finder-Tags)' : ''}?`;
             if (!confirm(msg)) return;
 
-            showLoading('Wende Änderungen an...', 'Dateien werden sortiert und umbenannt...');
+            showLoading('Wende Änderungen an...', 'Dateien werden sortiert, umbenannt und mit Finder-Tags versehen...');
             try {
                 const res = await fetch('/api/execute', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         items: itemsToExecute,
-                        copy_mode: copyMode
+                        copy_mode: copyMode,
+                        apply_tags: applyTags
                     })
                 });
                 const data = await res.json();
@@ -2160,8 +2435,235 @@
             }
         }
 
+        // ==================== AUTOPILOT / HINTERGRUND-WÄCHTER ====================
+        let autopilotLoadedOnce = false;
+
+        async function loadAutopilotStatus(populateInputs = false) {
+            try {
+                const res = await fetch('/api/autopilot/status');
+                const data = await res.json();
+                renderAutopilotState(data, populateInputs || !autopilotLoadedOnce);
+                autopilotLoadedOnce = true;
+            } catch (e) {
+                console.error('Autopilot Status Fehler:', e);
+            }
+        }
+
+        function renderAutopilotState(data, populateInputs = false) {
+            const cfg = data.config || {};
+            const running = Boolean(data.running);
+            const laInstalled = Boolean(data.launchagent_installed);
+
+            const dot = document.getElementById('autopilot-dot');
+            const statusText = document.getElementById('autopilot-status-text');
+            const toggleBtn = document.getElementById('btn-autopilot-toggle');
+            const navBadge = document.getElementById('tab-badge-autopilot');
+
+            if (running) {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+                statusText.className = 'text-xs font-bold text-emerald-700';
+                statusText.innerText = `Aktiv (${data.processed_count || 0} sortiert)`;
+                toggleBtn.className = 'px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-xs';
+                toggleBtn.innerText = '⏹️ Wächter stoppen';
+                if (navBadge) {
+                    navBadge.innerText = 'ON';
+                    navBadge.className = 'px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 font-bold';
+                    navBadge.classList.remove('hidden');
+                }
+            } else {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
+                statusText.className = 'text-xs font-bold text-slate-600';
+                statusText.innerText = 'Gestoppt';
+                toggleBtn.className = 'px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs';
+                toggleBtn.innerText = '▶️ Wächter starten';
+                if (navBadge) navBadge.classList.add('hidden');
+            }
+
+            const laBtn = document.getElementById('btn-launchagent');
+            if (laBtn) {
+                if (laInstalled) {
+                    laBtn.className = 'px-3.5 py-2 bg-emerald-50 hover:bg-rose-50 text-emerald-700 hover:text-rose-700 text-xs font-semibold rounded-xl transition border border-emerald-200 whitespace-nowrap';
+                    laBtn.innerText = '✓ Autostart aktiv (Deaktivieren)';
+                    laBtn.setAttribute('data-installed', '1');
+                } else {
+                    laBtn.className = 'px-3.5 py-2 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-xl transition border border-indigo-200 whitespace-nowrap';
+                    laBtn.innerText = '🚀 Autostart aktivieren';
+                    laBtn.setAttribute('data-installed', '0');
+                }
+            }
+
+            if (populateInputs) {
+                document.getElementById('ap-watch-folders').value = (cfg.watch_folders || []).join('\n');
+                document.getElementById('ap-target-base').value = cfg.target_base_dir || '';
+                document.getElementById('ap-interval').value = cfg.poll_interval_seconds || 12;
+                document.getElementById('ap-min-age').value = cfg.min_file_age_seconds || 5;
+                document.getElementById('ap-copy-mode').checked = Boolean(cfg.copy_mode);
+                document.getElementById('ap-apply-tags').checked = cfg.apply_tags !== false;
+                document.getElementById('ap-notify').checked = cfg.notify_macos !== false;
+            }
+
+            const eventsContainer = document.getElementById('autopilot-events-list');
+            const events = data.recent_events || [];
+            if (events.length === 0) {
+                eventsContainer.innerHTML = '<p class="text-xs text-slate-400">Noch keine automatischen Sortierungen in dieser Sitzung.</p>';
+            } else {
+                eventsContainer.innerHTML = events.map(ev => `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 gap-2">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">${ev.time}</span>
+                                <span class="font-medium text-xs text-slate-500 line-through truncate">${ev.original_name}</span>
+                                <span class="text-slate-400">→</span>
+                                <span class="font-bold text-xs text-emerald-700 truncate">${ev.new_name}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
+                                <span>📂 Zielordner: <b class="text-blue-700">${ev.folder}</b></span>
+                                <span>•</span>
+                                <span class="font-mono text-[10px] text-slate-400 truncate" title="${ev.dest}">${ev.dest}</span>
+                            </div>
+                        </div>
+                        <button onclick="revealInFinder('${encodeURIComponent(ev.dest)}')" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 flex-shrink-0">
+                            📁 Im Finder
+                        </button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function getAutopilotFormPayload() {
+            const foldersRaw = document.getElementById('ap-watch-folders').value.split('\n').map(s => s.trim()).filter(Boolean);
+            return {
+                watch_folders: foldersRaw,
+                target_base_dir: document.getElementById('ap-target-base').value.trim(),
+                poll_interval_seconds: parseInt(document.getElementById('ap-interval').value || '12', 10),
+                min_file_age_seconds: parseInt(document.getElementById('ap-min-age').value || '5', 10),
+                copy_mode: document.getElementById('ap-copy-mode').checked,
+                apply_tags: document.getElementById('ap-apply-tags').checked,
+                notify_macos: document.getElementById('ap-notify').checked
+            };
+        }
+
+        async function saveAutopilotConfig() {
+            try {
+                const payload = getAutopilotFormPayload();
+                const res = await fetch('/api/autopilot/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                renderAutopilotState(data, true);
+                const msg = document.getElementById('ap-save-msg');
+                msg.classList.remove('hidden');
+                setTimeout(() => msg.classList.add('hidden'), 2500);
+            } catch (e) {
+                alert('Fehler beim Speichern: ' + e.message);
+            }
+        }
+
+        async function toggleAutopilot() {
+            const toggleBtn = document.getElementById('btn-autopilot-toggle');
+            const isRunning = toggleBtn.innerText.includes('stoppen');
+            const payload = getAutopilotFormPayload();
+            payload.action = isRunning ? 'stop' : 'start';
+
+            try {
+                const res = await fetch('/api/autopilot/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                renderAutopilotState(data, false);
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            }
+        }
+
+        async function scanAutopilotNow() {
+            showLoading('Autopilot-Scan läuft...', 'Überwachte Ordner werden auf neue Dateien geprüft und sortiert...');
+            try {
+                await saveAutopilotConfig();
+                const res = await fetch('/api/autopilot/scan_now', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
+                const data = await res.json();
+                renderAutopilotState(data, false);
+                const count = (data.new_events || []).length;
+                alert(count > 0 ? `✓ ${count} neue Datei(en) wurden automatisch sortiert!` : 'Keine neuen unsortierten Dateien in den überwachten Ordnern gefunden.');
+            } catch (e) {
+                alert('Fehler beim Sofort-Scan: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function toggleLaunchAgent() {
+            const btn = document.getElementById('btn-launchagent');
+            const installed = btn.getAttribute('data-installed') === '1';
+            try {
+                await saveAutopilotConfig();
+                const res = await fetch('/api/autopilot/launchagent', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ install: !installed })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                await loadAutopilotStatus(false);
+            } catch (e) {
+                alert('LaunchAgent Fehler: ' + e.message);
+            }
+        }
+
+        async function addAutopilotWatchFolder() {
+            showLoading('Ordner auswählen', 'Warten auf Finder-Dialog...');
+            try {
+                const res = await fetch('/api/pick_folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
+                const data = await res.json();
+                if (data.path) {
+                    const area = document.getElementById('ap-watch-folders');
+                    const existing = area.value.split('\n').map(s => s.trim()).filter(Boolean);
+                    if (!existing.includes(data.path)) {
+                        existing.push(data.path);
+                        area.value = existing.join('\n');
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function pickAutopilotTargetFolder() {
+            showLoading('Zielordner auswählen', 'Warten auf Finder-Dialog...');
+            try {
+                const res = await fetch('/api/pick_folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
+                const data = await res.json();
+                if (data.path) {
+                    document.getElementById('ap-target-base').value = data.path;
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                hideLoading();
+            }
+        }
+
         // Init
         fetchStatus();
+        loadAutopilotStatus(true);
     </script>
 </body>
 </html>

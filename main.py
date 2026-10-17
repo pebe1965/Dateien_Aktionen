@@ -214,6 +214,34 @@ def cmd_config(args):
     print()
 
 
+def cmd_watch(args):
+    """Startet den Hintergrund-Ordner-Wächter (Autopilot) im Terminal oder via LaunchAgent."""
+    import time
+    from watcher import GLOBAL_WATCHER, load_autopilot_config, save_autopilot_config
+
+    cfg = load_autopilot_config()
+    if args.path:
+        folder = str(Path(args.path).expanduser().resolve())
+        cfg["watch_folders"] = [folder]
+        save_autopilot_config(cfg)
+
+    print_header("AUTOPILOT / ORDNER-WÄCHTER AKTIV")
+    print(f"{C_BOLD}Überwachte Ordner:{C_RESET} {', '.join(cfg.get('watch_folders', []))}")
+    print(f"{C_BOLD}Intervall:{C_RESET}         alle {cfg.get('interval_seconds', 30)} Sekunden")
+    print(f"{C_DIM}Drücken Sie Ctrl+C zum Beenden.{C_RESET}\n")
+
+    try:
+        while True:
+            records = GLOBAL_WATCHER.scan_once()
+            for r in records:
+                print(f"{C_GREEN}✓ [{r['timestamp'][11:19]}]{C_RESET} {r['original_name']} ➔ {C_BOLD}{r['folder']}/{r['new_name']}{C_RESET}")
+            cfg = load_autopilot_config()
+            interval = max(5, int(cfg.get("interval_seconds", 30)))
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print(f"\n{C_YELLOW}Autopilot beendet.{C_RESET}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Dateien_Aktionen: KI-gestützte Datei-Organisation, OCR und Umbenennung für macOS"
@@ -251,6 +279,10 @@ def main():
     # Subcommand: config
     subparsers.add_parser("config", help="Zeigt Konfiguration & Status an")
 
+    # Subcommand: watch
+    p_watch = subparsers.add_parser("watch", help="Startet den Autopilot / Ordner-Wächter")
+    p_watch.add_argument("path", nargs="?", help="Optionaler Pfad zum überwachten Ordner")
+
     args = parser.parse_args()
 
     dispatch = {
@@ -260,6 +292,7 @@ def main():
         "undo": cmd_undo,
         "ocr-test": cmd_ocr_test,
         "config": cmd_config,
+        "watch": cmd_watch,
     }
 
     dispatch[args.command](args)

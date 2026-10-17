@@ -2,25 +2,21 @@
 
 Ein maßgeschneidertes, KI- und OCR-gestütztes Werkzeug für macOS zum Katalogisieren, Verstehen und strukturierten Umbenennen von Dateien.
 
-Entwickelt für Apple Silicon Macs (M-Serie) unter Ausnutzung der **Apple Neural Engine (macOS Vision OCR)** und flexiblen KI-Schnittstellen (**Google Gemini API** oder **lokale LLMs**).
+Entwickelt für Apple Silicon Macs (M-Serie) unter Ausnutzung der **Apple Neural Engine (macOS Vision OCR)** und flexiblen KI-Schnittstellen (**NotionaryAtlas Abo**, **Google Gemini API** oder **lokale LLMs**).
 
 ---
 
-## Highlights
+## Highlights (v1.2.0)
 
-* 🔍 **Katalogisierung & Duplikaterkennung:** Rekursiver Scan nach Dateitypen (`DOKUMENTE`, `BILDER`, `VIDEOS`, `AUDIO`, `ARCHIVE`, `CODE_DATEN`) mit SHA-256-Prüfsummen zur Erkennung doppelter Dateien.
-* 👁️ **Apple Vision OCR (Native):** Scans und Bilder werden direkt über Apples Vision-Framework auf dem Mac ausgelesen – blitzschnell und ohne externe OCR-Installationen.
-* 📄 **Vielseitige Textextraktion:** Unterstützt digitale PDFs, gescannte PDFs, Office-Dateien (`.docx`, `.xlsx`), Apple iWork (`.pages`, `.numbers`), Text/Markdown und Bilddateien.
-* 🧠 **KI-Inhaltsanalyse:** Erkennt automatisch:
-  * Reales Dokumentdatum (`YYYY-MM-DD`)
-  * Absender / Vertragspartner / Organisation
-  * Dokumentenart (Rechnung, Vertrag, Kontoauszug, Bescheid, etc.)
-  * Prägnanten Betreff
-  * Standardisiertes Namensformat: `YYYY-MM-DD_Absender_Typ_Thema.ext`
-* 🛡️ **100 % Sicherheit mit Dry-Run & Undo:**
-  * Vor jedem Umbenennen/Verschieben gibt es eine tabellarische Vorschau (`preview`).
-  * Jede Aktion wird in einem `manifest.json` protokolliert.
-  * Mit `python main.py undo` lässt sich jede Operation mit einem Befehl rückgängig machen.
+* 🔍 **Katalogisierung, Exakte Duplikate & Visuell Ähnliche Fotos:** Rekursiver Scan nach Dateitypen (`DOKUMENTE`, `BILDER`, `VIDEOS`, `AUDIO`, `ARCHIVE`, `CODE_DATEN`) mit SHA-256-Prüfsummen sowie **Perceptual Image Hashing (`--dhash` via Apple CoreGraphics)** zum Aufspüren von Serienbildern/Burst-Shots und komprimierten Fotokopien. Schutz für macOS-Pakete (`.photoslibrary`, `.logicx`, `.fcpbundle` etc.).
+* 👁️ **Apple Vision OCR & Bild-Szenenerkennung (Native):** Scans und Fotos werden direkt über Apples Vision-Framework (`VNRecognizeTextRequest` + `VNClassifyImageRequest`) auf dem Mac analysiert – blitzschnell auf der Apple Neural Engine.
+* 📸 **Multimodale Foto- & Medien-Intelligenz:** Liest tiefe macOS-Metadaten (`mdls` EXIF-Aufnahmedatum, GPS-Koordinaten, Kameramodell, Audio-/Video-Dauer) aus und übergibt komprimierte Bild-Thumbnails direkt an **Gemini / NotionaryAtlas Multimodal Vision**. Live-Browser-Vorschau auch für `.heic`-Fotos und Videos (`.mov`/`.mp4`).
+* 🏷️ **Tiefe macOS-Integration:** Setzt beim Sortieren automatisch farbige **macOS Finder-Tags** (`_kMDItemUserTags`) und durchsuchbare **Spotlight-Kommentare** (`kMDItemFinderComment`) inkl. Direkt-Button „Im Finder zeigen“ (`📂`).
+* ⚡ **Autopilot / Ordner-Wächter (Watch-Folder):** Überwacht auf Wunsch Ordner wie `~/Downloads` oder `~/Desktop` im Hintergrund (auch als nativer **macOS LaunchAgent** beim Systemstart) inklusive macOS System-Mitteilungen.
+* 🚀 **Parallele Analyse & Lokaler KI-Cache:** 4-Worker-Multithreading mit Live-Fortschrittsbalken und lokalem Analyse-Cache (`~/Library/Application Support/Dateien_Aktionen/history/analysis_cache.json`), der bestehende Zielordner intelligent wiederverwendet.
+* 🛡️ **100 % Sicherheit mit Dry-Run, Kollisionsschutz & Undo:**
+  * Vor jedem Umbenennen/Verschieben gibt es eine interaktive Vorschau mit frei editierbaren Dateinamen und Zielordnern.
+  * Jede Aktion (auch vom Autopiloten) wird in einem `manifest.json` protokolliert und lässt sich mit 1 Klick rückgängig machen.
 
 ---
 
@@ -83,7 +79,13 @@ Macht die letzte Ausführung exakt rückgängig:
 python main.py undo
 ```
 
-### 5. OCR & Extraktion an einer einzelnen Datei testen
+### 5. Autopilot / Ordner-Wächter starten
+Überwacht einen Ordner kontinuierlich auf neue Dateien:
+```bash
+python main.py watch ~/Downloads
+```
+
+### 6. OCR & Extraktion an einer einzelnen Datei testen
 ```bash
 python main.py ocr-test /Pfad/zu/Dokument_oder_Scan.pdf
 ```
@@ -95,13 +97,18 @@ python main.py ocr-test /Pfad/zu/Dokument_oder_Scan.pdf
 ```
 Dateien_Aktionen/
 ├── bin/
-│   └── vision_ocr        # Natives macOS-Kommandozeilentool (Vision Framework OCR)
-├── history/              # Gespeicherte Manifeste für die Undo-Funktion
-├── config.py             # Zentrale Konfiguration (Pfade, Kategorien, KI-Modelle)
-├── classifier.py         # Rekursiver Dateiscanner, Kategorisierung, Hashing
-├── extractor.py          # Textextraktion (PDF, Office, iWork, OCR)
-├── ai_engine.py          # KI-Schnittstelle (Gemini, Local LLM, Offline-Heuristik)
-├── organizer.py          # Planung, Ausführung, Kollisionsschutz, Rollback
+│   ├── vision_ocr        # Natives macOS-Tool (Vision OCR, Szenen-Klassifikation & 64-Bit dHash)
+│   └── icloud_download   # Natives macOS-Tool zum Nachladen von iCloud-Platzhaltern
+├── history/              # Gespeicherte Manifeste (Undo), KI-Cache & Autopilot-Log
+├── templates/
+│   └── index.html        # Web-Dashboard Benutzeroberfläche
+├── config.py             # Zentrale Konfiguration (Pfade, Kategorien, KI-Modelle, macOS-Pakete)
+├── classifier.py         # Rekursiver Dateiscanner, Kategorisierung, SHA-256 & Perceptual Hashing
+├── extractor.py          # Text- & EXIF/Medien-Extraktion (PDF, Office, iWork, mdls, Vision OCR)
+├── ai_engine.py          # Multimodale KI-Schnittstelle (Gemini Vision, Local LLM, Offline-Heuristik)
+├── organizer.py          # Parallele Planung, Ausführung, Finder-Tags, Kollisionsschutz, Rollback
+├── watcher.py            # Autopilot / Hintergrund-Ordner-Wächter & macOS LaunchAgent
+├── gui.py                # Lokaler Multithreaded Web-Server für das Dashboard
 ├── main.py               # Zentrales CLI-Werkzeug
 ├── .env.example          # Vorlage für Umgebungsvariablen
 └── README.md

@@ -24,6 +24,7 @@ cp "$PROJECT_DIR/config.py" "$APP_DIR/"
 cp "$PROJECT_DIR/extractor.py" "$APP_DIR/"
 cp "$PROJECT_DIR/classifier.py" "$APP_DIR/"
 cp "$PROJECT_DIR/organizer.py" "$APP_DIR/"
+cp "$PROJECT_DIR/watcher.py" "$APP_DIR/"
 cp "$PROJECT_DIR/ai_engine.py" "$APP_DIR/"
 cp "$PROJECT_DIR/main.py" "$APP_DIR/"
 cp "$PROJECT_DIR/templates/index.html" "$APP_DIR/templates/"
@@ -45,9 +46,11 @@ if find "$APP_BUNDLE" -name ".env" | grep -q .; then
     exit 1
 fi
 
-# Launcher ausführbar machen
+# Launcher ausführbar machen & Bundle ad-hoc signieren
 chmod +x "$APP_BUNDLE/Contents/MacOS/launcher"
 chmod +x "$PROJECT_DIR/Dateien_Aktionen.command"
+xattr -cr "$APP_BUNDLE" 2>/dev/null || true
+codesign --force --deep --sign - "$APP_BUNDLE" 2>/dev/null || true
 
 # 3. DMG erstellen
 echo "💿 2. Erstelle macOS Disk Image (Dateien_Aktionen.dmg)..."

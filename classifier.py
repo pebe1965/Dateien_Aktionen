@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
-from config import FILE_CATEGORIES, IGNORED_FILES, IGNORED_DIRS
+from config import FILE_CATEGORIES, IGNORED_FILES, IGNORED_DIRS, MACOS_PACKAGE_EXTENSIONS, OCR_BINARY
 
 
 def get_file_category(extension: str) -> str:
@@ -139,17 +139,20 @@ class Catalog:
         self.items: List[FileItem] = []
         self.by_category: Dict[str, List[FileItem]] = {}
         self.duplicates: Dict[str, List[FileItem]] = {}
+        self.similar_images: List[Dict[str, Any]] = []
 
-    def scan(self, compute_hashes: bool = True) -> "Catalog":
+    def scan(self, compute_hashes: bool = True, detect_similar_images: bool = True) -> "Catalog":
         """
         Scannt den angegebenen Ordner rekursiv.
         Nutzt ein hochperformantes 2-Phasen-Verfahren:
         1. Schnelles Erfassen aller Dateien & Metadaten (os.walk ohne Hashing).
         2. Intelligente Duplikaterkennung NUR für Dateien mit exakt identischer Dateigröße.
+        3. Optionale Erkennung optisch ähnlicher Fotos (Serienbilder / komprimierte Kopien) via Perceptual Hash (dHash).
         """
         self.items.clear()
         self.by_category.clear()
         self.duplicates.clear()
+        self.similar_images.clear()
 
         walk_errors = []
         def on_walk_error(err):
@@ -157,14 +160,12 @@ class Catalog:
 
         # Phase 1: Rekursiver Inode-Scan (rasend schnell, liest keine Dateiinhalte)
         for root, dirs, files in os.walk(self.root_dir, topdown=True, onerror=on_walk_error):
-            # Ignorierte Ordner überspringen (inkl. .app Pakete und Frameworks)
+            # Ignorierte Ordner & macOS Package-Bundles überspringen (z.B. .app, .photoslibrary, .logicx)
             dirs[:] = [
                 d for d in dirs 
                 if d not in IGNORED_DIRS 
                 and not d.startswith(".") 
-                and not d.endswith(".app") 
-                and not d.endswith(".framework")
-                and not d.endswith(".bundle")
+                and not d.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
             ]
 
             for file_name in files:
@@ -218,7 +219,87 @@ class Catalog:
 
             self.duplicates = {h: items for h, items in full_hash_map.items() if len(items) > 1}
 
+        # Phase 3: Optisch ähnliche Fotos erkennen (Perceptual dHash via CoreGraphics)
+        if detect_similar_images and OCR_BINARY.exists():
+            image_items = [
+                it for it in self.by_category.get("BILDER", [])
+                if not it.is_cloud_placeholder
+                and it.extension in {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff", ".tif", ".bmp"}
+            ][:400]  # Bis zu 400 lokale Bilder pro Scan blitzschnell per CoreGraphics prüfen
+
+            if len(image_items) > 1:
+                self._find_similar_images(image_items)
+
         return self
+
+    def _find_similar_images(self, image_items: List[FileItem], max_hamming: int = 8) -> None:
+        """Berechnet 64-Bit Perceptual Hashes über `vision_ocr --dhash` und gruppiert ähnliche Bilder."""
+        import subprocess
+
+        path_to_item = {str(it.path): it for it in image_items}
+        dhashes: List[tuple] = []  # (int_hash, hex_str, FileItem)
+
+        # In Batches von 100 Pfaden an vision_ocr --dhash übergeben
+        batch_size = 100
+        paths_list = list(path_to_item.keys())
+        for idx in range(0, len(paths_list), batch_size):
+            batch = paths_list[idx:idx + batch_size]
+            try:
+                res = subprocess.run(
+                    [str(OCR_BINARY), "--dhash"] + batch,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=15
+                )
+                if res.returncode == 0:
+                    for line in res.stdout.splitlines():
+                        if "\t" in line:
+                            hex_h, p_str = line.split("\t", 1)
+                            val = int(hex_h, 16)
+                            if val != 0 and p_str in path_to_item:
+                                dhashes.append((val, hex_h, path_to_item[p_str]))
+            except Exception:
+                continue
+
+        # Bereits als 100% exakte Duplikate gelistete Paare merken, um sie nicht doppelt zu melden
+        exact_dup_paths = set()
+        for dup_list in self.duplicates.values():
+            for it in dup_list[1:]:
+                exact_dup_paths.add(str(it.path))
+
+        visited = set()
+        for i in range(len(dhashes)):
+            val_i, hex_i, item_i = dhashes[i]
+            if str(item_i.path) in visited:
+                continue
+            group = [item_i]
+            max_dist_in_group = 0
+            for j in range(i + 1, len(dhashes)):
+                val_j, hex_j, item_j = dhashes[j]
+                if str(item_j.path) in visited:
+                    continue
+                # Wenn beide exakt denselben SHA-256 haben, überspringen (schon bei Exakte Duplikate)
+                if item_i.file_hash and item_j.file_hash and item_i.file_hash == item_j.file_hash:
+                    continue
+                if item_i.size_bytes == item_j.size_bytes and str(item_j.path) in exact_dup_paths:
+                    continue
+
+                dist = bin(val_i ^ val_j).count("1")
+                if dist <= max_hamming:
+                    group.append(item_j)
+                    visited.add(str(item_j.path))
+                    if dist > max_dist_in_group:
+                        max_dist_in_group = dist
+
+            if len(group) > 1:
+                visited.add(str(item_i.path))
+                similarity_pct = round((1.0 - (max_dist_in_group / 64.0)) * 100)
+                self.similar_images.append({
+                    "dhash": hex_i,
+                    "similarity_pct": similarity_pct,
+                    "files": [it.to_dict() for it in group]
+                })
 
     def summary(self) -> Dict[str, Any]:
         """Gibt eine statistische Zusammenfassung des Katalogs zurück."""
@@ -233,6 +314,7 @@ class Catalog:
 
         dup_count = sum(len(items) - 1 for items in self.duplicates.values())
         wasted_bytes = sum((len(items) - 1) * items[0].size_bytes for items in self.duplicates.values())
+        similar_count = sum(len(g["files"]) - 1 for g in self.similar_images)
 
         return {
             "root_dir": str(self.root_dir),
@@ -241,5 +323,8 @@ class Catalog:
             "category_stats": category_stats,
             "duplicate_groups": len(self.duplicates),
             "duplicate_files_count": dup_count,
-            "wasted_bytes": wasted_bytes
+            "wasted_bytes": wasted_bytes,
+            "similar_image_groups": len(self.similar_images),
+            "similar_images_count": similar_count
         }
+

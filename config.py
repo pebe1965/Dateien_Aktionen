@@ -11,7 +11,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # --- DATEN DES NUTZERS ---
@@ -144,3 +144,12 @@ IGNORED_DIRS = {
     ".git", ".svn", "__pycache__", "venv", ".venv", "node_modules", ".Trash",
     "DerivedData", ".gradle", ".cache", "Pods", "build", "dist", "Caches"
 }
+
+# macOS Package-Ordner (erscheinen im Finder als einzelne Datei/Mediathek und dürfen NICHT innerlich zerlegt werden)
+MACOS_PACKAGE_EXTENSIONS = (
+    ".app", ".framework", ".bundle", ".plugin", ".kext", ".xcodeproj", ".xcworkspace",
+    ".playground", ".photoslibrary", ".aplibrary", ".theater", ".imovielibrary",
+    ".fcpbundle", ".fcpproject", ".logicx", ".band", ".wand", ".rtfd", ".fdmdownload",
+    ".download", ".sparsebundle", ".sparseimage", ".qlgenerator", ".mdimporter",
+    ".prefpane", ".saver", ".slide", ".scptd", ".pkg", ".mpkg", ".abbu", ".vmsd", ".vmwarevm"
+)

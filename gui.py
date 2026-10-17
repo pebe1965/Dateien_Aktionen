@@ -24,7 +24,14 @@ sys.path.insert(0, str(BASE_DIR))
 import config
 from classifier import Catalog
 from extractor import extract_content
-from organizer import Organizer, rollback_manifest, get_unique_target_path, HISTORY_DIR
+from organizer import (
+    Organizer, rollback_manifest, get_unique_target_path,
+    set_macos_tags_and_comment, HISTORY_DIR, ANALYSIS_PROGRESS
+)
+from watcher import (
+    GLOBAL_WATCHER, load_autopilot_config, save_autopilot_config,
+    install_launch_agent, uninstall_launch_agent
+)
 
 
 def move_to_macos_trash(file_path: Path) -> bool:
@@ -79,592 +86,6 @@ def move_to_macos_trash(file_path: Path) -> bool:
 
 PORT = 8765
 
-HTML_DASHBOARD = """<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dateien_Aktionen 🗂️ macOS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
-                    📁
-                </div>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight text-slate-800">Dateien_Aktionen</h1>
-                    <p class="text-xs text-slate-500">KI- & OCR-Dateimanager für macOS</p>
-                </div>
-            </div>
-
-            <!-- Status Badges -->
-            <div class="flex items-center gap-3 text-xs" id="status-badges">
-                <span id="badge-ocr" class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">OCR: Lädt...</span>
-                <span id="badge-ai" class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">KI: Lädt...</span>
-                <button onclick="openTab('settings')" class="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition">
-                    ⚙️ Einstellungen
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-6 py-8">
-        <!-- Ordnerauswahl Box -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-8">
-            <div class="flex flex-col md:flex-row gap-4 items-end">
-                <div class="flex-1 w-full">
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Quellordner zum Scannen & Organisieren:</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="folder-path" placeholder="/Users/.../Downloads" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-slate-50">
-                        <button onclick="pickFolder()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition flex items-center gap-1.5 whitespace-nowrap">
-                            📂 Durchsuchen...
-                        </button>
-                    </div>
-                </div>
-                <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="startCatalog()" id="btn-catalog" class="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm">
-                        🔍 1. Katalogisieren
-                    </button>
-                    <button onclick="startPreview()" id="btn-preview" class="flex-1 md:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm">
-                        🧠 2. KI-Vorschau
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tabs Navigation -->
-        <div class="flex border-b border-slate-200 mb-6 gap-2">
-            <button onclick="openTab('preview')" id="tab-btn-preview" class="tab-btn active px-4 py-2.5 font-medium text-sm border-b-2 border-blue-600 text-blue-600">
-                ✨ KI-Umbenennung & Vorschau
-            </button>
-            <button onclick="openTab('catalog')" id="tab-btn-catalog" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800">
-                📊 Dateikatalog & Duplikate
-            </button>
-            <button onclick="openTab('history')" id="tab-btn-history" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800">
-                🕒 Protokoll & Rückgängig (Undo)
-            </button>
-            <button onclick="openTab('settings')" id="tab-btn-settings" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800">
-                ⚙️ Einstellungen
-            </button>
-        </div>
-
-        <!-- TAB: PREVIEW / KI-UMBENENNUNG -->
-        <div id="tab-preview" class="tab-content">
-            <div id="preview-placeholder" class="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
-                <div class="text-4xl mb-3">🪄</div>
-                <h3 class="font-semibold text-slate-700 text-lg">Noch keine KI-Vorschau geladen</h3>
-                <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                    Wählen Sie oben einen Ordner aus und klicken Sie auf <b>„2. KI-Vorschau“</b>, um Dokumente per OCR zu lesen und Namensvorschläge zu generieren.
-                </p>
-            </div>
-
-            <div id="preview-results" class="hidden">
-                <!-- Action Bar -->
-                <div class="flex flex-wrap items-center justify-between gap-4 mb-4 bg-blue-50/70 p-4 rounded-xl border border-blue-100">
-                    <div class="text-sm text-blue-900">
-                        <span id="selected-count" class="font-bold">0</span> Dateien ausgewählt zur Organisation.
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                            <input type="checkbox" id="copy-mode" class="rounded text-blue-600">
-                            Kopieren (statt Verschieben)
-                        </label>
-                        <button onclick="executeRenaming()" id="btn-execute" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2">
-                            🚀 Jetzt anwenden (<span id="btn-exec-count">0</span>)
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Table -->
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th class="p-4 w-12 text-center">
-                                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" checked class="rounded text-blue-600">
-                                    </th>
-                                    <th class="p-4">Ursprüngliche Datei</th>
-                                    <th class="p-4">Neuer Name (editierbar)</th>
-                                    <th class="p-4">Zielordner</th>
-                                    <th class="p-4">Erkannt</th>
-                                </tr>
-                            </thead>
-                            <tbody id="preview-tbody" class="divide-y divide-slate-100">
-                                <!-- Zeilen werden per JS eingefügt -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB: KATALOG & DUPLIKATE -->
-        <div id="tab-catalog" class="tab-content hidden">
-            <div id="catalog-placeholder" class="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
-                <div class="text-4xl mb-3">📊</div>
-                <h3 class="font-semibold text-slate-700 text-lg">Noch kein Ordner katalogisiert</h3>
-                <p class="text-sm text-slate-500 mt-1">Klicken Sie oben auf „1. Katalogisieren“ für eine Bestandsaufnahme.</p>
-            </div>
-
-            <div id="catalog-results" class="hidden space-y-6">
-                <!-- Summary Stats -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="stats-grid">
-                    <!-- Stat cards per JS -->
-                </div>
-
-                <!-- Categories & Duplicates split -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            📁 Dateitypen-Übersicht
-                        </h4>
-                        <div id="categories-list" class="space-y-3"></div>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h4 class="font-bold text-slate-800 mb-4 flex items-center gap-2 text-amber-600">
-                            ⚠️ Exakte Duplikate (gleicher Hash)
-                        </h4>
-                        <div id="duplicates-list" class="space-y-3 max-h-96 overflow-y-auto"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB: HISTORY / UNDO -->
-        <div id="tab-history" class="tab-content hidden">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h4 class="font-bold text-slate-800 mb-2">Vergangene Ausführungen (Manifeste)</h4>
-                <p class="text-sm text-slate-500 mb-6">Sie können jede frühere Dateiaktion mit einem einzigen Klick wieder in den Ursprungszustand zurückversetzen.</p>
-                <div id="history-list" class="space-y-3">
-                    <p class="text-slate-400 text-sm">Lade Historie...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB: SETTINGS -->
-        <div id="tab-settings" class="tab-content hidden">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-2xl">
-                <h4 class="font-bold text-slate-800 mb-4">Einstellungen & KI-Konfiguration</h4>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">KI-Provider</label>
-                        <select id="cfg-provider" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                            <option value="gemini">Google Gemini API (Cloud / Entwickler-Account)</option>
-                            <option value="local">Lokaler KI-Server (LM Studio / MLX / Ollama)</option>
-                            <option value="offline">Offline-Heuristik (ohne KI, via Regex & Metadaten)</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">Gemini API-Schlüssel</label>
-                        <input type="password" id="cfg-gemini-key" placeholder="AIzaSy..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
-                        <p class="text-xs text-slate-400 mt-1">Ihr bestehender Schlüssel aus Google AI Studio / WebApp.</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">Gemini Modell</label>
-                        <input type="text" id="cfg-gemini-model" placeholder="gemini-2.5-flash" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
-                        <p class="text-xs text-slate-400 mt-1">z. B. gemini-2.5-flash, gemini-3.7-flash, gemini-3.8-flash, gemini-3.1-pro</p>
-                    </div>
-
-                    <div class="pt-2 border-t border-slate-100">
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">Lokale Server-URL (für LM Studio / MLX)</label>
-                        <input type="text" id="cfg-local-url" placeholder="http://localhost:1234/v1/chat/completions" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
-                    </div>
-
-                    <button onclick="saveConfig()" class="w-full mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition">
-                        Einstellungen speichern
-                    </button>
-                    <div id="save-msg" class="text-xs text-emerald-600 font-medium text-center hidden">✓ Gespeichert!</div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Loading Spinner Modal -->
-    <div id="loading-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-        <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 max-w-sm text-center">
-            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <div>
-                <h4 id="loading-title" class="font-bold text-slate-800">Verarbeite...</h4>
-                <p id="loading-desc" class="text-xs text-slate-500 mt-1">Bitte einen Moment Geduld.</p>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let currentPlan = [];
-
-        function showLoading(title, desc) {
-            document.getElementById('loading-title').innerText = title;
-            document.getElementById('loading-desc').innerText = desc || 'Bitte warten...';
-            document.getElementById('loading-modal').classList.remove('hidden');
-        }
-
-        function hideLoading() {
-            document.getElementById('loading-modal').classList.add('hidden');
-        }
-
-        function openTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('border-blue-600', 'text-blue-600');
-                btn.classList.add('border-transparent', 'text-slate-500');
-            });
-            document.getElementById('tab-' + tabId).classList.remove('hidden');
-            const activeBtn = document.getElementById('tab-btn-' + tabId);
-            activeBtn.classList.remove('border-transparent', 'text-slate-500');
-            activeBtn.classList.add('border-blue-600', 'text-blue-600');
-
-            if (tabId === 'history') loadHistory();
-        }
-
-        async function fetchStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-                
-                // OCR Badge
-                const bOcr = document.getElementById('badge-ocr');
-                if (data.ocr_ready) {
-                    bOcr.className = 'px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium';
-                    bOcr.innerText = '✓ Apple Vision OCR aktiv';
-                } else {
-                    bOcr.className = 'px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium';
-                    bOcr.innerText = '⚠ OCR nicht bereit';
-                }
-
-                // AI Badge
-                const bAi = document.getElementById('badge-ai');
-                if (data.ai_provider === 'gemini') {
-                    if (data.gemini_key_set) {
-                        bAi.className = 'px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium';
-                        bAi.innerText = `Gemini (${data.gemini_model})`;
-                    } else {
-                        bAi.className = 'px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-medium cursor-pointer';
-                        bAi.innerText = '⚠ Gemini Key fehlt (hier klicken)';
-                        bAi.onclick = () => openTab('settings');
-                    }
-                } else {
-                    bAi.className = 'px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium';
-                    bAi.innerText = `KI: ${data.ai_provider}`;
-                }
-
-                // Pre-fill settings
-                document.getElementById('cfg-provider').value = data.ai_provider;
-                document.getElementById('cfg-gemini-model').value = data.gemini_model;
-                document.getElementById('cfg-local-url').value = data.local_url;
-                if (data.folder_suggestion) {
-                    document.getElementById('folder-path').value = data.folder_suggestion;
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function pickFolder() {
-            showLoading('Ordner auswählen', 'Warten auf Finder-Dialog...');
-            try {
-                const res = await fetch('/api/pick_folder', { method: 'POST' });
-                const data = await res.json();
-                if (data.path) {
-                    document.getElementById('folder-path').value = data.path;
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function startCatalog() {
-            const folder = document.getElementById('folder-path').value.trim();
-            if (!folder) return alert('Bitte zuerst einen Ordner angeben oder durchsuchen.');
-
-            showLoading('Katalogisiere Ordner', 'Dateien werden gescannt und Prüfsummen berechnet...');
-            try {
-                const res = await fetch('/api/catalog', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ path: folder })
-                });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-
-                renderCatalog(data);
-                openTab('catalog');
-            } catch (e) {
-                alert('Fehler: ' + e.message);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        function renderCatalog(data) {
-            document.getElementById('catalog-placeholder').classList.add('hidden');
-            document.getElementById('catalog-results').classList.remove('hidden');
-
-            const s = data.summary;
-            const mb = (s.total_bytes / (1024*1024)).toFixed(1);
-            const wastedMb = (s.wasted_bytes / (1024*1024)).toFixed(1);
-            let sizeStr = mb + ' MB';
-            if (s.total_bytes >= 1024*1024*1024) {
-                sizeStr = (s.total_bytes / (1024*1024*1024)).toFixed(2) + ' GB';
-            }
-
-            document.getElementById('stats-grid').innerHTML = `
-                <div class="bg-white p-5 rounded-2xl border border-slate-200">
-                    <div class="text-xs text-slate-500 font-semibold uppercase">Dateien insgesamt</div>
-                    <div class="text-2xl font-bold text-slate-800 mt-1">${s.total_files}</div>
-                    <div class="text-xs text-slate-400 mt-1">Eingelesene Elemente</div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200">
-                    <div class="text-xs text-slate-500 font-semibold uppercase">Ordnergröße gesamt</div>
-                    <div class="text-2xl font-bold text-indigo-600 mt-1">${sizeStr}</div>
-                    <div class="text-xs text-slate-400 mt-1">${mb} MB auf Datenträger</div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200">
-                    <div class="text-xs text-slate-500 font-semibold uppercase">Kategorien</div>
-                    <div class="text-2xl font-bold text-blue-600 mt-1">${Object.keys(s.category_stats).length}</div>
-                    <div class="text-xs text-slate-400 mt-1">Dokumente, Bilder etc.</div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200">
-                    <div class="text-xs text-slate-500 font-semibold uppercase">Duplikate</div>
-                    <div class="text-2xl font-bold ${s.duplicate_files_count > 0 ? 'text-amber-500' : 'text-emerald-600'} mt-1">${s.duplicate_files_count}</div>
-                    <div class="text-xs text-slate-400 mt-1">${wastedMb} MB verschwendet</div>
-                </div>
-            `;
-
-            // Categories
-            const catHtml = Object.entries(s.category_stats).map(([cat, info]) => `
-                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 text-sm">
-                    <span class="font-medium text-slate-700">${cat}</span>
-                    <span class="text-slate-500 font-mono text-xs">${info.count} Dateien (${(info.total_bytes / (1024*1024)).toFixed(1)} MB)</span>
-                </div>
-            `).join('');
-            document.getElementById('categories-list').innerHTML = catHtml || '<p class="text-xs text-slate-400">Keine Daten</p>';
-
-            // Duplicates
-            if (Object.keys(data.duplicates).length === 0) {
-                document.getElementById('duplicates-list').innerHTML = '<p class="text-sm text-emerald-600 font-medium">✓ Keine Duplikate gefunden!</p>';
-            } else {
-                const dupHtml = Object.entries(data.duplicates).map(([hash, list]) => `
-                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs">
-                        <div class="font-bold text-amber-900">${list[0].filename} (${list.length} identische Kopien)</div>
-                        <ul class="mt-1 list-disc list-inside text-amber-700 truncate">
-                            ${list.map(f => `<li>${f.path}</li>`).join('')}
-                        </ul>
-                    </div>
-                `).join('');
-                document.getElementById('duplicates-list').innerHTML = dupHtml;
-            }
-        }
-
-        async function startPreview() {
-            const folder = document.getElementById('folder-path').value.trim();
-            if (!folder) return alert('Bitte zuerst einen Ordner angeben.');
-
-            showLoading('KI-Analyse läuft', 'Extrahiere Text, führe OCR durch und frage die KI nach sinnvollen Namen...');
-            try {
-                const res = await fetch('/api/preview', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ path: folder })
-                });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-
-                currentPlan = data.plan;
-                renderPreview(currentPlan);
-                openTab('preview');
-            } catch (e) {
-                alert('Fehler: ' + e.message);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        function renderPreview(plan) {
-            document.getElementById('preview-placeholder').classList.add('hidden');
-            document.getElementById('preview-results').classList.remove('hidden');
-
-            const tbody = document.getElementById('preview-tbody');
-            if (plan.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400">Keine Dateien gefunden.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = plan.map((item, idx) => `
-                <tr class="hover:bg-slate-50 transition" data-idx="${idx}">
-                    <td class="p-4 text-center">
-                        <input type="checkbox" class="file-chk rounded text-blue-600" checked onchange="updateSelectedCount()">
-                    </td>
-                    <td class="p-4">
-                        <div class="font-medium text-slate-800 break-all">${item.original_name}</div>
-                        <div class="text-xs text-slate-400 mt-0.5">${item.source_path}</div>
-                    </td>
-                    <td class="p-4">
-                        <input type="text" value="${item.new_name}" class="new-name-input w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-semibold text-emerald-700 bg-emerald-50/30">
-                    </td>
-                    <td class="p-4">
-                        <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">${item.analysis.suggested_folder}</span>
-                    </td>
-                    <td class="p-4 text-xs">
-                        <div class="font-semibold text-slate-700">${item.analysis.doc_type} / ${item.analysis.sender}</div>
-                        <div class="text-slate-400 mt-0.5">${item.analysis.doc_date || 'Kein Datum'}</div>
-                    </td>
-                </tr>
-            `).join('');
-
-            updateSelectedCount();
-        }
-
-        function toggleSelectAll(master) {
-            document.querySelectorAll('.file-chk').forEach(c => c.checked = master.checked);
-            updateSelectedCount();
-        }
-
-        function updateSelectedCount() {
-            const count = document.querySelectorAll('.file-chk:checked').length;
-            document.getElementById('selected-count').innerText = count;
-            document.getElementById('btn-exec-count').innerText = count;
-        }
-
-        async function executeRenaming() {
-            const checkboxes = document.querySelectorAll('.file-chk');
-            const itemsToExecute = [];
-
-            checkboxes.forEach((cb, idx) => {
-                if (cb.checked) {
-                    const planItem = currentPlan[idx];
-                    // Name aus dem Input übernehmen falls editiert
-                    const row = cb.closest('tr');
-                    const inputVal = row.querySelector('.new-name-input').value.trim();
-                    planItem.new_name = inputVal;
-                    itemsToExecute.push(planItem);
-                }
-            });
-
-            if (itemsToExecute.length === 0) return alert('Keine Dateien ausgewählt.');
-
-            const copyMode = document.getElementById('copy-mode').checked;
-            const msg = `Möchten Sie ${itemsToExecute.length} Dateien jetzt wirklich ${copyMode ? 'kopieren' : 'verschieben/umbenennen'}?`;
-            if (!confirm(msg)) return;
-
-            showLoading('Wende Änderungen an...', 'Dateien werden sortiert und umbenannt...');
-            try {
-                const res = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        items: itemsToExecute,
-                        copy_mode: copyMode
-                    })
-                });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-
-                alert(`✓ Erfolgreich abgeschlossen!\nManifest: ${data.manifest}`);
-                openTab('history');
-            } catch (e) {
-                alert('Fehler: ' + e.message);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function loadHistory() {
-            try {
-                const res = await fetch('/api/history');
-                const data = await res.json();
-                const list = document.getElementById('history-list');
-
-                if (data.manifests.length === 0) {
-                    list.innerHTML = '<p class="text-xs text-slate-400">Bisher keine Aktionen durchgeführt.</p>';
-                    return;
-                }
-
-                list.innerHTML = data.manifests.map(m => `
-                    <div class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50">
-                        <div>
-                            <div class="font-semibold text-slate-800 text-sm">${m.filename}</div>
-                            <div class="text-xs text-slate-500 mt-0.5">${m.total_actions} Aktionen am ${m.date}</div>
-                        </div>
-                        <button onclick="undoManifest('${m.filename}')" class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition border border-rose-200">
-                            ↩️ Rückgängig machen
-                        </button>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function undoManifest(filename) {
-            if (!confirm(`Sollen alle Aktionen aus '${filename}' rückgängig gemacht werden?`)) return;
-
-            showLoading('Rückgängig machen...', 'Dateien werden an ihren Ursprungsort zurückversetzt...');
-            try {
-                const res = await fetch('/api/undo', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ manifest: filename })
-                });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-
-                alert(`✓ ${data.restored} Dateien wurden erfolgreich wiederhergestellt!`);
-                loadHistory();
-            } catch (e) {
-                alert('Fehler: ' + e.message);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function saveConfig() {
-            const payload = {
-                ai_provider: document.getElementById('cfg-provider').value,
-                gemini_api_key: document.getElementById('cfg-gemini-key').value,
-                gemini_model: document.getElementById('cfg-gemini-model').value,
-                local_url: document.getElementById('cfg-local-url').value
-            };
-
-            try {
-                const res = await fetch('/api/save_config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if (data.success) {
-                    const msg = document.getElementById('save-msg');
-                    msg.classList.remove('hidden');
-                    setTimeout(() => msg.classList.add('hidden'), 3000);
-                    fetchStatus();
-                }
-            } catch (e) {
-                alert('Fehler beim Speichern');
-            }
-        }
-
-        // Init
-        fetchStatus();
-    </script>
-</body>
-</html>
-"""
-
 
 class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -695,15 +116,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
 
         if url.path == "/" or url.path == "/index.html":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
             template_path = BASE_DIR / "templates" / "index.html"
+            if not template_path.exists():
+                template_path = BASE_DIR / "index.html"
             if template_path.exists():
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
                 with open(template_path, "rb") as f:
                     self.wfile.write(f.read())
             else:
-                self.wfile.write(HTML_DASHBOARD.encode("utf-8"))
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"Template index.html nicht gefunden.")
+            return
+
+        if url.path == "/api/progress":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(ANALYSIS_PROGRESS).encode("utf-8"))
+            return
+
+        if url.path == "/api/autopilot/status":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(GLOBAL_WATCHER.status()).encode("utf-8"))
             return
 
         if url.path == "/api/status":
@@ -760,7 +199,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         update_info["release_notes"] = rel.get("body", "")
                         update_info["html_url"] = rel.get("html_url", update_info["html_url"])
 
-                        # Versionsvergleich (z. B. "1.1.0" > "1.0.0")
+                        # Versionsvergleich (z. B. "1.2.0" > "1.1.4")
                         def vparts(v_str):
                             return [int(x) for x in re.findall(r'\d+', v_str)] or [0]
 
@@ -816,6 +255,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
 
             ext = p.suffix.lower()
+
+            # Apple .heic / .heif / .tiff im Browser via macOS sips live als JPEG-Vorschau ausliefern
+            if ext in {".heic", ".heif", ".tiff", ".tif"}:
+                import tempfile
+                tmp_jpg = None
+                try:
+                    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_f:
+                        tmp_jpg = Path(tmp_f.name)
+                    subprocess.run(
+                        ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "80", "-Z", "1400", str(p), "--out", str(tmp_jpg)],
+                        capture_output=True,
+                        check=False,
+                        timeout=10
+                    )
+                    if tmp_jpg.exists() and tmp_jpg.stat().st_size > 0:
+                        data = tmp_jpg.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "image/jpeg")
+                        self.send_header("Content-Length", str(len(data)))
+                        self.end_headers()
+                        self.wfile.write(data)
+                        return
+                except Exception:
+                    pass
+                finally:
+                    if tmp_jpg and tmp_jpg.exists():
+                        try:
+                            tmp_jpg.unlink()
+                        except Exception:
+                            pass
+
             mime_map = {
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
@@ -882,9 +352,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Forbidden: Ungültiger Origin-Header"}).encode("utf-8"))
             return
 
-        # 3. Content-Type Prüfung (muss application/json sein)
+        # 3. Content-Type Prüfung (muss application/json sein, außer bei leeren POSTs wie pick_folder)
+        content_length = int(self.headers.get("Content-Length", 0))
         content_type = self.headers.get("Content-Type", "").split(";")[0].strip().lower()
-        if content_type != "application/json":
+        if content_length > 0 and content_type != "application/json":
             self.send_response(415)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -892,7 +363,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         url = urlparse(self.path)
-        content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
         try:
             params = json.loads(body) if body.strip() else {}
@@ -937,7 +407,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             try:
                 cat = Catalog(folder)
-                cat.scan(compute_hashes=True)
+                cat.scan(compute_hashes=True, detect_similar_images=True)
                 summary = cat.summary()
 
                 dups_export = {}
@@ -959,11 +429,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({
                     "summary": summary,
                     "duplicates": dups_export,
+                    "similar_images": cat.similar_images,
                     "files": files_export
                 }).encode("utf-8"))
             except PermissionError:
                 self.send_error_response(
-                    "Zugriff verweigert (macOS Datenschutz): Bitte erlauben Sie 'Terminal' Zugriff auf 'Dokumente' unter 'Systemeinstellungen > Datenschutz & Sicherheit > Dateien und Ordner'."
+                    "Zugriff verweigert (macOS Datenschutz): Bitte erlauben Sie 'Dateien_Aktionen' Zugriff auf diesen Ordner unter 'Systemeinstellungen > Datenschutz & Sicherheit > Dateien und Ordner'."
                 )
             except Exception as e:
                 self.send_error_response(f"Fehler beim Scannen: {str(e)}")
@@ -990,8 +461,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             folder_str = params.get("path", "")
             specific_paths = params.get("paths", [])
             prefix = params.get("prefix", None)
+            force_refresh = bool(params.get("force_refresh", False))
 
-            folder = Path(folder_str).resolve() if folder_str else BASE_DIR
+            folder = Path(folder_str).expanduser().resolve() if folder_str else BASE_DIR
             if specific_paths and not folder.exists():
                 folder = Path(specific_paths[0]).parent
 
@@ -1002,10 +474,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             organizer = Organizer(source_dir=folder, provider=config.AI_PROVIDER)
             plan = organizer.prepare_plan(
                 specific_paths=specific_paths if specific_paths else None,
-                prefix=prefix if prefix else None
+                prefix=prefix if prefix else None,
+                use_cache=not force_refresh
             )
 
-            plan_data = [p.to_dict() for p in plan]
+            plan_data = []
+            for p in plan:
+                d = p.to_dict()
+                d["base_dir"] = str(folder)
+                plan_data.append(d)
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -1026,7 +504,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_error_response("Kein Zielordner angegeben.")
                 return
 
-            target_path = Path(target_dir_str).resolve()
+            target_path = Path(target_dir_str).expanduser().resolve()
             if new_folder_name:
                 target_path = target_path / new_folder_name
 
@@ -1093,6 +571,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if url.path == "/api/execute":
             items = params.get("items", [])
             copy_mode = params.get("copy_mode", False)
+            apply_tags = params.get("apply_tags", True)
             if not items:
                 self.send_error_response("Keine Dateien zum Ausführen übergeben.")
                 return
@@ -1102,17 +581,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
             manifest_entries = []
 
             for it in items:
-                src = Path(it["source_path"])
-                dst = Path(it["target_path"]).parent / it["new_name"]
-
+                src = Path(it["source_path"]).resolve()
                 if not src.exists():
                     continue
 
-                dst.parent.mkdir(parents=True, exist_ok=True)
+                # Sicheren Dateinamen erzwingen (verhindert Path-Traversal durch "/" im Namen)
+                safe_new_name = Path(it.get("new_name", src.name)).name
+                if not safe_new_name:
+                    safe_new_name = src.name
+
+                # Editierten Zielordner sicher unterhalb des Basisordners auflösen
+                custom_folder = it.get("custom_folder", "").strip().strip("/")
+                base_dir_str = it.get("base_dir", "")
+                if custom_folder and base_dir_str:
+                    base_target_dir = Path(base_dir_str).resolve()
+                    safe_parts = [pt for pt in Path(custom_folder).parts if pt not in ("..", ".", "/", "\\")]
+                    target_parent = base_target_dir.joinpath(*safe_parts) if safe_parts else base_target_dir
+                else:
+                    target_parent = Path(it["target_path"]).resolve().parent
+
+                target_parent.mkdir(parents=True, exist_ok=True)
+                desired_dst = target_parent / safe_new_name
+
+                # Kollisionsschutz gegen versehentliches Überschreiben existierender Dateien
+                if src == desired_dst:
+                    dst = desired_dst
+                else:
+                    dst = get_unique_target_path(desired_dst)
+
                 if copy_mode:
                     shutil.copy2(src, dst)
                 else:
-                    shutil.move(src, dst)
+                    if src != dst:
+                        shutil.move(src, dst)
+
+                # Native macOS Finder-Tags & Spotlight-Kommentar setzen
+                if apply_tags and it.get("analysis"):
+                    a = it["analysis"]
+                    tags_to_set = [a.get("doc_type", ""), a.get("sender", "")]
+                    doc_date = a.get("doc_date") or ""
+                    if len(doc_date) >= 4:
+                        tags_to_set.append(doc_date[:4])
+                    set_macos_tags_and_comment(dst, tags=tags_to_set, comment=a.get("summary") or "")
 
                 manifest_entries.append({
                     "source": str(src),
@@ -1135,8 +645,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if url.path == "/api/undo":
-            manifest_name = params.get("manifest", "")
-            manifest_path = HISTORY_DIR / manifest_name
+            manifest_name = Path(params.get("manifest", "")).name
+            if not manifest_name:
+                self.send_error_response("Ungültiger Manifest-Name.")
+                return
+            manifest_path = (HISTORY_DIR / manifest_name).resolve()
+            if manifest_path.parent != HISTORY_DIR.resolve():
+                self.send_error_response("Zugriff auf Pfad außerhalb des History-Ordners verweigert.")
+                return
             try:
                 restored = rollback_manifest(manifest_path)
                 self.send_response(200)
@@ -1194,8 +710,6 @@ LOCAL_MODEL=local-model
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            # Ohne Antwort und return lief die Anfrage in den Papierkorb-Zweig
-            # weiter und bekam dort eine zweite (Fehler-)Antwort angehängt.
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
             return
 
@@ -1325,6 +839,59 @@ LOCAL_MODEL=local-model
                 self.send_error_response(f"Fehler beim Verschieben in den Papierkorb: {str(e)}", status_code=500)
                 return
 
+        if url.path == "/api/autopilot/save":
+            watch_folders = params.get("watch_folders", [])
+            if isinstance(watch_folders, str):
+                watch_folders = [f.strip() for f in watch_folders.split("\n") if f.strip()]
+            new_cfg = {
+                "watch_folders": watch_folders,
+                "target_folder": params.get("target_folder", "").strip(),
+                "interval_seconds": max(5, int(params.get("interval_seconds", 30))),
+                "min_file_age_seconds": max(2, int(params.get("min_file_age_seconds", 10))),
+                "copy_mode": bool(params.get("copy_mode", False)),
+                "apply_tags": bool(params.get("apply_tags", True)),
+                "notifications": bool(params.get("notifications", True)),
+            }
+            save_autopilot_config(new_cfg)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(GLOBAL_WATCHER.status()).encode("utf-8"))
+            return
+
+        if url.path == "/api/autopilot/toggle":
+            enable = bool(params.get("enabled", False))
+            if enable:
+                GLOBAL_WATCHER.start()
+            else:
+                GLOBAL_WATCHER.stop()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(GLOBAL_WATCHER.status()).encode("utf-8"))
+            return
+
+        if url.path == "/api/autopilot/scan_now":
+            records = GLOBAL_WATCHER.scan_once()
+            resp = GLOBAL_WATCHER.status()
+            resp["scanned_count"] = len(records)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
+        if url.path == "/api/autopilot/launch_agent":
+            install = bool(params.get("install", False))
+            res = install_launch_agent() if install else uninstall_launch_agent()
+            resp = GLOBAL_WATCHER.status()
+            resp["agent_result"] = res
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -1434,6 +1001,13 @@ def start_gui():
             print(f"🔄 Beende ältere Version {v} auf Port {p} (diese Version: {eigene})...")
             if not beende_alte_instanz(p):
                 print(f"⚠️ Version {v} auf Port {p} ließ sich nicht beenden.")
+
+    # Falls der Autopilot zuletzt aktiviert war, beim Start direkt im Hintergrund anwerfen
+    try:
+        if load_autopilot_config().get("enabled", False):
+            GLOBAL_WATCHER.start()
+    except Exception:
+        pass
 
     # 2. Freien Port ermitteln (bevorzugt 8765, sonst nächsten freien Port)
     port = find_free_port(preferred_ports=(PORT, 8766, 8767, 8768))

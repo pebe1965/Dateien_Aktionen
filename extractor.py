@@ -126,12 +126,15 @@ def extract_from_apple_iwork(file_path: Path) -> Tuple[str, str]:
             with zipfile.ZipFile(file_path, "r") as z:
                 for name in ["QuickLook/Preview.pdf", "preview.pdf"]:
                     if name in z.namelist():
-                        temp_pdf = Path(f"/tmp/pages_preview_{file_path.stem}.pdf")
-                        with open(temp_pdf, "wb") as f_out:
-                            f_out.write(z.read(name))
-                        text, method = extract_from_pdf(temp_pdf)
-                        if temp_pdf.exists():
-                            temp_pdf.unlink()
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_f:
+                            tmp_f.write(z.read(name))
+                            temp_pdf = Path(tmp_f.name)
+                        try:
+                            text, method = extract_from_pdf(temp_pdf)
+                        finally:
+                            if temp_pdf.exists():
+                                temp_pdf.unlink()
                         if text:
                             return text, f"iwork_preview_{method}"
     except Exception:
@@ -142,21 +145,97 @@ def extract_from_apple_iwork(file_path: Path) -> Tuple[str, str]:
 
 
 def extract_macos_metadata_text(file_path: Path) -> str:
-    """Liest macOS Spotlight-Metadaten (Titel, Autoren, Beschreibung) aus."""
+    """Liest umfangreiche macOS Spotlight- & EXIF-Metadaten (Aufnahmedatum, Kamera, GPS, Audio-Tags, Screenshot-Status) aus."""
+    keys = [
+        "kMDItemContentCreationDate",
+        "kMDItemTitle",
+        "kMDItemAuthors",
+        "kMDItemDescription",
+        "kMDItemHeadline",
+        "kMDItemAcquisitionMake",
+        "kMDItemAcquisitionModel",
+        "kMDItemLatitude",
+        "kMDItemLongitude",
+        "kMDItemAltitude",
+        "kMDItemCity",
+        "kMDItemStateOrProvince",
+        "kMDItemCountry",
+        "kMDItemNamedLocation",
+        "kMDItemPixelWidth",
+        "kMDItemPixelHeight",
+        "kMDItemDurationSeconds",
+        "kMDItemAlbum",
+        "kMDItemMusicalGenre",
+        "kMDItemRecordingYear",
+        "kMDItemIsScreenCapture",
+        "kMDItemScreenCaptureType",
+        "kMDItemWhereFroms"
+    ]
     try:
+        cmd = ["mdls"]
+        for k in keys:
+            cmd.extend(["-name", k])
+        cmd.append(str(file_path))
+
         res = subprocess.run(
-            ["mdls", "-name", "kMDItemTitle", "-name", "kMDItemAuthors", "-name", "kMDItemDescription", "-name", "kMDItemHeadline", str(file_path)],
+            cmd,
             capture_output=True,
             text=True,
             check=False,
             timeout=5
         )
         if res.returncode == 0:
-            lines = [l.strip() for l in res.stdout.splitlines() if "(null)" not in l and "=" in l]
-            return " ".join(lines)
+            lines = []
+            for l in res.stdout.splitlines():
+                l_strip = l.strip()
+                if "(null)" not in l_strip and "=" in l_strip:
+                    lines.append(l_strip)
+            return "\n".join(lines)
     except Exception:
         pass
     return ""
+
+
+def create_image_thumbnail_base64(file_path: Path, max_dimension: int = 1024) -> Optional[Tuple[str, str]]:
+    """
+    Erzeugt ein kompaktes JPEG-Thumbnail eines Bildes (auch aus .heic, .tiff, .png)
+    mithilfe des nativen macOS-Tools `sips` für die multimodale KI-Analyse (Gemini Vision).
+    Gibt (base64_string, "image/jpeg") zurück oder None.
+    """
+    import base64
+    import tempfile
+
+    ext = file_path.suffix.lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".heic", ".heif", ".tiff", ".tif", ".webp", ".bmp", ".gif"}:
+        return None
+
+    tmp_jpg = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_f:
+            tmp_jpg = Path(tmp_f.name)
+
+        cmd = [
+            "sips",
+            "-s", "format", "jpeg",
+            "-s", "formatOptions", "75",
+            "-Z", str(max_dimension),
+            str(file_path),
+            "--out", str(tmp_jpg)
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=10)
+        if res.returncode == 0 and tmp_jpg.exists() and tmp_jpg.stat().st_size > 0:
+            with open(tmp_jpg, "rb") as f:
+                b64_data = base64.b64encode(f.read()).decode("ascii")
+            return b64_data, "image/jpeg"
+    except Exception:
+        pass
+    finally:
+        if tmp_jpg and tmp_jpg.exists():
+            try:
+                tmp_jpg.unlink()
+            except Exception:
+                pass
+    return None
 
 
 def is_dataless_file(file_path: Path) -> bool:
@@ -219,10 +298,17 @@ def extract_content(file_path: Path, auto_download_cloud: bool = True) -> Tuple[
     if ext == ".pdf":
         return extract_from_pdf(file_path)
 
-    # 2. Bilder (OCR)
-    if ext in {".jpg", ".jpeg", ".png", ".heic", ".tiff", ".tif", ".webp", ".bmp"}:
-        ocr_text = run_macos_vision_ocr(file_path)
-        return ocr_text, "macOS_Vision_OCR"
+    # 2. Bilder (OCR + Apple Vision Scene Classification + EXIF/Spotlight-Metadaten)
+    if ext in {".jpg", ".jpeg", ".png", ".heic", ".heif", ".tiff", ".tif", ".webp", ".bmp"}:
+        ocr_and_scene = run_macos_vision_ocr(file_path)
+        exif_meta = extract_macos_metadata_text(file_path)
+        parts = []
+        if exif_meta:
+            parts.append(f"[EXIF / Spotlight Metadaten]\n{exif_meta}")
+        if ocr_and_scene:
+            parts.append(ocr_and_scene)
+        combined = "\n\n".join(parts).strip()
+        return combined, "macOS_Vision_OCR+EXIF"
 
     # 3. Reine Textdateien
     if ext in {".txt", ".md", ".csv", ".tsv", ".json", ".xml", ".yaml", ".yml"}:
@@ -252,6 +338,7 @@ def extract_content(file_path: Path, auto_download_cloud: bool = True) -> Tuple[
     if ext in {".pages", ".numbers", ".key"}:
         return extract_from_apple_iwork(file_path)
 
-    # 7. Fallback für Medien (Video, Audio etc.) -> Metadaten via Spotlight
+    # 7. Medien (Video, Audio etc.) -> Metadaten via Spotlight (EXIF, Dauer, Kamera, ID3)
     metadata = extract_macos_metadata_text(file_path)
     return metadata, "macos_spotlight_metadata"
+
