@@ -50,13 +50,87 @@ heruntergeladen. **Alles, was im Code oder im Paket steht, ist öffentlich.**
   lief nach einem Update die alte Fassung weiter. `app_version` in
   `/api/status` deshalb nie entfernen.
 
-## 4. Vor jedem Release
+## 4. Release — immer vollständig, in dieser Reihenfolge
 
-1. `APP_VERSION` in `config.py` und `CFBundleShortVersionString` in
-   `Dateien_Aktionen.app/Contents/Info.plist` auf die neue Version setzen —
-   die Update-Prüfung vergleicht sie mit dem GitHub-Tag.
-2. `./scripts/build_release.sh`
-3. Prüfen, dass nichts Geheimes im DMG steckt (DMG öffnen →
-   Paketinhalt → `Contents/Resources/app/`): keine `.env`, kein `AIza…`.
-4. Release auf GitHub mit Tag `vX.Y.Z` und der Datei `Dateien_Aktionen.dmg`.
-   Der Marketplace zeigt es automatisch an.
+Ein Release ist erst fertig, wenn **alle** Schritte erledigt sind —
+einschließlich der Texte im Marketplace (Schritt 5 und 8). Nicht nach dem
+Hochladen aufhören.
+
+Wie das Programm im Marketplace von NotionaryAtlas erscheint:
+
+| Was | Woher | Wer aktualisiert |
+| --- | --- | --- |
+| Version, Datum, Versionshinweise, Download-Knopf | neuestes GitHub-Release | automatisch (bis zu 10 min Verzögerung) |
+| Beschreibung, Funktionsliste, Voraussetzungen | `marketplace.json` in diesem Repo → Datenbank der App | **du**, Schritt 5 und 8 |
+
+Bis 17.10.2026 wurde Schritt 5/8 vergessen: v1.2.0 stand im Marketplace ohne
+ähnliche Fotos, Finder-Tags und Autopilot.
+
+1. **Version festlegen** (`X.Y.Z`: Fehlerbehebung → Z+1, neue Funktion →
+   Y+1) und **überall gleich** eintragen:
+   - `APP_VERSION` in `config.py`
+   - `CFBundleShortVersionString` in
+     `Dateien_Aktionen.app/Contents/Info.plist`
+   Achtung: `Dateien_Aktionen.app/` steht in `.gitignore` und
+   `build_release.sh` schreibt die Info.plist **nicht** — sie muss von Hand
+   geändert werden, sonst trägt das DMG die alte Version. Die
+   Update-Prüfung (`/api/check_update` in `gui.py`) und der Start
+   (`start_gui()`) vergleichen `APP_VERSION` mit dem GitHub-Tag bzw. der
+   laufenden Instanz.
+2. **Bauen:** `./scripts/build_release.sh` (erzeugt `Dateien_Aktionen.dmg`
+   und `Dateien_Aktionen.zip`). Bricht es ab (etwa wegen einer `.env` im
+   Bundle), Ursache beheben — die Prüfung nie entfernen.
+3. **Nichts Geheimes im Paket:**
+   `find Dateien_Aktionen.app -name ".env" -o -name ".env.*.local"; grep -rE "AIza[0-9A-Za-z_-]{30,}|na_[0-9A-Za-z]{20,}" Dateien_Aktionen.app`
+   — darf nichts ausgeben (`.env.example` mit Platzhaltern ist erlaubt).
+   Außerdem: `/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Dateien_Aktionen.app/Contents/Info.plist`
+   zeigt die neue Version.
+4. **Versionshinweise** auf Deutsch, für Nutzer (keine Code-Begriffe ohne
+   Erklärung), Format: `## Neu in X.Y.Z` + Stichpunkte, darunter
+   „Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage
+   „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.“
+5. **`marketplace.json` aktualisieren** — bei jedem Release prüfen, bei jeder
+   neuen oder geänderten Funktion anpassen:
+   - `description` (40–400 Zeichen): ein bis zwei Sätze, was das Programm
+     insgesamt kann. Keine Versionsnummer — die zeigt der Marketplace selbst.
+   - `integrations` (1–8 Einträge, je `module` 2–40 Zeichen und
+     `description` 10–240 Zeichen): die wichtigsten Funktionsbereiche des
+     **gesamten** Programms, nicht nur die Neuerungen. Neues in einen
+     passenden Bereich einarbeiten oder einen Bereich ergänzen; bei mehr als
+     acht zusammenfassen. Weggefallenes streichen.
+   - `requirements` (1–6 Einträge): nur ändern, wenn sich Voraussetzungen
+     ändern (Mac-Modell, macOS-Version, Python, …).
+   - `slug` und `github_repo` **nie** ändern.
+   - Deutsch, Nutzersprache, kein Markdown, keine Emojis. Die Datei ist
+     öffentlich — nichts Geheimes hinein.
+6. **Commit und Push** auf `main` (Code + `marketplace.json` zusammen), dann
+   Tag: `git tag vX.Y.Z && git push origin main vX.Y.Z`.
+7. **GitHub-Release** — veröffentlicht, kein Entwurf, keine Vorabversion
+   (Marketplace und Update-Prüfung lesen nur `releases/latest`):
+   ```bash
+   gh release create vX.Y.Z Dateien_Aktionen.dmg Dateien_Aktionen.zip \
+     --title "Dateien_Aktionen vX.Y.Z – <kurzer Titel>" --notes-file <hinweise.md>
+   ```
+   Genau diese Dateinamen, **DMG zuerst**: Die Update-Prüfung im Programm
+   nimmt die erste `.dmg`/`.zip` als Download. Der Marketplace bietet nur das
+   DMG an (`Dateien_Aktionen.zip` hat kein „mac“ im Namen und wird dort
+   bewusst ignoriert) — nicht umbenennen.
+8. **Marketplace-Texte übernehmen** (Probelauf, dann speichern):
+   ```bash
+   node ~/Developer/pberthold-app/scripts/marketplace-desktop-text.mjs ~/Developer/Dateien_Aktionen
+   node ~/Developer/pberthold-app/scripts/marketplace-desktop-text.mjs ~/Developer/Dateien_Aktionen --schreiben
+   ```
+   Das Skript prüft die Datei, zeigt die Unterschiede und schreibt in die
+   Datenbank der App — sofort sichtbar, **kein Deploy nötig**. Es liest den
+   Datenbank-Schlüssel aus `~/Developer/pberthold-app/.env.local`; dafür
+   braucht der Befehl Zugriff außerhalb dieses Ordners (Sandbox ggf.
+   umgehen). **Diesen Schlüssel nie in dieses Repo kopieren**, nie ausgeben.
+   Meldet das Skript einen Fehler, `marketplace.json` korrigieren und
+   wiederholen.
+9. **Kontrolle:** `gh release view vX.Y.Z --json tagName,isDraft,isPrerelease,assets`
+   — Tag stimmt, beide Dateien da, kein Entwurf. Erneuter Probelauf aus
+   Schritt 8 meldet „bereits aktuell“.
+
+**Im Repo `pberthold-app` (NotionaryAtlas) sonst nichts ändern und dort nie
+committen oder pushen** — jeder Push dort löst einen kostenpflichtigen Build
+aus, und für ein Release ist keiner nötig.

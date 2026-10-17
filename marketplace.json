@@ -1,0 +1,36 @@
+{
+  "slug": "dateien-aktionen",
+  "github_repo": "pebe1965/Dateien_Aktionen",
+  "description": "Ordner katalogisieren, Dubletten und ähnliche Fotos finden und Dokumente, Fotos und Medien per Texterkennung und KI sinnvoll umbenennen, taggen und sortieren – mit Vorschau vor jeder Änderung und Rückgängig.",
+  "integrations": [
+    {
+      "module": "Katalog & Dubletten",
+      "description": "Rekursiver Scan nach Dateiarten, doppelte Dateien über Prüfsummen und optisch ähnliche Fotos (Serienaufnahmen, komprimierte Kopien) erkennen."
+    },
+    {
+      "module": "Texterkennung & KI",
+      "description": "Liest Scans mit Apples Texterkennung und schlägt Namen im Format Datum_Absender_Art_Thema vor."
+    },
+    {
+      "module": "Fotos & Medien",
+      "description": "Wertet Aufnahmedatum, Ort, Kamera und Dauer aus, erkennt Bildinhalte und zeigt eine Vorschau auch für HEIC-Fotos, Videos und Audio."
+    },
+    {
+      "module": "Finder-Tags & Ordner",
+      "description": "Setzt beim Sortieren farbige Finder-Tags und Spotlight-Kommentare; Zielordner sind in der Vorschau frei änderbar."
+    },
+    {
+      "module": "Autopilot",
+      "description": "Überwacht Ordner wie Downloads oder Schreibtisch im Hintergrund, mit Mitteilungen und optionalem Autostart."
+    },
+    {
+      "module": "Sicher umbenennen",
+      "description": "Erst Vorschau, dann ausführen – jede Aktion lässt sich rückgängig machen, gelöscht wird nur in den Papierkorb."
+    }
+  ],
+  "requirements": [
+    "Mac mit Apple Silicon (M1 oder neuer)",
+    "Python 3 (über die Entwicklerwerkzeuge)",
+    "Öffnet sich im Browser"
+  ]
+}

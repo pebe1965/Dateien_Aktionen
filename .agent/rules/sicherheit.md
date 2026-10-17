@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Sicherheit (immer beachten)
 
 Lies vor jeder Änderung `AGENTS.md` im Hauptordner des Repos und befolge sie.
