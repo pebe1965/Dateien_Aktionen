@@ -36,6 +36,12 @@ if [ -d "$PROJECT_DIR/bin" ]; then
     chmod +x "$APP_DIR/bin/"* 2>/dev/null || true
 fi
 
+# Icon kopieren
+if [ -f "$PROJECT_DIR/resources/AppIcon.icns" ]; then
+    mkdir -p "$APP_BUNDLE/Contents/Resources"
+    cp "$PROJECT_DIR/resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+fi
+
 # Keine Zugangsdaten ausliefern: Das Bundle wird nicht neu angelegt, sondern
 # nur ueberschrieben — eine einmal hineinkopierte .env bliebe sonst fuer immer
 # darin und landete in jedem veroeffentlichten DMG.
