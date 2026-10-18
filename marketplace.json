@@ -29,8 +29,8 @@
     }
   ],
   "requirements": [
-    "Mac mit Apple Silicon (M1 oder neuer)",
-    "Python 3 (über die Entwicklerwerkzeuge)",
-    "Öffnet sich im Browser"
+    "Mac mit macOS 12 oder neuer (Apple Silicon oder Intel)",
+    "Python 3",
+    "Eigenes Mac-Fenster (ohne Terminal)"
   ]
 }

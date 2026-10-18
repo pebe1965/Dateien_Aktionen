@@ -980,7 +980,7 @@ def find_free_port(preferred_ports=(8765, 8766, 8767, 8768)) -> int:
         return s.getsockname()[1]
 
 
-def start_gui():
+def start_gui(open_browser: bool = True):
     eigene = getattr(config, "APP_VERSION", "1.0.0")
 
     # 1. Läuft dieselbe Version schon: Browser öffnen und bestehende Instanz nutzen.
@@ -993,9 +993,10 @@ def start_gui():
             url = f"http://127.0.0.1:{p}"
             print(f"\n============================================================")
             print(f"  ℹ️  Dateien_Aktionen läuft bereits im Hintergrund auf: {url}")
-            print(f"  Öffne bestehendes Fenster im Browser...")
+            if open_browser:
+                print(f"  Öffne bestehendes Fenster im Browser...")
+                webbrowser.open(url)
             print(f"============================================================\n")
-            webbrowser.open(url)
             return
         if v != eigene:
             print(f"🔄 Beende ältere Version {v} auf Port {p} (diese Version: {eigene})...")
@@ -1019,19 +1020,41 @@ def start_gui():
 
     print(f"\n============================================================")
     print(f"  🚀 Dateien_Aktionen GUI gestartet auf: {url}")
-    print(f"  Öffne Browser...")
+    if open_browser:
+        print(f"  Öffne Browser...")
     print(f"  Zum Beenden: Ctrl + C im Terminal drücken")
     print(f"============================================================\n")
 
-    # Browser öffnen
-    webbrowser.open(url)
+    # Browser öffnen (nur wenn nicht im reinen Fenster-/Dienst-Modus)
+    if open_browser:
+        webbrowser.open(url)
+
+    # SIGTERM sauber behandeln (wenn die native Mac-App beendet wird)
+    import signal
+    def _sigterm_handler(signum, frame):
+        try:
+            GLOBAL_WATCHER.stop()
+        except Exception:
+            pass
+        server.server_close()
+        sys.exit(0)
+
+    try:
+        signal.signal(signal.SIGTERM, _sigterm_handler)
+    except Exception:
+        pass
 
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         print("\n👋 Server beendet.")
+        try:
+            GLOBAL_WATCHER.stop()
+        except Exception:
+            pass
         server.server_close()
 
 
 if __name__ == "__main__":
-    start_gui()
+    should_open_browser = "--no-browser" not in sys.argv
+    start_gui(open_browser=should_open_browser)

@@ -46,14 +46,19 @@ if find "$APP_BUNDLE" -name ".env" | grep -q .; then
     exit 1
 fi
 
-# Launcher ausführbar machen & Bundle ad-hoc signieren
+# Nativer App-Launcher (Cocoa + WebKit) kompilieren & Bundle ad-hoc signieren
+echo "🔨 Kompiliere nativen App-Launcher (Cocoa + WebKit Universal 2)..."
+clang -fobjc-arc -framework Cocoa -framework WebKit -mmacosx-version-min=12.0 -arch arm64 -arch x86_64 -O2 \
+    "$PROJECT_DIR/bin/launcher.m" -o "$APP_BUNDLE/Contents/MacOS/launcher"
 chmod +x "$APP_BUNDLE/Contents/MacOS/launcher"
 chmod +x "$PROJECT_DIR/Dateien_Aktionen.command"
+rm -f "$APP_DIR/bin/"*.m "$APP_DIR/bin/"*.swift 2>/dev/null || true
 xattr -cr "$APP_BUNDLE" 2>/dev/null || true
 codesign --force --deep --sign - "$APP_BUNDLE" 2>/dev/null || true
 
 # 3. DMG erstellen
 echo "💿 2. Erstelle macOS Disk Image (Dateien_Aktionen.dmg)..."
+hdiutil detach /Volumes/Dateien_Aktionen 2>/dev/null || true
 DMG_STAGING="/tmp/dmg_staging_da_$$"
 rm -rf "$DMG_STAGING" "$PROJECT_DIR/Dateien_Aktionen.dmg"
 mkdir -p "$DMG_STAGING"
