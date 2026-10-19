@@ -205,7 +205,8 @@ class Organizer:
         specific_paths: Optional[List[str]] = None,
         prefix: Optional[str] = None,
         use_cache: bool = True,
-        max_workers: int = 4
+        max_workers: int = 4,
+        recursive: bool = True
     ) -> List[PlannedAction]:
         """
         Scannt die Dateien, prüft den lokalen Analyse-Cache, führt OCR / Extraktion parallel durch
@@ -221,7 +222,7 @@ class Organizer:
                 if p.exists() and p.is_file():
                     items.append(FileItem(p))
         else:
-            self.catalog.scan(compute_hashes=True)
+            self.catalog.scan(compute_hashes=True, recursive=recursive)
             items = self.catalog.items
             if category_filter:
                 items = [i for i in items if i.category == category_filter.upper()]

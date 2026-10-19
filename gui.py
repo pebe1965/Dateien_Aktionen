@@ -389,6 +389,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if url.path == "/api/catalog":
             folder_str = params.get("path", "")
+            without_subfolders = bool(params.get("without_subfolders", False))
             try:
                 folder = Path(folder_str).expanduser().resolve()
                 if not folder.exists() or not folder.is_dir():
@@ -407,7 +408,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             try:
                 cat = Catalog(folder)
-                cat.scan(compute_hashes=True, detect_similar_images=True)
+                cat.scan(compute_hashes=True, detect_similar_images=True, recursive=not without_subfolders)
                 summary = cat.summary()
 
                 dups_export = {}
@@ -462,6 +463,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             specific_paths = params.get("paths", [])
             prefix = params.get("prefix", None)
             force_refresh = bool(params.get("force_refresh", False))
+            without_subfolders = bool(params.get("without_subfolders", False))
 
             folder = Path(folder_str).expanduser().resolve() if folder_str else BASE_DIR
             if specific_paths and not folder.exists():
@@ -475,7 +477,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             plan = organizer.prepare_plan(
                 specific_paths=specific_paths if specific_paths else None,
                 prefix=prefix if prefix else None,
-                use_cache=not force_refresh
+                use_cache=not force_refresh,
+                recursive=not without_subfolders
             )
 
             plan_data = []

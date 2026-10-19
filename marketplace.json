@@ -5,7 +5,7 @@
   "integrations": [
     {
       "module": "Katalog & Dubletten",
-      "description": "Rekursiver Scan nach Dateiarten, doppelte Dateien über Prüfsummen und optisch ähnliche Fotos (Serienaufnahmen, komprimierte Kopien) erkennen."
+      "description": "Ordner rekursiv oder schnell ohne Unterordner katalogisieren, doppelte Dateien über Prüfsummen und optisch ähnliche Fotos erkennen."
     },
     {
       "module": "Texterkennung & KI",

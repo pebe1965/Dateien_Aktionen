@@ -140,15 +140,17 @@ class Catalog:
         self.by_category: Dict[str, List[FileItem]] = {}
         self.duplicates: Dict[str, List[FileItem]] = {}
         self.similar_images: List[Dict[str, Any]] = []
+        self.recursive: bool = True
 
-    def scan(self, compute_hashes: bool = True, detect_similar_images: bool = True) -> "Catalog":
+    def scan(self, compute_hashes: bool = True, detect_similar_images: bool = True, recursive: bool = True) -> "Catalog":
         """
-        Scannt den angegebenen Ordner rekursiv.
+        Scannt den angegebenen Ordner (rekursiv oder nur die Hauptebene).
         Nutzt ein hochperformantes 2-Phasen-Verfahren:
         1. Schnelles Erfassen aller Dateien & Metadaten (os.walk ohne Hashing).
         2. Intelligente Duplikaterkennung NUR für Dateien mit exakt identischer Dateigröße.
         3. Optionale Erkennung optisch ähnlicher Fotos (Serienbilder / komprimierte Kopien) via Perceptual Hash (dHash).
         """
+        self.recursive = recursive
         self.items.clear()
         self.by_category.clear()
         self.duplicates.clear()
@@ -158,15 +160,21 @@ class Catalog:
         def on_walk_error(err):
             walk_errors.append(err)
 
-        # Phase 1: Rekursiver Inode-Scan (rasend schnell, liest keine Dateiinhalte)
+        # Phase 1: Inode-Scan (rasend schnell, liest keine Dateiinhalte)
         for root, dirs, files in os.walk(self.root_dir, topdown=True, onerror=on_walk_error):
-            # Ignorierte Ordner & macOS Package-Bundles überspringen (z.B. .app, .photoslibrary, .logicx)
-            dirs[:] = [
-                d for d in dirs 
-                if d not in IGNORED_DIRS 
-                and not d.startswith(".") 
-                and not d.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
-            ]
+            if not recursive:
+                # Nicht in Unterordner absteigen
+                if Path(root) != self.root_dir:
+                    break
+                dirs.clear()
+            else:
+                # Ignorierte Ordner & macOS Package-Bundles überspringen (z.B. .app, .photoslibrary, .logicx)
+                dirs[:] = [
+                    d for d in dirs 
+                    if d not in IGNORED_DIRS 
+                    and not d.startswith(".") 
+                    and not d.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
+                ]
 
             for file_name in files:
                 is_icloud_file = file_name.startswith(".") and file_name.endswith(".icloud")
@@ -318,6 +326,8 @@ class Catalog:
 
         return {
             "root_dir": str(self.root_dir),
+            "recursive": self.recursive,
+            "without_subfolders": not self.recursive,
             "total_files": len(self.items),
             "total_bytes": total_size,
             "category_stats": category_stats,

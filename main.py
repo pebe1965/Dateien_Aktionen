@@ -47,7 +47,7 @@ def cmd_catalog(args):
     print(f"Durchsuche '{folder}' ...")
 
     catalog = Catalog(folder)
-    catalog.scan(compute_hashes=True)
+    catalog.scan(compute_hashes=True, recursive=not getattr(args, "without_subfolders", False))
     summary = catalog.summary()
 
     print(f"\n{C_BOLD}Gefundene Dateien insgesamt:{C_RESET} {summary['total_files']}")
@@ -92,7 +92,11 @@ def cmd_preview(args):
 
     organizer = Organizer(source_dir=folder, provider=provider)
     print("Analysiere Dateien & extrahiere Text/OCR ... Bitte warten.")
-    plan = organizer.prepare_plan(category_filter=args.filter, max_files=args.limit)
+    plan = organizer.prepare_plan(
+        category_filter=args.filter,
+        max_files=args.limit,
+        recursive=not getattr(args, "without_subfolders", False)
+    )
 
     if not plan:
         print(f"\n{C_YELLOW}Keine passenden Dateien gefunden.{C_RESET}")
@@ -127,7 +131,11 @@ def cmd_run(args):
 
     organizer = Organizer(source_dir=folder, target_dir=target_dir, provider=provider)
     print("Erstelle Plan ...")
-    plan = organizer.prepare_plan(category_filter=args.filter, max_files=args.limit)
+    plan = organizer.prepare_plan(
+        category_filter=args.filter,
+        max_files=args.limit,
+        recursive=not getattr(args, "without_subfolders", False)
+    )
 
     if not plan:
         print(f"{C_YELLOW}Keine Dateien zum Organisieren gefunden.{C_RESET}")
@@ -251,6 +259,7 @@ def main():
     # Subcommand: catalog
     p_cat = subparsers.add_parser("catalog", help="Scannt Ordner und listet Typen & Duplikate auf")
     p_cat.add_argument("path", help="Pfad zum Ordner")
+    p_cat.add_argument("--without-subfolders", action="store_true", help="Nur Dateien der Hauptebene scannen (ohne Unterordner)")
 
     # Subcommand: preview
     p_prev = subparsers.add_parser("preview", help="Dry-Run: Zeigt KI-Namensvorschläge ohne Änderungen")
@@ -258,6 +267,7 @@ def main():
     p_prev.add_argument("--provider", choices=["app", "gemini", "local", "offline"], help="KI-Provider überschreiben")
     p_prev.add_argument("--filter", help="Nur bestimmte Kategorie (z. B. DOKUMENTE, BILDER)")
     p_prev.add_argument("--limit", type=int, help="Maximale Anzahl an Dateien zur Analyse")
+    p_prev.add_argument("--without-subfolders", action="store_true", help="Nur Dateien der Hauptebene analysieren (ohne Unterordner)")
 
     # Subcommand: run
     p_run = subparsers.add_parser("run", help="Führt Umbenennung und Sortierung nach Freigabe aus")
@@ -267,6 +277,7 @@ def main():
     p_run.add_argument("--provider", choices=["app", "gemini", "local", "offline"], help="KI-Provider")
     p_run.add_argument("--filter", help="Kategorie-Filter")
     p_run.add_argument("--limit", type=int, help="Limit")
+    p_run.add_argument("--without-subfolders", action="store_true", help="Nur Dateien der Hauptebene organisieren (ohne Unterordner)")
 
     # Subcommand: undo
     p_undo = subparsers.add_parser("undo", help="Macht frühere Operationen rückgängig")
