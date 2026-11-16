@@ -147,6 +147,10 @@
             </div>
 
             <div id="catalog-results" class="hidden space-y-6">
+                <div id="catalog-hinweis" class="hidden p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span id="catalog-hinweis-text"></span>
+                    <button onclick="toggleWithoutSubfolders(false); startCatalog()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold whitespace-nowrap">📂 Mit Unterordnern einlesen</button>
+                </div>
                 <!-- Summary Stats (4 Widgets) -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="stats-grid"></div>
 
@@ -1545,6 +1549,19 @@
                 updateCatalogSelectionUI();
 
                 renderCatalog(data);
+                // „Ohne Unterordner“: sagen, was ausgelassen wurde — sonst wirkt der Ordner leer
+                const ausgelassen = (data.summary && data.summary.skipped_subfolders) || 0;
+                const hinweis = document.getElementById('catalog-hinweis');
+                if (withoutSub && ausgelassen > 0) {
+                    const n = allCatalogFiles.length;
+                    document.getElementById('catalog-hinweis-text').innerHTML = (n === 0
+                        ? '<b>Auf der obersten Ebene dieses Ordners liegen keine Dateien.</b> '
+                        : `Gelesen wurde nur die oberste Ebene (<b>${n} Datei${n === 1 ? '' : 'en'}</b>). `)
+                        + `<b>${ausgelassen} Unterordner</b> wurden nicht durchsucht, weil „Ohne Unterordner“ angehakt ist.`;
+                    hinweis.classList.remove('hidden');
+                } else {
+                    hinweis.classList.add('hidden');
+                }
                 renderDuplicates(data.duplicates, data.summary, data.similar_images);
                 if (keepCurrentTab && currentActiveTab) {
                     openTab(currentActiveTab);
@@ -1579,6 +1596,7 @@
             if (cat === 'AUDIO') return '🎵';
             if (cat === 'ARCHIVE') return '📦';
             if (cat === 'CODE_DATEN') return '💻';
+            if (cat === 'PROGRAMME') return '🧩';
             return '📁';
         }
 
@@ -1590,6 +1608,7 @@
                 'AUDIO': 'bg-amber-100 text-amber-800 border-amber-200',
                 'ARCHIVE': 'bg-orange-100 text-orange-800 border-orange-200',
                 'CODE_DATEN': 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                'PROGRAMME': 'bg-indigo-100 text-indigo-800 border-indigo-200',
                 'SONSTIGES': 'bg-slate-100 text-slate-800 border-slate-200'
             };
             const c = colors[cat] || colors['SONSTIGES'];
@@ -2773,7 +2792,10 @@
 
             const tbody = document.getElementById('preview-tbody');
             if (plan.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400">Keine Dateien gefunden.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500">Keine Dateien gefunden.'
+                    + (info.skipped_subfolders > 0
+                        ? `<div class="mt-2 text-amber-800">Auf der obersten Ebene liegen keine Dateien. <b>${info.skipped_subfolders} Unterordner</b> wurden nicht durchsucht, weil „Ohne Unterordner“ angehakt ist. Entferne den Haken oben und starte die Vorschau erneut.</div>`
+                        : '') + '</td></tr>';
                 return;
             }
 

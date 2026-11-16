@@ -70,12 +70,34 @@ def quick_header_hash(file_path: Path, header_size: int = 8192) -> str:
     return calculate_file_hash(file_path, block_size=header_size, max_read=header_size)
 
 
+def ist_paket(path: Path) -> bool:
+    """Programm oder Paket (z. B. .app, .photoslibrary): im Finder eine Datei, technisch ein Ordner."""
+    return path.name.lower().endswith(MACOS_PACKAGE_EXTENSIONS) and path.is_dir() and not path.is_symlink()
+
+
+def _paketgroesse(path: Path) -> int:
+    """Gesamtgröße eines Pakets (Summe aller enthaltenen Dateien, ohne Verknüpfungen zu folgen)."""
+    gesamt = 0
+    for root, _dirs, files in os.walk(path):
+        for f in files:
+            try:
+                gesamt += os.lstat(os.path.join(root, f)).st_size
+            except OSError:
+                pass
+    return gesamt
+
+
 class FileItem:
-    """Repräsentiert eine gefundene Datei mit Metadaten."""
+    """Repräsentiert eine gefundene Datei mit Metadaten.
+
+    Programme und Pakete zählen als ein Eintrag (is_package): Sie werden angezeigt,
+    verschoben oder gelöscht wie eine Datei, aber nie zerlegt, umbenannt oder von der KI gelesen.
+    """
 
     def __init__(self, path: Path):
         self.path = path.resolve()
         name = path.name
+        self.is_package = ist_paket(self.path)
 
         # Erkennt macOS iCloud Drive Platzhalter-Dateien (.Dokument.pdf.icloud)
         if name.startswith(".") and name.endswith(".icloud"):
@@ -88,11 +110,11 @@ class FileItem:
             self.extension = path.suffix.lower()
             self.is_cloud_placeholder = is_dataless_cloud_file(self.path)
 
-        self.category = get_file_category(self.extension)
+        self.category = "PROGRAMME" if self.is_package else get_file_category(self.extension)
 
         try:
             stat_res = self.path.stat()
-            self.size_bytes = stat_res.st_size
+            self.size_bytes = _paketgroesse(self.path) if self.is_package else stat_res.st_size
             self.created_at = datetime.fromtimestamp(stat_res.st_ctime)
             self.modified_at = datetime.fromtimestamp(stat_res.st_mtime)
         except Exception:
@@ -127,7 +149,8 @@ class FileItem:
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "hash": self.file_hash,
-            "is_cloud_placeholder": self.is_cloud_placeholder
+            "is_cloud_placeholder": self.is_cloud_placeholder,
+            "is_package": self.is_package
         }
 
 
@@ -141,6 +164,8 @@ class Catalog:
         self.duplicates: Dict[str, List[FileItem]] = {}
         self.similar_images: List[Dict[str, Any]] = []
         self.recursive: bool = True
+        # Beim Scan „ohne Unterordner“: wie viele Unterordner nicht durchsucht wurden
+        self.skipped_subfolders: int = 0
 
     def scan(self, compute_hashes: bool = True, detect_similar_images: bool = True, recursive: bool = True) -> "Catalog":
         """
@@ -155,6 +180,7 @@ class Catalog:
         self.by_category.clear()
         self.duplicates.clear()
         self.similar_images.clear()
+        self.skipped_subfolders = 0
 
         walk_errors = []
         def on_walk_error(err):
@@ -162,10 +188,29 @@ class Catalog:
 
         # Phase 1: Inode-Scan (rasend schnell, liest keine Dateiinhalte)
         for root, dirs, files in os.walk(self.root_dir, topdown=True, onerror=on_walk_error):
+            # Programme und Pakete als EINEN Eintrag aufnehmen (im Finder sind sie eine Datei).
+            # Hineingeschaut wird nicht — unten werden sie vom Abstieg ausgenommen.
+            if recursive or Path(root) == self.root_dir:
+                for d in dirs:
+                    if d.startswith(".") or not d.lower().endswith(MACOS_PACKAGE_EXTENSIONS):
+                        continue
+                    try:
+                        paket = FileItem(Path(root) / d)
+                        if paket.is_package:
+                            self.items.append(paket)
+                            self.by_category.setdefault(paket.category, []).append(paket)
+                    except (PermissionError, OSError):
+                        continue
+
             if not recursive:
                 # Nicht in Unterordner absteigen
                 if Path(root) != self.root_dir:
                     break
+                # Merken, wie viele Unterordner ausgelassen werden — sonst wirkt ein Ordner,
+                # dessen Inhalt schon in Unterordnern liegt, fälschlich leer.
+                self.skipped_subfolders = sum(
+                    1 for d in dirs if not d.startswith(".") and not d.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
+                )
                 dirs.clear()
             else:
                 # Ignorierte Ordner & macOS Package-Bundles überspringen (z.B. .app, .photoslibrary, .logicx)
@@ -179,7 +224,8 @@ class Catalog:
             for file_name in files:
                 is_icloud_file = file_name.startswith(".") and file_name.endswith(".icloud")
                 if not is_icloud_file:
-                    if file_name in IGNORED_FILES or file_name.startswith("."):
+                    # Auch Ableger von Systemdateien wie „Thumbs.db:encryptable“ überspringen
+                    if file_name in IGNORED_FILES or file_name.startswith(".") or file_name.split(":")[0] in IGNORED_FILES:
                         continue
 
                 full_path = Path(root) / file_name
@@ -201,7 +247,7 @@ class Catalog:
             # 1. Nach Dateigröße vorfiltern: Dateien mit einzigartiger Größe KÖNNEN KEINE Duplikate sein!
             size_map: Dict[int, List[FileItem]] = {}
             for item in self.items:
-                if item.size_bytes > 0 and not item.is_cloud_placeholder:
+                if item.size_bytes > 0 and not item.is_cloud_placeholder and not item.is_package:
                     size_map.setdefault(item.size_bytes, []).append(item)
 
             same_size_groups = [items for items in size_map.values() if len(items) > 1]
@@ -326,6 +372,7 @@ class Catalog:
 
         return {
             "root_dir": str(self.root_dir),
+            "skipped_subfolders": self.skipped_subfolders,
             "recursive": self.recursive,
             "without_subfolders": not self.recursive,
             "total_files": len(self.items),

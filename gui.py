@@ -22,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
 import config
-from classifier import Catalog
+from classifier import Catalog, ist_paket
 from extractor import extract_content
 from organizer import (
     Organizer, rollback_manifest, get_unique_target_path,
@@ -568,7 +568,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_error_response("Datei nicht gefunden.")
                 return
 
-            text, method = extract_content(file_path)
+            if ist_paket(file_path):
+                text, method = ("Programm oder Paket. Es wird als Ganzes behandelt: verschieben, kopieren oder "
+                                "in den Papierkorb legen – der Inhalt wird nicht gelesen oder verändert."), "Paket"
+            else:
+                text, method = extract_content(file_path)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -618,6 +622,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "plan": plan_data,
                 "ablage_modus": organizer.ablage_modus,
+                "skipped_subfolders": 0 if specific_paths else organizer.catalog.skipped_subfolders,
                 "ziel": str(organizer.target_dir)
             }).encode("utf-8"))
             return
@@ -870,12 +875,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             for p_str in paths:
                 src = Path(p_str).resolve()
-                if not src.exists() or not src.is_file():
+                paket = ist_paket(src)
+                if not src.exists() or not (src.is_file() or paket):
                     continue
 
                 dst = get_unique_target_path(target_path / src.name)
                 try:
-                    if copy_mode:
+                    if copy_mode and paket:
+                        shutil.copytree(src, dst, symlinks=True)
+                    elif copy_mode:
                         shutil.copy2(src, dst)
                     else:
                         shutil.move(src, dst)

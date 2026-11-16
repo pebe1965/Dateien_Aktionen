@@ -5,7 +5,7 @@
   "integrations": [
     {
       "module": "Katalog & Dubletten",
-      "description": "Ordner rekursiv oder schnell ohne Unterordner katalogisieren, doppelte Dateien über Prüfsummen und optisch ähnliche Fotos erkennen."
+      "description": "Ordner rekursiv oder schnell ohne Unterordner katalogisieren – Dateien und Programme –, doppelte Dateien über Prüfsummen und optisch ähnliche Fotos erkennen."
     },
     {
       "module": "Texterkennung, KI & Medien",

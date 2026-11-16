@@ -91,7 +91,7 @@ Oben steht immer die **Ordnerauswahl** mit den beiden Knöpfen „1. Katalogisie
 - **Quellordner:** Der Ordner, den du einlesen oder sortieren willst. Du kannst den Pfad auch eintippen.
 - **Durchsuchen...:** Öffnet den Auswahldialog des Mac.
 - **Eingang:** Erscheint, sobald das Ordnungssystem eingerichtet ist. Setzt „01 Eingang“ als Quellordner. Die Zahl zeigt, wie viele Dateien dort warten.
-- **Ohne Unterordner:** Liest nur die Dateien direkt im Ordner, nicht in Unterordnern. Sinnvoll für „Downloads“ und „Schreibtisch“, wenn dort schon sortierte Unterordner liegen.
+- **Ohne Unterordner:** Liest nur die Dateien direkt im Ordner, nicht in Unterordnern. Sinnvoll für „Downloads“ und „Schreibtisch“, wenn dort schon sortierte Unterordner liegen. Liegen alle Dateien bereits in Unterordnern, findet das Programm mit diesem Haken nichts und weist darauf hin.
 
 ## 4. Ordner katalogisieren
 
@@ -113,6 +113,7 @@ Katalogisieren heißt: Das Programm liest einen Ordner ein und zeigt, was darin 
 | AUDIO | MP3, M4A, WAV |
 | ARCHIVE | ZIP, DMG |
 | CODE_DATEN | Programmcode, JSON, HTML |
+| PROGRAMME | Programme (`.app`) und Pakete wie die Fotos-Mediathek oder Logic-Projekte |
 
 Ein Klick auf eine Kategorie in der Übersicht filtert die Liste darunter.
 
@@ -132,7 +133,13 @@ Hake Dateien an. Über der Liste erscheint eine Leiste mit diesen Möglichkeiten
 - **In Ordner verschieben / kopieren...:** Verschiebt oder kopiert die Auswahl in einen Ordner deiner Wahl, auf Wunsch in einen neuen Unterordner.
 - **Löschen:** Legt die Auswahl in den Papierkorb.
 
-> Hinweis: Mediatheken und Programmpakete wie die Fotos-Mediathek, Logic-Projekte oder Programme erscheinen im Finder als eine Datei. Das Programm zerlegt sie nicht.
+### Programme und Pakete
+
+Programme (`.app`), die Fotos-Mediathek, Logic-Projekte und ähnliche Pakete erscheinen im Finder als eine Datei, sind technisch aber Ordner. Dateien_Aktionen behandelt sie wie der Finder als **einen Eintrag** in der Kategorie PROGRAMME, mit ihrer Gesamtgröße.
+
+- Du kannst sie auswählen, in einen Ordner verschieben oder kopieren und in den Papierkorb legen.
+- Hineingeschaut wird nicht: Ihr Inhalt wird nie gelesen, zerlegt oder umbenannt.
+- Die KI-Vorschau und der Autopilot lassen sie aus. Beim Duplikat-Vergleich zählen sie nicht mit.
 
 ## 5. Duplikate und ähnliche Fotos
 
@@ -588,6 +595,17 @@ Das Programm prüft beim Start, ob eine neuere Version vorliegt. Gibt es eine, e
 In den Einstellungen kannst du mit „Auf GitHub nach Updates suchen“ jederzeit selbst nachsehen.
 
 ## 16. Problemlösungen
+
+### Der Katalog oder die Vorschau findet keine Dateien
+
+Meist ist „Ohne Unterordner“ angehakt, und die Dateien liegen in Unterordnern. Das passiert zum Beispiel bei „Downloads“, wenn dort schon früher einsortiert wurde: Auf der obersten Ebene liegt dann nichts mehr.
+
+Das Programm zeigt in diesem Fall einen gelben Hinweis mit der Zahl der nicht durchsuchten Unterordner.
+
+1. Im Hinweis auf „Mit Unterordnern einlesen“ klicken, oder den Haken „Ohne Unterordner“ oben entfernen.
+2. Erneut „1. Katalogisieren“ klicken.
+
+Der Haken wird gemerkt und gilt auch beim nächsten Start. Versteckte Dateien und Systemdateien wie `.DS_Store` zählen nie mit. Programme (`.app`) erscheinen im Katalog, in der KI-Vorschau aber nicht – sie werden nie umbenannt.
 
 ### Die KI liefert keine Vorschläge
 

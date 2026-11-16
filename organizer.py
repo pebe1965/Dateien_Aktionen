@@ -533,7 +533,8 @@ class Organizer:
                     items.append(FileItem(p))
         else:
             self.catalog.scan(compute_hashes=True, recursive=recursive)
-            items = self.catalog.items
+            # Programme und Pakete werden nie umbenannt oder von der KI gelesen
+            items = [i for i in self.catalog.items if not i.is_package]
             if category_filter:
                 items = [i for i in items if i.category == category_filter.upper()]
             if max_files:
@@ -749,7 +750,10 @@ def rollback_manifest(manifest_path: Path) -> int:
 
         if is_copy:
             # Bei einer Kopie wird die Kopie am Zielort wieder gelöscht
-            if dst.exists():
+            if dst.is_dir() and not dst.is_symlink():
+                shutil.rmtree(dst)  # kopiertes Programm/Paket
+                restored_count += 1
+            elif dst.exists():
                 dst.unlink()
                 restored_count += 1
         else:
