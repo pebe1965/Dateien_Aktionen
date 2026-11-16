@@ -254,6 +254,29 @@ def cmd_watch(args):
         print(f"\n{C_YELLOW}Autopilot beendet.{C_RESET}")
 
 
+def cmd_dienst(args):
+    """Hintergrunddienst (LaunchAgent): Autopilot, sofern eingeschaltet, und fällige Sicherungen."""
+    import time
+    from watcher import GLOBAL_WATCHER, load_autopilot_config
+    import backup
+
+    print("Dateien_Aktionen Hintergrunddienst gestartet.")
+    letzter_scan = 0.0
+    while True:
+        cfg = load_autopilot_config()
+        interval = max(5, int(cfg.get("interval_seconds", 30)))
+        if cfg.get("enabled") and time.time() - letzter_scan >= interval:
+            letzter_scan = time.time()
+            for r in GLOBAL_WATCHER.scan_once():
+                print(f"[Autopilot] {r['original_name']} -> {r['folder']}/{r['new_name']}")
+        try:
+            for lauf in backup.pruefe_zeitplan():
+                print(f"[Sicherung] {lauf['auftrag']}: {lauf.get('meldung', '')}")
+        except Exception as e:
+            print(f"[Sicherung] Fehler: {e}")
+        time.sleep(min(interval, 60))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Dateien_Aktionen: KI-gestützte Datei-Organisation, OCR und Umbenennung für macOS"
@@ -294,6 +317,9 @@ def main():
     # Subcommand: config
     subparsers.add_parser("config", help="Zeigt Konfiguration & Status an")
 
+    # Subcommand: dienst
+    subparsers.add_parser("dienst", help="Hintergrunddienst: Autopilot (falls eingeschaltet) und geplante Sicherungen")
+
     # Subcommand: watch
     p_watch = subparsers.add_parser("watch", help="Startet den Autopilot / Ordner-Wächter")
     p_watch.add_argument("path", nargs="?", help="Optionaler Pfad zum überwachten Ordner")
@@ -308,6 +334,7 @@ def main():
         "ocr-test": cmd_ocr_test,
         "config": cmd_config,
         "watch": cmd_watch,
+        "dienst": cmd_dienst,
     }
 
     dispatch[args.command](args)

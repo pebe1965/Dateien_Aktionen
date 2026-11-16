@@ -20,6 +20,12 @@ Entwickelt für Apple Silicon Macs (M-Serie) unter Ausnutzung der **Apple Neural
 
 ---
 
+## Handbuch
+
+Die ausführliche Anleitung für Nutzer steht in [Handbuch_Dateien_Aktionen.md](Handbuch_Dateien_Aktionen.md) und ist im Programm im Reiter „Handbuch“ eingebaut – mit Inhaltsverzeichnis und Suche.
+
+---
+
 ## Ordnungssystem: Eingang, Projekte, Ablage, Archiv
 
 In den Einstellungen lässt sich unter „Ordnungssystem“ ein Basisordner wählen (z. B. in iCloud Drive). „Grundstruktur anlegen“ erzeugt dort vier Bereiche:
@@ -40,6 +46,19 @@ Steuerrelevante Belege bekommen keinen eigenen Ordner, sondern den Finder-Tag `S
 **Steuer-Übersicht:** Der Reiter „Steuer“ listet alle Dateien mit Steuer-Tag nach Jahr und kopiert sie auf Wunsch gesammelt in einen Ordner `Steuer-Belege <Jahr>` – die Originale bleiben, wo sie sind.
 
 **Eingang-Zähler und Namensstil:** Der Knopf „Eingang“ zeigt, wie viele Dateien warten. In den Einstellungen lässt sich zwischen dem Schema mit Unterstrichen und einem lesbaren Stil mit Leerzeichen und Umlauten wählen.
+
+## Sicherung
+
+Im Reiter „Sicherung“ legt man Aufträge an: ein oder mehrere Ordner (oder einzelne Dateien) werden an ein Ziel gesichert – von Hand, stündlich, täglich oder wöchentlich. Verpasste Termine werden nachgeholt.
+
+* **Ziele:** jeder erreichbare Ordner – externe Festplatte, eingebundene NAS-Freigabe oder der Ordner von Google Drive, OneDrive, Nextcloud oder iCloud Drive. Zusätzlich die eigene Nextcloud direkt per WebDAV (Adresse, Benutzer und App-Passwort stehen nur in der lokalen `.env`).
+* **Spiegel:** kopiert nur Neues und Geändertes nach `Aktuell`. Ersetzte und gelöschte Dateien werden nicht überschrieben, sondern nach `Frühere Versionen/<Zeitstempel>` verschoben und nach einstellbarer Zeit aufgeräumt.
+* **ZIP-Archiv:** je Lauf ein gepacktes Archiv mit Datum im Namen; die letzten N bleiben. Ohne Änderungen entsteht kein neues Archiv.
+* **Schutz:** Ist die Platte nicht angeschlossen, wird nichts geschrieben. Aufgeräumt wird nur im eigenen, markierten Ordner `Dateien_Aktionen-Sicherung/<Auftrag>`. Finder-Tags werden in einer Begleitdatei mitgesichert und beim Wiederherstellen wieder gesetzt.
+* **Wiederherstellen:** Dateien oder Ordner aus dem aktuellen Stand, einer früheren Version oder einem Archiv zurücklegen – vorhandene Dateien werden nie überschrieben.
+* **Hintergrund:** Zeitpläne laufen, solange das Programm geöffnet ist, oder dauerhaft über den Hintergrunddienst (`python main.py dienst`).
+
+Die Sicherung ist nicht verschlüsselt und ersetzt kein Time Machine.
 
 ---
 

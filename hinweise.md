@@ -1,12 +1,11 @@
-## Neu in 1.6.0
+## Neu in 1.7.0
 
-* **Projekte:** Im neuen Reiter „Projekte“ legen Sie laufende Vorhaben an – mit Termin (der Ordner heißt dann z. B. „2026-12-05_Umzug“ und sortiert sich von selbst nach Datum) oder ohne. Die Liste zeigt, wie viele Tage bis zum Termin bleiben. Im Sortiermodus „Ablage“ ordnet die KI-Vorschau passende Dateien direkt dem Projekt zu.
-* **Projekt abschließen:** Ein fertiges Projekt wandert als Ganzes ins Archiv, in eine Kategorie der Ablage oder in den Papierkorb. Archiv und Ablage lassen sich unter „Protokoll & Rückgängig“ zurücknehmen; aus dem Papierkorb holen Sie es im Finder zurück.
-* **Einrichtungsassistent:** Fünf kurze Fragen zu Beruf und Alltag – daraus entwirft die KI die Kategorien Ihrer Ablage und zeigt Beispiele, wie Ihre Dateien heißen würden. Angelegt wird nur, was Sie im Vorschlag angehakt lassen. Zu finden in den Einstellungen unter „Ordnungssystem“.
-* **Steuer-Übersicht:** Der neue Reiter „Steuer“ listet alle Dateien mit dem Tag „Steuer“ und Jahr und kopiert sie auf Wunsch gesammelt in einen Ordner – etwa für die Steuererklärung. Die Originale bleiben an ihrem Platz.
-* **Eingang-Zähler:** Der Knopf „Eingang“ zeigt, wie viele Dateien noch auf das Einsortieren warten.
-* **Namensstil wählbar:** Neben dem bisherigen Schema mit Unterstrichen gibt es einen lesbaren Stil mit Leerzeichen und Umlauten, z. B. „2026-03-14 Telekom Mobilfunk März“. Das Datum steht in beiden Stilen vorn.
+* **Datensicherung:** Im neuen Reiter „Sicherung“ legen Sie Aufträge an, die Ordner oder einzelne Dateien an einen zweiten Ort sichern – auf eine externe Festplatte, ein NAS oder in den Ordner von Google Drive, OneDrive, Nextcloud oder iCloud Drive. Die eigene Nextcloud lässt sich auch direkt verbinden, ohne das Nextcloud-Programm. Die Originale werden nie verändert.
+* **Zwei Arten der Sicherung:** „Spiegel“ kopiert nur Neues und Geändertes und bewahrt ersetzte und gelöschte Dateien als frühere Versionen auf. „ZIP-Archiv“ packt bei jedem Lauf alles in eine Datei mit Datum im Namen und behält die letzten Archive.
+* **Zeitplan:** Sichern von Hand, stündlich, täglich oder wöchentlich – oder sobald die Festplatte angeschlossen wird. Verpasste Termine werden nachgeholt. Mit dem Hintergrunddienst laufen geplante Sicherungen auch ohne geöffnetes Fenster.
+* **Wiederherstellen:** Durch die Sicherung blättern und Dateien oder Ordner zurücklegen – aus dem aktuellen Stand, einer früheren Version oder einem Archiv. Vorhandene Dateien werden dabei nie überschrieben.
+* **Handbuch im Programm:** Der neue Reiter „Handbuch“ erklärt alle Funktionen Schritt für Schritt, mit Inhaltsverzeichnis und Suche.
 
-Hinweis: Der Einrichtungsassistent stellt eine KI-Anfrage und übermittelt dafür Ihre Antworten an den eingestellten KI-Anbieter.
+Hinweise: Die Sicherung ist nicht verschlüsselt und ersetzt kein Time Machine. Ist der Hintergrunddienst bei Ihnen bereits aktiv, schalten Sie ihn bitte einmal aus und wieder ein (Reiter „Sicherung“ oder „Autopilot“), damit er auch Sicherungen ausführt. Die direkte Verbindung zur Nextcloud ist neu – bitte zuerst mit einem kleinen Ordner ausprobieren.
 
 Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.

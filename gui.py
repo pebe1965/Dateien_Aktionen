@@ -31,9 +31,10 @@ from organizer import (
     _projekt_ordner, zaehle_eingang, finde_steuer_belege, sammle_steuer_belege,
     HISTORY_DIR, ANALYSIS_PROGRESS
 )
+import backup
 from watcher import (
     GLOBAL_WATCHER, load_autopilot_config, save_autopilot_config,
-    install_launch_agent, uninstall_launch_agent
+    install_launch_agent, uninstall_launch_agent, is_launch_agent_installed
 )
 
 
@@ -273,6 +274,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(update_info).encode("utf-8"))
+            return
+
+        if url.path == "/api/handbuch":
+            # Quelle des Handbuchs ist die Markdown-Datei neben dem Programm
+            handbuch = BASE_DIR / "Handbuch_Dateien_Aktionen.md"
+            try:
+                text = handbuch.read_text(encoding="utf-8")
+            except OSError:
+                text = "# Handbuch\n\nDie Handbuch-Datei wurde nicht gefunden."
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"markdown": text, "version": config.APP_VERSION}).encode("utf-8"))
+            return
+
+        if url.path == "/api/sicherung":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            daten = backup.uebersicht()
+            daten["launch_agent_installed"] = is_launch_agent_installed()
+            self.wfile.write(json.dumps(daten).encode("utf-8"))
+            return
+
+        if url.path == "/api/sicherung/status":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({k: v for k, v in backup.STATUS.items() if k != "abbrechen"}).encode("utf-8"))
             return
 
         if url.path == "/api/eingang":
@@ -590,6 +620,77 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "ablage_modus": organizer.ablage_modus,
                 "ziel": str(organizer.target_dir)
             }).encode("utf-8"))
+            return
+
+        if url.path.startswith("/api/sicherung/"):
+            aktion = url.path[len("/api/sicherung/"):]
+            try:
+                if aktion == "speichern":
+                    antwort = {"success": True, "auftrag": backup.speichere_auftrag(params)}
+                elif aktion == "loeschen":
+                    backup.loesche_auftrag(str(params.get("id", "")))
+                    antwort = {"success": True}
+                elif aktion == "ausfuehren":
+                    # Läuft im Hintergrund weiter; die Oberfläche fragt den Fortschritt ab
+                    job_id = str(params.get("id", ""))
+                    backup.hole_auftrag(job_id)
+                    if backup.STATUS["laeuft"]:
+                        raise backup.SicherungsFehler("Es läuft bereits eine Sicherung.")
+                    import threading
+                    threading.Thread(target=backup.fuehre_aus, args=(job_id,), daemon=True).start()
+                    antwort = {"success": True, "gestartet": True}
+                elif aktion == "abbrechen":
+                    backup.STATUS["abbrechen"] = True
+                    antwort = {"success": True}
+                elif aktion == "versionen":
+                    antwort = {"versionen": backup.liste_versionen(str(params.get("id", "")))}
+                elif aktion == "inhalt":
+                    antwort = {"eintraege": backup.liste_inhalt(
+                        str(params.get("id", "")), str(params.get("version", "")), str(params.get("pfad", "")))}
+                elif aktion == "wiederherstellen":
+                    ziel_ordner = None
+                    if params.get("wohin") == "ordner":
+                        ziel_ordner = str(params.get("ziel", "")).strip()
+                        if not ziel_ordner:
+                            res = subprocess.run(
+                                ["osascript", "-e", 'POSIX path of (choose folder with prompt "Wohin soll wiederhergestellt werden?")'],
+                                capture_output=True, text=True, check=False)
+                            ziel_ordner = res.stdout.strip().rstrip("/") if res.returncode == 0 else ""
+                        if not ziel_ordner:
+                            antwort = {"success": False, "abgebrochen": True}
+                            ziel_ordner = None
+                    if params.get("wohin") != "ordner" or ziel_ordner:
+                        antwort = {"success": True, **backup.stelle_wieder_her(
+                            str(params.get("id", "")), str(params.get("version", "")),
+                            str(params.get("pfad", "")), ziel_ordner)}
+                elif aktion == "nextcloud":
+                    # Leeres Passwort-Feld heißt: gespeichertes behalten (die Seite kennt es nicht)
+                    nc_url = str(params.get("url", "")).strip().rstrip("/")
+                    nc_benutzer = str(params.get("benutzer", "")).strip()
+                    nc_pw = str(params.get("passwort") or "") or config.NEXTCLOUD_APP_PASSWORT
+                    pruefung = backup.pruefe_nextcloud(nc_url, nc_benutzer, nc_pw) if nc_url else {"verbunden": False, "fehler": ""}
+                    if params.get("nur_testen"):
+                        antwort = pruefung
+                    else:
+                        _speichere_env({"NEXTCLOUD_URL": nc_url, "NEXTCLOUD_BENUTZER": nc_benutzer,
+                                        "NEXTCLOUD_APP_PASSWORT": nc_pw if nc_url else ""})
+                        config.NEXTCLOUD_URL, config.NEXTCLOUD_BENUTZER = nc_url, nc_benutzer
+                        config.NEXTCLOUD_APP_PASSWORT = nc_pw if nc_url else ""
+                        antwort = {"success": True, **pruefung}
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+            except backup.SicherungsFehler as e:
+                self.send_error_response(str(e))
+                return
+            except Exception as e:
+                self.send_error_response(f"Sicherung: {e}")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
             return
 
         if url.path == "/api/steuer/sammeln":
@@ -1267,6 +1368,9 @@ def start_gui(open_browser: bool = True):
             GLOBAL_WATCHER.start()
     except Exception:
         pass
+
+    # Geplante Sicherungen prüfen, solange die App läuft
+    backup.PLANER.start()
 
     # 2. Freien Port ermitteln (bevorzugt 8765, sonst nächsten freien Port)
     port = find_free_port(preferred_ports=(PORT, 8766, 8767, 8768))

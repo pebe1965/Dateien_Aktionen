@@ -18,6 +18,25 @@
             white-space: nowrap;
         }
     </style>
+    <style>
+        .handbuch h1 { font-size: 1.6rem; font-weight: 800; color: #1e293b; margin-bottom: .75rem; }
+        .handbuch h2 { font-size: 1.25rem; font-weight: 700; color: #1e293b; margin: 2.25rem 0 .75rem; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; scroll-margin-top: 6.5rem; }
+        .handbuch h3 { font-size: 1rem; font-weight: 700; color: #334155; margin: 1.5rem 0 .5rem; scroll-margin-top: 6.5rem; }
+        .handbuch p { font-size: .9rem; line-height: 1.65; color: #334155; margin: .6rem 0; max-width: 46rem; }
+        .handbuch ul, .handbuch ol { font-size: .9rem; line-height: 1.6; color: #334155; margin: .5rem 0 .75rem 1.4rem; max-width: 46rem; }
+        .handbuch ul { list-style: disc; }
+        .handbuch ol { list-style: decimal; }
+        .handbuch li { margin: .25rem 0; }
+        .handbuch li ul { margin: .25rem 0 .25rem 1.2rem; list-style: circle; }
+        .handbuch code { font-family: ui-monospace, Menlo, monospace; font-size: .82em; background: #f1f5f9; color: #0f172a; padding: .1rem .35rem; border-radius: .3rem; }
+        .handbuch table { font-size: .85rem; border-collapse: collapse; margin: .75rem 0 1rem; width: 100%; }
+        .handbuch th { text-align: left; background: #f8fafc; color: #475569; font-weight: 600; padding: .5rem .7rem; border: 1px solid #e2e8f0; }
+        .handbuch td { padding: .5rem .7rem; border: 1px solid #e2e8f0; color: #334155; vertical-align: top; }
+        .handbuch blockquote { font-size: .87rem; line-height: 1.55; background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e3a8a; padding: .7rem .9rem; border-radius: 0 .6rem .6rem 0; margin: .9rem 0; max-width: 46rem; }
+        .handbuch blockquote.warnung { background: #fffbeb; border-left-color: #f59e0b; color: #78350f; }
+        .handbuch mark { background: #fde68a; border-radius: .2rem; padding: 0 .1rem; }
+        .handbuch .hb-versteckt { display: none; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
     <!-- Header -->
@@ -103,6 +122,13 @@
             </button>
             <button onclick="openTab('steuer')" id="tab-btn-steuer" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
                 🧾 Steuer
+            </button>
+            <button onclick="openTab('sicherung')" id="tab-btn-sicherung" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
+                <span>💾 Sicherung</span>
+                <span id="tab-badge-sicherung" class="hidden w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Sicherung läuft"></span>
+            </button>
+            <button onclick="openTab('handbuch')" id="tab-btn-handbuch" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+                📖 Handbuch
             </button>
             <button onclick="openTab('history')" id="tab-btn-history" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
                 🕒 Protokoll & Rückgängig
@@ -579,6 +605,189 @@
             </div>
         </div>
 
+        <!-- ==================== TAB: HANDBUCH ==================== -->
+        <div id="tab-handbuch" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <aside class="lg:col-span-3">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 max-h-72 overflow-y-auto lg:sticky lg:top-4 lg:max-h-[85vh]">
+                        <input type="search" id="hb-suche" oninput="hbSuche()" placeholder="Im Handbuch suchen…" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3">
+                        <div id="hb-treffer" class="text-[11px] text-slate-500 mb-2 hidden"></div>
+                        <nav id="hb-inhalt" class="space-y-0.5 text-sm"></nav>
+                    </div>
+                </aside>
+                <article id="hb-text" class="lg:col-span-9 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 handbuch">
+                    <p class="text-sm text-slate-400">Lade Handbuch…</p>
+                </article>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: SICHERUNG ==================== -->
+        <div id="tab-sicherung" class="tab-content hidden space-y-6">
+            <!-- Laufende Sicherung -->
+            <div id="si-laeuft" class="hidden bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold text-emerald-900"><span id="si-laeuft-titel"></span></div>
+                        <div class="text-xs text-emerald-800 truncate" id="si-laeuft-detail"></div>
+                    </div>
+                    <button onclick="brichSicherungAb()" class="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 text-xs font-semibold rounded-lg border border-rose-200 flex-shrink-0">Abbrechen</button>
+                </div>
+                <div class="w-full bg-emerald-100 rounded-full h-1.5 mt-3"><div id="si-laeuft-balken" class="bg-emerald-600 h-1.5 rounded-full" style="width: 0%"></div></div>
+            </div>
+
+            <!-- Aufträge -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Sicherungsaufträge</h4>
+                        <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">Sichert Ordner oder Dateien auf eine externe Festplatte, ein NAS oder in die Cloud – von Hand oder nach Zeitplan. Die Originale werden nie verändert. <a href="#" onclick="zeigeHandbuch('11. Sicherung'); return false;" class="text-blue-600 font-semibold hover:underline">Anleitung im Handbuch</a></p>
+                    </div>
+                    <button onclick="neuerSicherungsauftrag()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold whitespace-nowrap">➕ Neuer Auftrag</button>
+                </div>
+                <div id="si-liste" class="space-y-2.5"></div>
+            </div>
+
+            <!-- Formular -->
+            <div id="si-formular" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-blue-200 space-y-4">
+                <h4 class="font-bold text-slate-800" id="si-formular-titel">Neuer Sicherungsauftrag</h4>
+                <input type="hidden" id="si-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Name</label>
+                    <input type="text" id="si-name" placeholder="z. B. Ablage auf NAS" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-[11px] text-slate-400 mt-1">So heißt auch der Ordner im Ziel. Nach dem ersten Lauf lässt er sich nicht mehr ändern.</p>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-bold text-slate-700">Was soll gesichert werden? (ein Pfad pro Zeile)</label>
+                        <div class="flex items-center gap-3">
+                            <button onclick="siQuelleOrdnungssystem()" id="si-btn-ordnung" class="hidden text-xs font-semibold text-amber-700 hover:text-amber-900">🗂️ Ordnungssystem</button>
+                            <button onclick="siWaehleOrdner('si-quellen', true)" class="text-xs font-semibold text-blue-600 hover:text-blue-800">📂 Ordner hinzufügen...</button>
+                        </div>
+                    </div>
+                    <textarea id="si-quellen" rows="3" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="/Users/name/Documents"></textarea>
+                    <p class="text-[11px] text-slate-400 mt-1">Ordner werden mit allen Unterordnern gesichert. Auch einzelne Dateien sind möglich.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Wohin?</label>
+                        <select id="si-ziel-typ" onchange="siAktualisiereFormular()" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                            <option value="ordner">Ordner – externe Festplatte, NAS oder Cloud-Ordner</option>
+                            <option value="nextcloud">Nextcloud direkt (ohne Nextcloud-Programm)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700" id="si-ziel-label">Zielordner</label>
+                            <button onclick="siWaehleOrdner('si-ziel', false)" id="si-ziel-waehlen" class="text-xs font-semibold text-blue-600 hover:text-blue-800">📂 Wählen...</button>
+                        </div>
+                        <input type="text" id="si-ziel" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-[11px] text-slate-400 mt-1" id="si-ziel-hinweis"></p>
+                    </div>
+                </div>
+                <div id="si-ordner-optionen" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">NAS automatisch verbinden (optional)</label>
+                        <input type="text" id="si-nas-url" placeholder="smb://nas.local/Sicherung" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-[11px] text-slate-400 mt-1">Die Freigabe wird vor dem Lauf eingebunden. Die Anmeldung kommt aus dem Schlüsselbund des Mac.</p>
+                    </div>
+                    <label class="flex items-start gap-2 text-xs text-slate-700 cursor-pointer md:mt-6">
+                        <input type="checkbox" id="si-beim-anschliessen" class="rounded text-blue-600 mt-0.5">
+                        <span>Zusätzlich sichern, sobald das Laufwerk angeschlossen wird (höchstens einmal pro Stunde)</span>
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Art der Sicherung</label>
+                        <select id="si-art" onchange="siAktualisiereFormular()" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                            <option value="spiegel">Spiegel – Dateien einzeln, frühere Versionen bleiben erhalten</option>
+                            <option value="zip">ZIP-Archiv – je Lauf ein gepacktes Archiv</option>
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1" id="si-art-hinweis"></p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1" id="si-behalten-label">Frühere Versionen aufbewahren (Tage)</label>
+                        <input type="number" id="si-aufbewahrung" min="0" max="3650" value="90" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm">
+                        <input type="number" id="si-zip-behalten" min="1" max="365" value="5" class="hidden w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm">
+                        <p class="text-[11px] text-slate-400 mt-1" id="si-behalten-hinweis"></p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Zeitplan</label>
+                        <select id="si-zeitplan" onchange="siAktualisiereFormular()" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                            <option value="manuell">Nur von Hand</option>
+                            <option value="stuendlich">Stündlich</option>
+                            <option value="taeglich">Täglich</option>
+                            <option value="woechentlich">Wöchentlich</option>
+                        </select>
+                    </div>
+                    <div id="si-zeit-box">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Uhrzeit</label>
+                        <input type="time" id="si-uhrzeit" value="02:00" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm">
+                    </div>
+                </div>
+                <div id="si-tage-box" class="flex flex-wrap gap-3 text-xs text-slate-700">
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="0"> Mo</label>
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="1"> Di</label>
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="2"> Mi</label>
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="3"> Do</label>
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="4"> Fr</label>
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="5"> Sa</label>
+                    <label class="flex items-center gap-1.5"><input type="checkbox" class="si-tag rounded text-blue-600" value="6"> So</label>
+                </div>
+                <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                    <input type="checkbox" id="si-pruefsumme" class="rounded text-blue-600">
+                    <span>Nach dem Kopieren mit Prüfsumme kontrollieren (gründlicher, dauert länger)</span>
+                </label>
+                <p id="si-formular-meldung" class="text-xs text-red-600 hidden"></p>
+                <div class="flex items-center gap-2">
+                    <button onclick="speichereSicherungsauftrag()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold">Auftrag speichern</button>
+                    <button onclick="document.getElementById('si-formular').classList.add('hidden')" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200">Abbrechen</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Zeitplan im Hintergrund -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h5 class="font-bold text-slate-800 text-sm">Zeitplan im Hintergrund</h5>
+                                <span id="si-agent-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">Inaktiv</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1">Geplante Sicherungen laufen, solange dieses Programm geöffnet ist. Mit dem Hintergrunddienst laufen sie auch ohne geöffnetes Fenster ab der Anmeldung am Mac. Verpasste Termine werden nachgeholt.</p>
+                        </div>
+                        <button onclick="siToggleDienst()" id="si-btn-agent" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold whitespace-nowrap">Aktivieren</button>
+                    </div>
+                </div>
+
+                <!-- Nextcloud -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <h5 class="font-bold text-slate-800 text-sm">Nextcloud direkt verbinden</h5>
+                        <span id="si-nc-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">Nicht eingerichtet</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Nur nötig, wenn du ohne das Nextcloud-Programm sichern willst. Erstelle in der Nextcloud unter „Einstellungen → Sicherheit“ ein App-Passwort – nicht dein normales Passwort verwenden.</p>
+                    <input type="text" id="si-nc-url" placeholder="https://cloud.example.de" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-xs">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="si-nc-benutzer" placeholder="Benutzername" class="px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                        <input type="password" id="si-nc-passwort" placeholder="App-Passwort" class="px-3 py-2 rounded-xl border border-slate-300 font-mono text-xs">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="siNextcloud(true)" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200">Verbindung testen</button>
+                        <button onclick="siNextcloud(false)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold">Speichern</button>
+                        <span id="si-nc-status" class="text-xs"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Protokoll -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h4 class="font-bold text-slate-800 mb-3">Letzte Läufe</h4>
+                <div id="si-protokoll" class="space-y-1.5"></div>
+            </div>
+        </div>
+
         <!-- ==================== TAB 4: PROTOKOLL / UNDO ==================== -->
         <div id="tab-history" class="tab-content hidden">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -643,6 +852,7 @@
                         <p class="text-xs text-slate-500 mb-3">
                             Vier feste Bereiche wie in einer Wohnung: <b>01 Eingang</b> (Briefkasten für alles Neue), <b>02 Projekte</b> (Schreibtisch),
                             <b>03 Ablage</b> (Schränke mit dauerhaften Kategorien) und <b>Archiv</b> (Keller).
+                            <a href="#" onclick="zeigeHandbuch('7. Das Ordnungssystem'); return false;" class="text-blue-600 font-semibold hover:underline">Anleitung im Handbuch</a>
                         </p>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Basisordner (z. B. in iCloud Drive)</label>
                         <div class="flex gap-2">
@@ -721,6 +931,25 @@
             </div>
         </div>
     </main>
+
+    <!-- MODAL: AUS SICHERUNG WIEDERHERSTELLEN -->
+    <div id="wh-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4" onclick="if(event.target === this) schliesseWiederherstellen()">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-base">↩️ Wiederherstellen aus „<span id="wh-name"></span>“</h3>
+                <button onclick="schliesseWiederherstellen()" class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+            </div>
+            <div class="p-4 px-6 border-b border-slate-100 space-y-2">
+                <select id="wh-version" onchange="whPfad = []; whLadeInhalt()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"></select>
+                <div id="wh-pfad" class="text-xs text-slate-600 flex flex-wrap items-center gap-1"></div>
+            </div>
+            <div id="wh-liste" class="p-4 px-6 overflow-y-auto space-y-1.5 text-sm flex-1"></div>
+            <div class="p-4 px-6 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500">
+                Vorhandene Dateien werden nie überschrieben – eine wiederhergestellte Datei bekommt dann einen Zähler im Namen. Der Schritt lässt sich unter „Protokoll &amp; Rückgängig“ zurücknehmen.
+                <div id="wh-status" class="text-xs mt-1"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL: EINRICHTUNGSASSISTENT -->
     <div id="assistent-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4" onclick="if(event.target === this) schliesseAssistent()">
@@ -1076,6 +1305,8 @@
             if (tabId === 'history') loadHistory();
             if (tabId === 'projekte') ladeProjekte();
             if (tabId === 'steuer') ladeSteuer();
+            if (tabId === 'sicherung') ladeSicherung();
+            if (tabId === 'handbuch') ladeHandbuch();
             if (tabId === 'autopilot') loadAutopilotStatus(true);
         }
 
@@ -2494,6 +2725,7 @@
                 closeMoveModal();
                 closeUpdateModal();
                 schliesseAssistent();
+                schliesseWiederherstellen();
             }
         });
 
@@ -2754,6 +2986,523 @@
             } catch (e) {
                 status.className = 'text-xs mt-2 text-red-600';
                 status.innerText = '✗ Prüfung fehlgeschlagen.';
+            }
+        }
+
+        // ==================== HANDBUCH ====================
+        // Das Handbuch wird aus Handbuch_Dateien_Aktionen.md erzeugt. Unterstützt wird nur, was
+        // dort vorkommt: Überschriften, Absätze, Listen (eine Unterebene), Tabellen, Hinweise (>),
+        // **fett**, `Code` und Links.
+        let hbGeladen = false;
+
+        function hbInline(text) {
+            let t = escHtml(text);
+            t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+            t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline">$1</a>');
+            return t;
+        }
+
+        function hbRender(md) {
+            const zeilen = md.replace(/\r/g, '').split('\n');
+            const aus = [];
+            const inhalt = [];
+            let i = 0, nr = 0, abschnitt = false;
+            const schliesseAbschnitt = () => { if (abschnitt) { aus.push('</section>'); abschnitt = false; } };
+            while (i < zeilen.length) {
+                const z = zeilen[i];
+                if (!z.trim()) { i++; continue; }
+                let m;
+                if ((m = z.match(/^(#{1,3})\s+(.*)$/))) {
+                    const stufe = m[1].length;
+                    const id = 'hb-' + (++nr);
+                    if (stufe <= 2) schliesseAbschnitt();
+                    if (stufe === 2) { aus.push('<section class="hb-abschnitt">'); abschnitt = true; }
+                    if (stufe >= 2) inhalt.push({ stufe, id, titel: m[2] });
+                    aus.push(`<h${stufe} id="${id}">${hbInline(m[2])}</h${stufe}>`);
+                    i++;
+                } else if (z.startsWith('|')) {
+                    const reihen = [];
+                    while (i < zeilen.length && zeilen[i].startsWith('|')) { reihen.push(zeilen[i]); i++; }
+                    const zellen = r => r.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+                    const kopf = zellen(reihen[0]);
+                    const koerper = reihen.slice(2).map(zellen);
+                    aus.push('<div class="overflow-x-auto"><table><thead><tr>' + kopf.map(c => `<th>${hbInline(c)}</th>`).join('') + '</tr></thead><tbody>'
+                        + koerper.map(r => '<tr>' + r.map(c => `<td>${hbInline(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>');
+                } else if (z.startsWith('>')) {
+                    const teile = [];
+                    while (i < zeilen.length && zeilen[i].startsWith('>')) { teile.push(zeilen[i].replace(/^>\s?/, '')); i++; }
+                    const text = teile.join(' ');
+                    const warnung = /^(Achtung|Wichtig):/.test(text);
+                    aus.push(`<blockquote class="${warnung ? 'warnung' : ''}">${hbInline(text).replace(/^(Hinweis|Tipp|Achtung|Wichtig|Voraussetzung):/, '<strong>$1:</strong>')}</blockquote>`);
+                } else if (/^(\d+\.|-)\s+/.test(z)) {
+                    const geordnet = /^\d+\./.test(z);
+                    const punkte = [];
+                    while (i < zeilen.length && (/^(\d+\.|-)\s+/.test(zeilen[i]) || /^\s{2,}\S/.test(zeilen[i]))) {
+                        const zz = zeilen[i];
+                        if (/^\s{2,}-\s+/.test(zz)) {
+                            punkte[punkte.length - 1].unter.push(zz.replace(/^\s*-\s+/, ''));
+                        } else if (/^\s{2,}\S/.test(zz)) {
+                            punkte[punkte.length - 1].text += ' ' + zz.trim();
+                        } else {
+                            punkte.push({ text: zz.replace(/^(\d+\.|-)\s+/, ''), unter: [] });
+                        }
+                        i++;
+                    }
+                    const tag = geordnet ? 'ol' : 'ul';
+                    aus.push(`<${tag}>` + punkte.map(p => `<li>${hbInline(p.text)}${p.unter.length ? '<ul>' + p.unter.map(u => `<li>${hbInline(u)}</li>`).join('') + '</ul>' : ''}</li>`).join('') + `</${tag}>`);
+                } else if (/^---+$/.test(z.trim())) {
+                    i++;
+                } else {
+                    const teile = [];
+                    while (i < zeilen.length && zeilen[i].trim() && !/^(#{1,3}\s|\||>|\d+\.\s|-\s)/.test(zeilen[i])) { teile.push(zeilen[i].trim()); i++; }
+                    aus.push(`<p>${hbInline(teile.join(' '))}</p>`);
+                }
+            }
+            schliesseAbschnitt();
+            return { html: aus.join('\n'), inhalt };
+        }
+
+        async function ladeHandbuch() {
+            if (hbGeladen) return;
+            try {
+                const res = await fetch('/api/handbuch');
+                const data = await res.json();
+                const { html, inhalt } = hbRender(data.markdown);
+                document.getElementById('hb-text').innerHTML = html
+                    + `<p class="text-[11px] text-slate-400 mt-8">Handbuch zu Dateien_Aktionen ${escHtml(data.version)}</p>`;
+                document.getElementById('hb-inhalt').innerHTML = inhalt.map(e =>
+                    `<a href="#" data-id="${e.id}" data-stufe="${e.stufe}" onclick="hbSpringe(this.dataset.id); return false;" class="block rounded-lg hover:bg-slate-100 ${e.stufe === 2 ? 'px-2 py-1.5 font-semibold text-slate-800' : 'pl-5 pr-2 py-1 text-xs text-slate-600'}">${escHtml(e.titel)}</a>`).join('');
+                hbGeladen = true;
+            } catch (e) {
+                document.getElementById('hb-text').innerHTML = '<p class="text-sm text-red-600">Das Handbuch konnte nicht geladen werden.</p>';
+            }
+        }
+
+        function hbSpringe(id) {
+            const ziel = document.getElementById(id);
+            if (ziel) ziel.scrollIntoView({ block: 'start' });
+        }
+
+        // Öffnet das Handbuch an einem Kapitel, z. B. zeigeHandbuch('11. Sicherung')
+        async function zeigeHandbuch(titel) {
+            openTab('handbuch');
+            await ladeHandbuch();
+            const link = Array.from(document.querySelectorAll('#hb-inhalt a')).find(a => a.innerText.trim() === titel);
+            if (link) hbSpringe(link.dataset.id);
+        }
+
+        function hbSuche() {
+            const begriff = document.getElementById('hb-suche').value.trim().toLowerCase();
+            const text = document.getElementById('hb-text');
+            const treffer = document.getElementById('hb-treffer');
+            // alte Markierungen entfernen
+            text.querySelectorAll('mark').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
+            text.normalize();
+            const abschnitte = Array.from(text.querySelectorAll('.hb-abschnitt'));
+            if (begriff.length < 2) {
+                abschnitte.forEach(a => a.classList.remove('hb-versteckt'));
+                document.querySelectorAll('#hb-inhalt a').forEach(a => a.classList.remove('hidden'));
+                treffer.classList.add('hidden');
+                return;
+            }
+            let anzahl = 0;
+            const sichtbar = new Set();
+            abschnitte.forEach(a => {
+                const passt = a.textContent.toLowerCase().includes(begriff);
+                a.classList.toggle('hb-versteckt', !passt);
+                if (!passt) return;
+                a.querySelectorAll('h2, h3').forEach(h => sichtbar.add(h.id));
+                const laeufer = document.createTreeWalker(a, NodeFilter.SHOW_TEXT);
+                const knoten = [];
+                while (laeufer.nextNode()) knoten.push(laeufer.currentNode);
+                knoten.forEach(k => {
+                    const pos = k.textContent.toLowerCase().indexOf(begriff);
+                    if (pos < 0) return;
+                    const rest = k.splitText(pos);
+                    rest.splitText(begriff.length);
+                    const marke = document.createElement('mark');
+                    marke.textContent = rest.textContent;
+                    rest.replaceWith(marke);
+                    anzahl++;
+                });
+            });
+            document.querySelectorAll('#hb-inhalt a').forEach(a => a.classList.toggle('hidden', !sichtbar.has(a.dataset.id)));
+            treffer.innerText = anzahl ? `${anzahl} Fundstelle(n) in ${sichtbar.size ? abschnitte.filter(a => !a.classList.contains('hb-versteckt')).length : 0} Kapitel(n)` : 'Nichts gefunden.';
+            treffer.classList.remove('hidden');
+        }
+
+        // ==================== SICHERUNG ====================
+        let siDaten = { auftraege: [], protokoll: [], status: {}, nextcloud: {} };
+        let siTakt = null;
+        const SI_TAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+        function siZeit(iso) {
+            if (!iso) return '';
+            if (iso === 'jetzt fällig') return iso;
+            const d = new Date(iso);
+            return isNaN(d) ? iso : d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function siZeitplanText(a) {
+            const z = a.zeitplan || {};
+            let t = 'Nur von Hand';
+            if (z.typ === 'stuendlich') t = 'Stündlich';
+            if (z.typ === 'taeglich') t = `Täglich um ${z.uhrzeit}`;
+            if (z.typ === 'woechentlich') t = `${(z.wochentage || []).map(i => SI_TAGE[i]).join(', ')} um ${z.uhrzeit}`;
+            return t + (a.beim_anschliessen ? ' · beim Anschließen' : '');
+        }
+
+        async function ladeSicherung() {
+            try {
+                const res = await fetch('/api/sicherung');
+                siDaten = await res.json();
+            } catch (e) { return; }
+            zeigeSicherung();
+            siZeigeStatus(siDaten.status);
+            if (siDaten.status.laeuft) siStarteTakt();
+        }
+
+        function zeigeSicherung() {
+            const liste = document.getElementById('si-liste');
+            if (siDaten.auftraege.length === 0) {
+                liste.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Noch kein Sicherungsauftrag. Lege den ersten mit „Neuer Auftrag“ an.</p>';
+            } else {
+                liste.innerHTML = siDaten.auftraege.map(a => {
+                    const erg = a.letztes_ergebnis;
+                    const ergText = erg
+                        ? `<span class="${erg.ok ? 'text-emerald-700' : 'text-rose-700'}">${erg.ok ? '✓' : '⚠'} ${escHtml(siZeit(erg.zeit))}: ${escHtml(erg.meldung)}</span>`
+                        : '<span class="text-slate-400">Noch nicht gelaufen</span>';
+                    const zielText = a.ziel_typ === 'nextcloud' ? `Nextcloud: /${escHtml(a.ziel)}` : escHtml(a.ziel);
+                    return `
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                            <div class="min-w-0 text-xs text-slate-600 space-y-0.5">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-semibold text-sm text-slate-800">${escHtml(a.name)}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">${a.art === 'zip' ? 'ZIP-Archiv' : 'Spiegel'}</span>
+                                    ${a.ziel_erreichbar ? '' : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800" title="${escHtml(a.ziel_hinweis)}">Ziel nicht erreichbar</span>`}
+                                </div>
+                                <div class="truncate" title="${escHtml(a.quellen.join('\n'))}">📂 ${escHtml(a.quellen.length === 1 ? a.quellen[0] : a.quellen.length + ' Quellen')} → <span class="font-mono">${zielText}</span></div>
+                                <div>🕒 ${escHtml(siZeitplanText(a))}${a.naechster_termin ? ' · nächster Lauf: <b>' + escHtml(siZeit(a.naechster_termin)) + '</b>' : ''}</div>
+                                <div>${ergText}</div>
+                            </div>
+                            <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+                                <button data-id="${a.id}" onclick="starteSicherung(this.dataset.id)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg">▶ Jetzt sichern</button>
+                                ${a.ziel_typ === 'ordner' ? `<button data-id="${a.id}" onclick="oeffneWiederherstellen(this.dataset.id)" class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200">↩️ Wiederherstellen</button>` : ''}
+                                <button data-id="${a.id}" onclick="bearbeiteSicherungsauftrag(this.dataset.id)" class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200">Bearbeiten</button>
+                                <button data-id="${a.id}" onclick="loescheSicherungsauftrag(this.dataset.id)" class="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 text-xs font-medium rounded-lg border border-rose-200">Löschen</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            const prot = document.getElementById('si-protokoll');
+            prot.innerHTML = siDaten.protokoll.length === 0
+                ? '<p class="text-xs text-slate-400 py-4 text-center">Noch keine Läufe.</p>'
+                : siDaten.protokoll.map(p => `
+                    <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                        <span class="font-semibold ${p.ok ? 'text-emerald-700' : 'text-rose-700'}">${p.ok ? '✓' : '⚠'} ${escHtml(p.auftrag)}</span>
+                        <span class="text-slate-400">· ${escHtml(siZeit(p.zeit))} · ${escHtml(p.ausloeser)} · ${p.dauer_sekunden} s</span>
+                        <div class="text-slate-600 mt-0.5">${escHtml(p.meldung)}</div>
+                        ${(p.warnungen || []).concat(p.fehlerliste || []).map(w => `<div class="text-amber-700 mt-0.5">${escHtml(w)}</div>`).join('')}
+                    </div>`).join('');
+
+            const agent = Boolean(siDaten.launch_agent_installed);
+            const badge = document.getElementById('si-agent-badge');
+            badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold ' + (agent ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600');
+            badge.innerText = agent ? 'Aktiv' : 'Inaktiv';
+            const agentBtn = document.getElementById('si-btn-agent');
+            agentBtn.innerText = agent ? 'Deaktivieren' : 'Aktivieren';
+            agentBtn.setAttribute('data-installed', agent ? '1' : '0');
+
+            const nc = siDaten.nextcloud || {};
+            const ncBadge = document.getElementById('si-nc-badge');
+            ncBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold ' + (nc.eingerichtet ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600');
+            ncBadge.innerText = nc.eingerichtet ? 'Eingerichtet' : 'Nicht eingerichtet';
+            if (document.activeElement.id !== 'si-nc-url') document.getElementById('si-nc-url').value = nc.url || '';
+            if (document.activeElement.id !== 'si-nc-benutzer') document.getElementById('si-nc-benutzer').value = nc.benutzer || '';
+            document.getElementById('si-nc-passwort').placeholder = nc.passwort_gesetzt ? 'Gespeichert – leer lassen zum Behalten' : 'App-Passwort';
+            document.getElementById('si-btn-ordnung').classList.toggle('hidden', !document.getElementById('cfg-ordnung-basis').value.trim());
+        }
+
+        function siZeigeStatus(st) {
+            const box = document.getElementById('si-laeuft');
+            document.getElementById('tab-badge-sicherung').classList.toggle('hidden', !st.laeuft);
+            box.classList.toggle('hidden', !st.laeuft);
+            if (!st.laeuft) return;
+            document.getElementById('si-laeuft-titel').innerText = `${st.auftrag}: ${st.phase}…`;
+            document.getElementById('si-laeuft-detail').innerText = st.gesamt ? `${st.aktuell} von ${st.gesamt} · ${st.datei || ''}` : (st.datei || '');
+            document.getElementById('si-laeuft-balken').style.width = (st.gesamt ? Math.round(100 * st.aktuell / st.gesamt) : 5) + '%';
+        }
+
+        function siStarteTakt() {
+            if (siTakt) return;
+            siTakt = setInterval(async () => {
+                try {
+                    const st = await (await fetch('/api/sicherung/status')).json();
+                    siZeigeStatus(st);
+                    if (!st.laeuft) {
+                        clearInterval(siTakt);
+                        siTakt = null;
+                        ladeSicherung();
+                    }
+                } catch (e) { /* nächster Takt */ }
+            }, 700);
+        }
+
+        async function siAnfrage(aktion, daten) {
+            const res = await fetch('/api/sicherung/' + aktion, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(daten || {})
+            });
+            const antwort = await res.json();
+            if (antwort.error) throw new Error(antwort.error);
+            return antwort;
+        }
+
+        async function starteSicherung(id) {
+            try {
+                await siAnfrage('ausfuehren', { id: id });
+                siZeigeStatus({ laeuft: true, auftrag: (siDaten.auftraege.find(a => a.id === id) || {}).name || '', phase: 'Verbinde', gesamt: 0 });
+                siStarteTakt();
+            } catch (e) {
+                alert('Sicherung: ' + e.message);
+            }
+        }
+
+        async function brichSicherungAb() {
+            try { await siAnfrage('abbrechen'); } catch (e) { /* egal */ }
+        }
+
+        function siAktualisiereFormular() {
+            const nextcloud = document.getElementById('si-ziel-typ').value === 'nextcloud';
+            const zip = document.getElementById('si-art').value === 'zip';
+            const plan = document.getElementById('si-zeitplan').value;
+            document.getElementById('si-ordner-optionen').classList.toggle('hidden', nextcloud);
+            document.getElementById('si-ziel-waehlen').classList.toggle('hidden', nextcloud);
+            document.getElementById('si-ziel-label').innerText = nextcloud ? 'Ordner in der Nextcloud' : 'Zielordner';
+            document.getElementById('si-ziel').placeholder = nextcloud ? 'z. B. Sicherungen (leer = oberste Ebene)' : '/Volumes/Sicherung';
+            document.getElementById('si-ziel-hinweis').innerText = nextcloud
+                ? 'Die Verbindung richtest du unten unter „Nextcloud direkt verbinden“ ein.'
+                : 'Externe Platte oder NAS unter /Volumes, oder der Ordner von Google Drive, OneDrive, Nextcloud oder iCloud Drive. Darin entsteht ein Ordner „Dateien_Aktionen-Sicherung“.';
+            document.getElementById('si-art-hinweis').innerText = zip
+                ? 'Jeder Lauf packt alles in ein neues Archiv mit Datum im Namen. Ohne Änderungen entsteht kein neues Archiv. Spart Platz, braucht aber jedes Mal die volle Zeit.'
+                : 'Kopiert nur Neues und Geändertes. Ersetzte und gelöschte Dateien wandern in „Frühere Versionen“.';
+            document.getElementById('si-behalten-label').innerText = zip ? 'Wie viele Archive behalten?' : 'Frühere Versionen aufbewahren (Tage)';
+            document.getElementById('si-behalten-hinweis').innerText = zip ? 'Ältere Archive dieses Auftrags werden gelöscht.' : '0 = nie löschen.';
+            document.getElementById('si-aufbewahrung').classList.toggle('hidden', zip);
+            document.getElementById('si-zip-behalten').classList.toggle('hidden', !zip);
+            document.getElementById('si-zeit-box').classList.toggle('hidden', plan !== 'taeglich' && plan !== 'woechentlich');
+            document.getElementById('si-tage-box').classList.toggle('hidden', plan !== 'woechentlich');
+        }
+
+        function siFuelleFormular(a) {
+            document.getElementById('si-id').value = a.id || '';
+            document.getElementById('si-name').value = a.name || '';
+            document.getElementById('si-quellen').value = (a.quellen || []).join('\n');
+            document.getElementById('si-ziel-typ').value = a.ziel_typ || 'ordner';
+            document.getElementById('si-ziel').value = a.ziel || '';
+            document.getElementById('si-nas-url').value = a.nas_url || '';
+            document.getElementById('si-beim-anschliessen').checked = Boolean(a.beim_anschliessen);
+            document.getElementById('si-art').value = a.art || 'spiegel';
+            document.getElementById('si-aufbewahrung').value = a.aufbewahrung_tage ?? 90;
+            document.getElementById('si-zip-behalten').value = a.zip_behalten ?? 5;
+            const z = a.zeitplan || {};
+            document.getElementById('si-zeitplan').value = z.typ || 'manuell';
+            document.getElementById('si-uhrzeit').value = z.uhrzeit || '02:00';
+            document.querySelectorAll('.si-tag').forEach(c => c.checked = (z.wochentage || []).includes(parseInt(c.value, 10)));
+            document.getElementById('si-pruefsumme').checked = Boolean(a.pruefsumme);
+            document.getElementById('si-formular-titel').innerText = a.id ? `Auftrag „${a.name}“ bearbeiten` : 'Neuer Sicherungsauftrag';
+            document.getElementById('si-formular-meldung').classList.add('hidden');
+            siAktualisiereFormular();
+            const f = document.getElementById('si-formular');
+            f.classList.remove('hidden');
+            f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function neuerSicherungsauftrag() { siFuelleFormular({}); }
+        function bearbeiteSicherungsauftrag(id) { siFuelleFormular(siDaten.auftraege.find(a => a.id === id) || {}); }
+
+        function siQuelleOrdnungssystem() {
+            const basis = document.getElementById('cfg-ordnung-basis').value.trim();
+            const feld = document.getElementById('si-quellen');
+            const zeilen = feld.value.split('\n').map(s => s.trim()).filter(Boolean);
+            if (basis && !zeilen.includes(basis)) zeilen.push(basis);
+            feld.value = zeilen.join('\n');
+        }
+
+        async function siWaehleOrdner(feldId, anhaengen) {
+            try {
+                const res = await fetch('/api/pick_folder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                const data = await res.json();
+                if (!data.path) return;
+                const feld = document.getElementById(feldId);
+                if (anhaengen) {
+                    const zeilen = feld.value.split('\n').map(s => s.trim()).filter(Boolean);
+                    if (!zeilen.includes(data.path)) zeilen.push(data.path);
+                    feld.value = zeilen.join('\n');
+                } else {
+                    feld.value = data.path;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function speichereSicherungsauftrag() {
+            const meldung = document.getElementById('si-formular-meldung');
+            const daten = {
+                id: document.getElementById('si-id').value,
+                name: document.getElementById('si-name').value.trim(),
+                quellen: document.getElementById('si-quellen').value.split('\n').map(s => s.trim()).filter(Boolean),
+                ziel_typ: document.getElementById('si-ziel-typ').value,
+                ziel: document.getElementById('si-ziel').value.trim(),
+                nas_url: document.getElementById('si-nas-url').value.trim(),
+                beim_anschliessen: document.getElementById('si-beim-anschliessen').checked,
+                art: document.getElementById('si-art').value,
+                aufbewahrung_tage: parseInt(document.getElementById('si-aufbewahrung').value || '90', 10),
+                zip_behalten: parseInt(document.getElementById('si-zip-behalten').value || '5', 10),
+                zeitplan: {
+                    typ: document.getElementById('si-zeitplan').value,
+                    uhrzeit: document.getElementById('si-uhrzeit').value || '02:00',
+                    wochentage: Array.from(document.querySelectorAll('.si-tag:checked')).map(c => parseInt(c.value, 10))
+                },
+                pruefsumme: document.getElementById('si-pruefsumme').checked
+            };
+            if (!daten.name) { meldung.innerText = 'Bitte einen Namen eingeben.'; meldung.classList.remove('hidden'); return; }
+            try {
+                await siAnfrage('speichern', daten);
+                document.getElementById('si-formular').classList.add('hidden');
+                ladeSicherung();
+            } catch (e) {
+                meldung.innerText = '✗ ' + e.message;
+                meldung.classList.remove('hidden');
+            }
+        }
+
+        async function loescheSicherungsauftrag(id) {
+            const a = siDaten.auftraege.find(x => x.id === id) || {};
+            if (!confirm(`Auftrag „${a.name}“ löschen?\n\nDie bereits gesicherten Dateien im Ziel bleiben erhalten.`)) return;
+            try { await siAnfrage('loeschen', { id: id }); ladeSicherung(); } catch (e) { alert(e.message); }
+        }
+
+        async function siToggleDienst() {
+            const installiert = document.getElementById('si-btn-agent').getAttribute('data-installed') === '1';
+            try {
+                const res = await fetch('/api/autopilot/launch_agent', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ install: !installiert })
+                });
+                const data = await res.json();
+                if (data.agent_result && data.agent_result.status === 'error') throw new Error(data.agent_result.error);
+                ladeSicherung();
+                loadAutopilotStatus(false);
+            } catch (e) {
+                alert('Hintergrunddienst: ' + e.message);
+            }
+        }
+
+        async function siNextcloud(nurTesten) {
+            const status = document.getElementById('si-nc-status');
+            status.className = 'text-xs text-slate-500';
+            status.innerText = 'Prüfe…';
+            try {
+                const antwort = await siAnfrage('nextcloud', {
+                    url: document.getElementById('si-nc-url').value.trim(),
+                    benutzer: document.getElementById('si-nc-benutzer').value.trim(),
+                    passwort: document.getElementById('si-nc-passwort').value,
+                    nur_testen: nurTesten
+                });
+                if (antwort.verbunden) {
+                    status.className = 'text-xs text-emerald-700 font-medium';
+                    status.innerText = nurTesten ? '✓ Verbindung steht.' : '✓ Gespeichert, Verbindung steht.';
+                } else {
+                    status.className = 'text-xs text-rose-700';
+                    status.innerText = (nurTesten ? '✗ ' : 'Gespeichert, aber: ') + (antwort.fehler || 'keine Adresse eingetragen.');
+                }
+                if (!nurTesten) { document.getElementById('si-nc-passwort').value = ''; ladeSicherung(); }
+            } catch (e) {
+                status.className = 'text-xs text-rose-700';
+                status.innerText = '✗ ' + e.message;
+            }
+        }
+
+        // --- Wiederherstellen ---
+        let whId = '';
+        let whPfad = [];
+
+        async function oeffneWiederherstellen(id) {
+            whId = id;
+            whPfad = [];
+            const a = siDaten.auftraege.find(x => x.id === id) || {};
+            document.getElementById('wh-name').innerText = a.name || '';
+            document.getElementById('wh-status').innerText = '';
+            document.getElementById('wh-liste').innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Lese Sicherung…</p>';
+            document.getElementById('wh-modal').classList.remove('hidden');
+            try {
+                const antwort = await siAnfrage('versionen', { id: id });
+                const sel = document.getElementById('wh-version');
+                sel.innerHTML = antwort.versionen.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.titel)}</option>`).join('');
+                if (antwort.versionen.length === 0) {
+                    document.getElementById('wh-liste').innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">In dieser Sicherung liegt noch nichts.</p>';
+                    return;
+                }
+                whLadeInhalt();
+            } catch (e) {
+                document.getElementById('wh-liste').innerHTML = `<p class="text-xs text-rose-700 py-6 text-center">${escHtml(e.message)}</p>`;
+            }
+        }
+
+        function schliesseWiederherstellen() {
+            document.getElementById('wh-modal').classList.add('hidden');
+        }
+
+        async function whLadeInhalt() {
+            const liste = document.getElementById('wh-liste');
+            const version = document.getElementById('wh-version').value;
+            document.getElementById('wh-pfad').innerHTML =
+                `<a href="#" onclick="whPfad = []; whLadeInhalt(); return false;" class="text-blue-600 hover:underline">Sicherung</a>`
+                + whPfad.map((t, i) => ` <span class="text-slate-400">/</span> <a href="#" data-i="${i}" onclick="whPfad = whPfad.slice(0, parseInt(this.dataset.i, 10) + 1); whLadeInhalt(); return false;" class="text-blue-600 hover:underline">${escHtml(t)}</a>`).join('');
+            try {
+                const antwort = await siAnfrage('inhalt', { id: whId, version: version, pfad: whPfad.join('/') });
+                if (antwort.eintraege.length === 0) {
+                    liste.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Leer.</p>';
+                    return;
+                }
+                liste.innerHTML = antwort.eintraege.map(e => `
+                    <div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200">
+                        ${e.ordner
+                            ? `<a href="#" data-n="${escHtml(e.name)}" onclick="whPfad.push(this.dataset.n); whLadeInhalt(); return false;" class="text-xs font-semibold text-blue-700 hover:underline truncate">📂 ${escHtml(e.name)}</a>`
+                            : `<span class="text-xs text-slate-800 truncate">${escHtml(e.name)} <span class="text-slate-400">· ${formatGroesse(e.groesse)}</span></span>`}
+                        <span class="flex items-center gap-1.5 flex-shrink-0">
+                            <button data-n="${escHtml(e.name)}" onclick="whStelleHer(this.dataset.n, 'original')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold rounded-md" title="Zurück an den ursprünglichen Ort">Zurücklegen</button>
+                            <button data-n="${escHtml(e.name)}" onclick="whStelleHer(this.dataset.n, 'ordner')" class="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-medium rounded-md border border-slate-200">In Ordner…</button>
+                        </span>
+                    </div>`).join('');
+            } catch (e) {
+                liste.innerHTML = `<p class="text-xs text-rose-700 py-6 text-center">${escHtml(e.message)}</p>`;
+            }
+        }
+
+        async function whStelleHer(name, wohin) {
+            const status = document.getElementById('wh-status');
+            const pfad = whPfad.concat([name]).join('/');
+            if (wohin === 'original' && !confirm(`„${name}“ an den ursprünglichen Ort zurücklegen?\n\nVorhandene Dateien werden nicht überschrieben.`)) return;
+            status.className = 'text-xs mt-1 text-slate-600';
+            status.innerText = 'Stelle wieder her…';
+            try {
+                const antwort = await siAnfrage('wiederherstellen', {
+                    id: whId, version: document.getElementById('wh-version').value, pfad: pfad, wohin: wohin
+                });
+                if (antwort.abgebrochen) { status.innerText = ''; return; }
+                status.className = 'text-xs mt-1 text-emerald-700 font-medium';
+                status.innerText = `✓ ${antwort.wiederhergestellt} Datei(en) wiederhergestellt` + (antwort.beispiel ? ` – z. B. ${antwort.beispiel}` : '')
+                    + (antwort.uebersprungen ? ` (${antwort.uebersprungen} ohne passende Quelle übersprungen)` : '');
+            } catch (e) {
+                status.className = 'text-xs mt-1 text-rose-700';
+                status.innerText = '✗ ' + e.message;
             }
         }
 
@@ -3331,6 +4080,7 @@
         fetchStatus();
         loadAutopilotStatus(true);
         ladeProjekte();
+        ladeSicherung();
     </script>
 </body>
 </html>

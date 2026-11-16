@@ -11,7 +11,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.7.0"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # --- DATEN DES NUTZERS ---
@@ -140,6 +140,14 @@ def ablage_ziel():
     ablage = ordnung_pfad("ablage")
     return ablage if ablage and ablage.is_dir() else None
 
+
+# --- SICHERUNG: Nextcloud direkt (WebDAV) ---
+# Adresse, Benutzer und App-Passwort der eigenen Nextcloud des Nutzers. Stehen nur
+# in der lokalen .env — mitgeliefert wird nichts davon. In der Nextcloud unter
+# „Einstellungen → Sicherheit → Geräte & Sitzungen“ ein App-Passwort erstellen.
+NEXTCLOUD_URL = os.getenv("NEXTCLOUD_URL", "")
+NEXTCLOUD_BENUTZER = os.getenv("NEXTCLOUD_BENUTZER", "")
+NEXTCLOUD_APP_PASSWORT = os.getenv("NEXTCLOUD_APP_PASSWORT", "")
 
 # --- OCR & CLOUD-EINSTELLUNGEN ---
 # Pfad zum kompilierten nativen macOS Vision-OCR-Tool

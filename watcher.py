@@ -339,7 +339,8 @@ def install_launch_agent() -> Dict[str, Any]:
 
         plist_content = {
             "Label": LAUNCH_AGENT_LABEL,
-            "ProgramArguments": [python_bin, main_script, "watch"],
+            # „dienst“: Autopilot nur, wenn er eingeschaltet ist — plus fällige Sicherungen
+            "ProgramArguments": [python_bin, main_script, "dienst"],
             "WorkingDirectory": str(BASE_DIR),
             "RunAtLoad": True,
             "KeepAlive": True,

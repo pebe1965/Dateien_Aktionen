@@ -53,8 +53,8 @@ heruntergeladen. **Alles, was im Code oder im Paket steht, ist öffentlich.**
 ## 4. Release — immer vollständig, in dieser Reihenfolge
 
 Ein Release ist erst fertig, wenn **alle** Schritte erledigt sind —
-einschließlich der Texte im Marketplace (Schritt 5 und 8). Nicht nach dem
-Hochladen aufhören.
+einschließlich der Texte im Marketplace (Schritt 5 und 8) und des Handbuchs
+(Schritt 5, siehe Abschnitt 5). Nicht nach dem Hochladen aufhören.
 
 Wie das Programm im Marketplace von NotionaryAtlas erscheint:
 
@@ -80,6 +80,10 @@ Bis 17.10.2026 wurde Schritt 5/8 vergessen: v1.2.0 stand im Marketplace ohne
 2. **Bauen:** `./scripts/build_release.sh` (erzeugt `Dateien_Aktionen.dmg`
    und `Dateien_Aktionen.zip`). Bricht es ab (etwa wegen einer `.env` im
    Bundle), Ursache beheben — die Prüfung nie entfernen.
+   Das Skript kopiert die Programmdateien **einzeln** ins Bundle. Jede neue
+   `.py`-Datei und jede neue Datei, die das Programm zur Laufzeit liest
+   (wie `Handbuch_Dateien_Aktionen.md`), dort als eigene `cp`-Zeile
+   ergänzen — sonst fehlt sie im DMG und das Programm startet nicht.
 3. **Nichts Geheimes im Paket:**
    `find Dateien_Aktionen.app -name ".env" -o -name ".env.*.local"; grep -rE "AIza[0-9A-Za-z_-]{30,}|na_[0-9A-Za-z]{20,}" Dateien_Aktionen.app`
    — darf nichts ausgeben (`.env.example` mit Platzhaltern ist erlaubt).
@@ -89,8 +93,10 @@ Bis 17.10.2026 wurde Schritt 5/8 vergessen: v1.2.0 stand im Marketplace ohne
    Erklärung), Format: `## Neu in X.Y.Z` + Stichpunkte, darunter
    „Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage
    „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.“
-5. **`marketplace.json` aktualisieren** — bei jedem Release prüfen, bei jeder
-   neuen oder geänderten Funktion anpassen:
+5. **Handbuch und `marketplace.json` aktualisieren** — bei jedem Release
+   prüfen, bei jeder neuen oder geänderten Funktion anpassen. Das Handbuch
+   (`Handbuch_Dateien_Aktionen.md`) nach den Regeln in Abschnitt 5; für
+   `marketplace.json` gilt:
    - `description` (40–400 Zeichen): ein bis zwei Sätze, was das Programm
      insgesamt kann. Keine Versionsnummer — die zeigt der Marketplace selbst.
    - `integrations` (1–8 Einträge, je `module` 2–40 Zeichen und
@@ -134,3 +140,129 @@ Bis 17.10.2026 wurde Schritt 5/8 vergessen: v1.2.0 stand im Marketplace ohne
 **Im Repo `pberthold-app` (NotionaryAtlas) sonst nichts ändern und dort nie
 committen oder pushen** — jeder Push dort löst einen kostenpflichtigen Build
 aus, und für ein Release ist keiner nötig.
+
+## 5. Handbuch
+
+Das Programm enthält ein Handbuch für Nutzer (Reiter „Handbuch“). **Einzige
+Quelle ist `Handbuch_Dateien_Aktionen.md`** im Projektordner: Die Oberfläche
+lädt die Datei über `/api/handbuch` und wandelt sie selbst in HTML um
+(`hbRender()` in `templates/index.html`). Text also nie in der Oberfläche
+ändern, immer in der Markdown-Datei.
+
+- **Bei jeder neuen oder geänderten Funktion das Handbuch im selben Zug
+  anpassen**: neuer Reiter, neuer Knopf, geänderte Bezeichnung, geändertes
+  Verhalten, neue Einstellung, neue Fehlermeldung. Entfallenes streichen.
+  Beschriftungen wörtlich so schreiben, wie sie in der Oberfläche stehen.
+- **Aufbau beibehalten:** nummerierte Kapitel als `## 1. Titel`, darin
+  `###`-Abschnitte. Neue Funktionen in das passende Kapitel einarbeiten;
+  ein neues Kapitel nur für einen neuen Reiter oder Bereich. Kapitel 3
+  (Tabelle der Reiter), Kapitel 16 (Problemlösungen) und Kapitel 17
+  (Begriffe) mitpflegen.
+- **Kapitelnamen sind Sprungziele:** `zeigeHandbuch('11. Sicherung')` in der
+  Oberfläche springt über den exakten Titel. Wer ein Kapitel umbenennt oder
+  umnummeriert, sucht in `templates/index.html` nach `zeigeHandbuch(` und
+  passt die Aufrufe an.
+- **Schreibweise:** Deutsch, Anrede „du“, Sprache für Nutzer ohne
+  Fachwissen. Jede Anleitung als nummerierte Schritte, je Schritt eine
+  Handlung. Erst sagen, wozu etwas dient, dann wie es geht. Keine
+  Code-Begriffe ohne Erklärung, keine Versionsnummern, keine Emojis.
+- **Nur diese Markdown-Mittel** — mehr kann die Anzeige nicht:
+  Überschriften `#` bis `###`, Absätze, Listen mit `-` und `1.` (höchstens
+  eine eingerückte Unterebene mit `-`), Tabellen, `**fett**`, `` `Code` ``,
+  Links `[Text](https://…)` und Hinweiskästen mit `>`. Ein Kasten, der mit
+  `Achtung:` oder `Wichtig:` beginnt, wird gelb, sonst blau (`Hinweis:`,
+  `Tipp:`, `Voraussetzung:`). Keine Bilder, keine Code-Blöcke, kein HTML.
+  Wird ein weiteres Mittel gebraucht, zuerst `hbRender()` erweitern.
+- **Nur Zutreffendes:** Jede Aussage am Code prüfen. Was nicht getestet ist,
+  nicht als sicher darstellen. Nichts Geheimes — die Datei ist öffentlich
+  und wird mit dem Programm ausgeliefert.
+- Die `README.md` richtet sich an Entwickler und GitHub-Besucher und bleibt
+  kurz; ausführliche Anleitungen gehören ins Handbuch.
+
+## 6. Aufbau und Wissenswertes
+
+### Dateien
+
+| Datei | Aufgabe |
+| --- | --- |
+| `config.py` | Einstellungen, Pfade, Ordnungssystem (`ordnung_pfad()`, `ablage_ziel()`) |
+| `classifier.py` | Ordner einlesen, Kategorien, Prüfsummen, ähnliche Fotos |
+| `extractor.py` | Text und Angaben aus Dateien lesen (Texterkennung, EXIF) |
+| `ai_engine.py` | KI-Anfragen, Ablage-Modus, Steuer-Kennzeichen, Einrichtungsassistent |
+| `organizer.py` | Plan, Ausführen, Manifest/Rückgängig, Finder-Tags, Projekte, Steuer-Suche |
+| `watcher.py` | Autopilot und LaunchAgent |
+| `backup.py` | Sicherung: Aufträge, Spiegel, ZIP, Nextcloud (WebDAV), Zeitplan, Wiederherstellen |
+| `gui.py` | Lokaler Server mit allen `/api/…`-Endpunkten |
+| `main.py` | Kommandozeile, auch `dienst` für den Hintergrunddienst |
+| `templates/index.html` | Die gesamte Oberfläche (HTML und Skript in einer Datei) |
+| `Handbuch_Dateien_Aktionen.md` | Quelle des Handbuchs |
+
+### Regeln, die beim Ändern gelten
+
+- **Rückgängig:** Alles, was Dateien verschiebt, umbenennt oder kopiert,
+  schreibt ein Manifest nach `HISTORY_DIR` (`manifest_<Zeit>.json`, Felder
+  `source`, `target`, `copy_mode`; optional `beschreibung` für den Verlauf).
+  `rollback_manifest()` macht es rückgängig. Vorhandene Dateien nie
+  überschreiben — `get_unique_target_path()` hängt einen Zähler an.
+- **Gelöscht wird nur in den Papierkorb** (`move_to_macos_trash()`).
+- **Finder-Tags** immer über `set_macos_tags_and_comment()` setzen: Es
+  ergänzt und lässt vorhandene Tags stehen. Tags zu einer Analyse liefert
+  `tags_fuer_analyse()`.
+- **Ordnungssystem:** `01 Eingang`, `02 Projekte`, `03 Ablage`, `Archiv`
+  unter `config.ORDNUNG_BASIS`. Im Sortiermodus `ablage` sind die
+  vorhandenen Ordner der Ablage verbindlich; keine Jahresordner, kein
+  Ordner „Steuer“ (nur der Tag `Steuer <Jahr>`). Neue Kategorien entstehen
+  nur nach Bestätigung in der Vorschau, der Autopilot legt keine an.
+- **Ordnervorschläge der KI** nie ungeprüft an einen Pfad hängen:
+  `bereinige_ordner()` entfernt `..` und führende Schrägstriche. Dasselbe
+  gilt für alle Pfade und Namen, die aus der Oberfläche kommen.
+- **KI-Anfragen** laufen ausschließlich über `_query_generate()` (Abschnitt
+  2). Ein anderer Auftrag als die Datei-Analyse wird als `system_prompt`
+  übergeben, so macht es der Einrichtungsassistent.
+- **Analyse-Cache:** Der Schlüssel enthält Anbieter, Sortiermodus, Ziel,
+  Projektliste und Namensstil. Kommt eine Einstellung hinzu, die den
+  Vorschlag verändert, gehört sie in den Schlüssel (`prepare_plan()`).
+- **Sicherung (`backup.py`):**
+  - Aufräumen und Löschen nur im markierten Ordner
+    `Dateien_Aktionen-Sicherung/<Auftrag>` (Datei
+    `.dateien_aktionen_sicherung.json`). Ein gleichnamiger Ordner ohne
+    passende Markierung wird abgelehnt. Diese Prüfung nicht entfernen.
+  - Liegt das Ziel unter `/Volumes/<Name>`, muss das Laufwerk eingebunden
+    sein (`os.path.ismount`), sonst wird nichts geschrieben.
+  - Eine nicht erreichbare Quelle wird ausgelassen; ihre Sicherung bleibt
+    unangetastet und der Lauf gilt als nicht erledigt.
+  - Im Spiegel wird nie überschrieben oder gelöscht: Ersetztes und
+    Gelöschtes wandert nach `Frühere Versionen/<Zeitstempel>`.
+  - Es läuft nur eine Sicherung gleichzeitig (Dateisperre `lauf.lock`),
+    weil App und Hintergrunddienst denselben Zeitplan prüfen.
+  - Zugangsdaten der Nextcloud (`NEXTCLOUD_URL`, `NEXTCLOUD_BENUTZER`,
+    `NEXTCLOUD_APP_PASSWORT`) stehen nur in der `.env` des Nutzers. Das
+    Passwort nie an die Oberfläche zurückgeben. Die Verbindung verlangt
+    `https://` und prüft das Zertifikat immer.
+  - Aufträge und Protokoll liegen in `config.DATA_DIR/backup/`.
+- **Hintergrunddienst:** Der LaunchAgent startet `main.py dienst`. Darin
+  läuft der Autopilot nur, wenn er eingeschaltet ist; fällige Sicherungen
+  werden immer geprüft.
+- **Oberfläche:** Jeder Wert, der in HTML eingesetzt wird, durch
+  `escHtml()` schicken. Die Kennungen (`id="…"`) im HTML und im Skript
+  müssen übereinstimmen, ebenso die Feldnamen zwischen Skript und Server —
+  bis 1.4.0 passte das Skript der Autopilot-Seite zu keinem von beiden und
+  die Seite war wirkungslos.
+
+### Lokal testen, ohne etwas Echtes zu berühren
+
+- **Eigener Datenordner:** `DATEIEN_AKTIONEN_DATA_DIR=<Testordner>` setzen.
+  Achtung: `config._uebernehme_alte_daten()` kopiert beim ersten Start die
+  `.env` aus dem Projektordner dorthin — sie kann einen echten Schlüssel
+  enthalten. Die Datei im Testordner nie ausgeben, den Testordner danach
+  löschen.
+- **Ohne KI-Kosten:** `AI_PROVIDER=offline`.
+- **Autopilot:** Die Standardeinstellung überwacht das echte `~/Downloads`.
+  Vor jedem Prüflauf `watch_folders` in
+  `<Testordner>/history/autopilot_config.json` auf einen Testordner setzen,
+  sonst werden echte Dateien verschoben.
+- **Server:** Nie `start_gui()` zum Testen aufrufen — es beendet eine
+  laufende Instanz anderer Version auf Port 8765. Stattdessen
+  `ThreadingHTTPServer(("127.0.0.1", <anderer Port>), gui.DashboardHandler)`.
+- **Sicherung:** Nur in Testordner sichern; `backup.fuehre_aus(…,
+  melden=False)` unterdrückt die Mitteilung des Mac.

@@ -21,3 +21,8 @@ vergessen:
 Am Ende dem Nutzer melden: Version, Release-Link, ob `marketplace.json`
 geändert wurde und dass Schritt 8 „Marketplace aktualisiert“ bzw. „bereits
 aktuell“ gemeldet hat.
+- **Handbuch mitpflegen** (Schritt 5, Abschnitt 5 in `AGENTS.md`):
+  `Handbuch_Dateien_Aktionen.md` ist die einzige Quelle des Handbuchs im
+  Programm. Jede neue oder geänderte Funktion dort nachziehen.
+- **Neue Dateien ins Bauskript:** `scripts/build_release.sh` kopiert die
+  Programmdateien einzeln — neue `.py`-Dateien dort ergänzen.
