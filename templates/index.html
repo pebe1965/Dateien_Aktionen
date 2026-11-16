@@ -57,6 +57,9 @@
                         <button onclick="pickFolder()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition flex items-center gap-1.5 whitespace-nowrap">
                             📂 Durchsuchen...
                         </button>
+                        <button onclick="waehleEingang()" id="btn-eingang" class="hidden px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-sm font-medium transition whitespace-nowrap" title="Setzt „01 Eingang“ als Quellordner">
+                            📥 Eingang
+                        </button>
                     </div>
                     <div class="flex items-center justify-between gap-2 mt-2.5">
                         <label class="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 hover:text-blue-600 transition">
@@ -327,6 +330,7 @@
             </div>
 
             <div id="preview-results" class="hidden">
+                <div id="preview-ablage-info" class="hidden mb-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
                 <!-- Action Bar -->
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4 bg-blue-50/70 p-4 rounded-xl border border-blue-100">
                     <div class="flex flex-wrap items-center gap-3 text-sm text-blue-900">
@@ -394,6 +398,8 @@
                             <span>Letzter Prüflauf: <b id="ap-last-scan" class="text-slate-600">Noch keiner</b></span>
                             <span>Sortiert in dieser Sitzung: <b id="ap-session-count" class="text-emerald-600">0 Dateien</b></span>
                         </div>
+                        <p id="ap-wartend" class="text-[11px] text-amber-700 mt-1 hidden"></p>
+                        <p id="ap-fehler" class="text-[11px] text-red-600 mt-1 hidden"></p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -431,6 +437,7 @@
                                 </button>
                             </div>
                             <input type="text" id="ap-target-folder" placeholder="Leer lassen = Unterordner direkt im überwachten Ordner anlegen" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-mono text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p id="ap-ziel-hinweis" class="text-[11px] text-amber-700 mt-1 hidden"></p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
@@ -560,6 +567,35 @@
                     <div class="pt-2 border-t border-slate-100">
                         <label class="block text-sm font-semibold text-slate-700 mb-1">Lokale Server-URL (für LM Studio / MLX)</label>
                         <input type="text" id="cfg-local-url" placeholder="http://localhost:1234/v1/chat/completions" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Ordnungssystem</label>
+                        <p class="text-xs text-slate-500 mb-3">
+                            Vier feste Bereiche wie in einer Wohnung: <b>01 Eingang</b> (Briefkasten für alles Neue), <b>02 Projekte</b> (Schreibtisch),
+                            <b>03 Ablage</b> (Schränke mit dauerhaften Kategorien) und <b>Archiv</b> (Keller).
+                        </p>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Basisordner (z. B. in iCloud Drive)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="cfg-ordnung-basis" placeholder="/Users/.../Dokumente" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                            <button type="button" onclick="pickOrdnungBasis()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium whitespace-nowrap">📂 Wählen...</button>
+                        </div>
+                        <label class="flex items-center gap-2 mt-3 text-xs text-slate-700 cursor-pointer">
+                            <input type="checkbox" id="cfg-ordnung-startkategorien" checked class="rounded text-blue-600">
+                            <span>Start-Kategorien in der Ablage anlegen (Anschaffungen, Arbeit, Arzt, Auto, Finanzen, Versicherung, Wohnen)</span>
+                        </label>
+                        <div class="flex items-center gap-3 mt-3">
+                            <button type="button" onclick="legeOrdnungAn()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition">🗂️ Grundstruktur anlegen</button>
+                            <span id="cfg-ordnung-status" class="text-xs text-slate-500"></span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">Vorhandene Ordner und Dateien bleiben unberührt – es werden nur fehlende Ordner ergänzt.</p>
+
+                        <label class="block text-xs font-bold text-slate-700 mt-4 mb-1">Sortieren nach</label>
+                        <select id="cfg-sortier-modus" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                            <option value="frei">Frei – die KI schlägt Ordner vor (im gescannten Ordner)</option>
+                            <option value="ablage">Ablage – in die festen Kategorien von „03 Ablage“ einsortieren</option>
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1">Im Modus „Ablage“ gibt es keine Jahresordner; neue Kategorien entstehen nur, wenn du sie in der Vorschau bestätigst. Steuerrelevante Belege bleiben in ihrer Kategorie und erhalten den Finder-Tag „Steuer &lt;Jahr&gt;“.</p>
                     </div>
 
                     <div class="pt-4 border-t border-slate-100">
@@ -948,6 +984,10 @@
                 document.getElementById('cfg-zugangscode').placeholder = data.app_code_set ? 'Gespeichert – zum Ändern neuen Code einfügen' : 'na_...';
                 document.getElementById('cfg-gemini-model').value = data.gemini_model;
                 document.getElementById('cfg-local-url').value = data.local_url;
+                document.getElementById('cfg-ordnung-basis').value = data.ordnung_basis || '';
+                document.getElementById('cfg-sortier-modus').value = data.sortier_modus || 'frei';
+                ordnungEingang = data.ordnung_eingerichtet ? (data.ordnung_eingang || '') : '';
+                document.getElementById('btn-eingang').classList.toggle('hidden', !ordnungEingang);
                 if (data.folder_suggestion && !document.getElementById('folder-path').value) {
                     document.getElementById('folder-path').value = data.folder_suggestion;
                 }
@@ -960,6 +1000,59 @@
         }
 
         let latestUpdateData = null;
+        let ordnungEingang = '';
+
+        function escHtml(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+        }
+
+        function waehleEingang() {
+            if (!ordnungEingang) return;
+            document.getElementById('folder-path').value = ordnungEingang;
+            // Im Eingang liegt alles auf der Hauptebene
+            const chk = document.getElementById('chk-without-subfolders');
+            if (chk && !chk.checked) { chk.checked = true; toggleWithoutSubfolders(true); }
+        }
+
+        async function pickOrdnungBasis() {
+            try {
+                const res = await fetch('/api/pick_folder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                const data = await res.json();
+                if (data.path) document.getElementById('cfg-ordnung-basis').value = data.path;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function legeOrdnungAn() {
+            const basis = document.getElementById('cfg-ordnung-basis').value.trim();
+            const status = document.getElementById('cfg-ordnung-status');
+            if (!basis) return alert('Bitte zuerst einen Basisordner wählen.');
+            if (!confirm(`In „${basis}“ werden die Ordner „01 Eingang“, „02 Projekte“, „03 Ablage“ und „Archiv“ angelegt (sofern sie fehlen). Fortfahren?`)) return;
+            status.className = 'text-xs text-slate-500';
+            status.innerText = 'Lege Ordner an…';
+            try {
+                const res = await fetch('/api/ordnung/anlegen', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        basis: basis,
+                        startkategorien: document.getElementById('cfg-ordnung-startkategorien').checked
+                    })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                status.className = 'text-xs text-emerald-700 font-medium';
+                status.innerText = data.angelegt.length
+                    ? `✓ ${data.angelegt.length} Ordner angelegt, Modus „Ablage“ aktiv.`
+                    : '✓ Alles schon vorhanden, Modus „Ablage“ aktiv.';
+                fetchStatus();
+                loadAutopilotStatus(true);
+            } catch (e) {
+                status.className = 'text-xs text-red-600';
+                status.innerText = '✗ ' + e.message;
+            }
+        }
 
         async function checkForUpdates(manual = false) {
             const msgEl = document.getElementById('update-check-msg');
@@ -1608,7 +1701,7 @@
                 if (data.error) throw new Error(data.error);
 
                 currentPlan = data.plan;
-                renderPreview(currentPlan);
+                renderPreview(currentPlan, data);
                 openTab('preview');
             } catch (e) {
                 alert('Fehler bei der KI-Analyse: ' + e.message);
@@ -2264,7 +2357,7 @@
                 if (data.error) throw new Error(data.error);
 
                 currentPlan = data.plan;
-                renderPreview(currentPlan);
+                renderPreview(currentPlan, data);
                 openTab('preview');
             } catch (e) {
                 alert('Fehler: ' + e.message);
@@ -2273,9 +2366,19 @@
             }
         }
 
-        function renderPreview(plan) {
+        function renderPreview(plan, info = {}) {
             document.getElementById('preview-placeholder').classList.add('hidden');
             document.getElementById('preview-results').classList.remove('hidden');
+
+            const ablageInfo = document.getElementById('preview-ablage-info');
+            if (info.ablage_modus) {
+                const neue = plan.filter(it => it.analysis.neuer_ordner).length;
+                ablageInfo.innerHTML = `🗂️ <b>Ablage-Modus:</b> Einsortiert wird nach <span class="font-mono">${escHtml(info.ziel)}</span>.`
+                    + (neue ? ` <b>${neue} Datei(en)</b> passen in keine vorhandene Kategorie – der gelb markierte Ordner würde neu angelegt. Bitte prüfen oder einen vorhandenen Ordner eintragen.` : '');
+                ablageInfo.classList.remove('hidden');
+            } else {
+                ablageInfo.classList.add('hidden');
+            }
 
             const tbody = document.getElementById('preview-tbody');
             if (plan.length === 0) {
@@ -2305,8 +2408,9 @@
                     <td class="p-4 w-3/12">
                         <div class="flex items-center gap-1.5">
                             <span class="text-blue-500 text-xs">📂</span>
-                            <input type="text" value="${item.analysis.suggested_folder || ''}" class="new-folder-input w-full px-2.5 py-1.5 rounded-lg border border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-semibold text-blue-800 bg-blue-50/50" title="Ziel-Unterordner frei anpassbar (z.B. Finanzen/2026)">
+                            <input type="text" value="${escHtml(item.analysis.suggested_folder || '')}" class="new-folder-input w-full px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-semibold ${item.analysis.neuer_ordner ? 'border-amber-400 text-amber-900 bg-amber-50' : 'border-blue-200 text-blue-800 bg-blue-50/50'}" title="Ziel-Unterordner frei anpassbar">
                         </div>
+                        ${item.analysis.neuer_ordner ? '<div class="text-[10px] font-semibold text-amber-700 mt-1">Neue Kategorie – wird angelegt</div>' : ''}
                     </td>
                     <td class="p-4 w-2/12 text-xs">
                         <div class="font-semibold text-slate-800">${item.analysis.doc_type} • <span class="text-blue-700 font-bold">${item.analysis.sender}</span></div>
@@ -2314,6 +2418,7 @@
                         <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
                             <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${provClass}">${prov}</span>
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-600" title="Wird als macOS Finder-Tag gesetzt">🏷️ Finder-Tags</span>
+                            ${item.analysis.steuer_jahr ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-700" title="Steuerrelevant – wird als Finder-Tag gesetzt">🏷️ Steuer ${escHtml(item.analysis.steuer_jahr)}</span>` : ''}
                         </div>
                         ${item.analysis.summary ? `<div class="text-slate-400 text-[11px] mt-1 italic">${item.analysis.summary}</div>` : ''}
                     </td>
@@ -2440,7 +2545,9 @@
                     ? { notionary_zugangscode: document.getElementById('cfg-zugangscode').value.trim() }
                     : {}),
                 gemini_model: document.getElementById('cfg-gemini-model').value,
-                local_url: document.getElementById('cfg-local-url').value
+                local_url: document.getElementById('cfg-local-url').value,
+                ordnung_basis: document.getElementById('cfg-ordnung-basis').value.trim(),
+                sortier_modus: document.getElementById('cfg-sortier-modus').value
             };
 
             try {
@@ -2505,77 +2612,102 @@
         function renderAutopilotState(data, populateInputs = false) {
             const cfg = data.config || {};
             const running = Boolean(data.running);
-            const laInstalled = Boolean(data.launchagent_installed);
+            const agentAktiv = Boolean(data.launch_agent_installed);
 
-            const dot = document.getElementById('autopilot-dot');
-            const statusText = document.getElementById('autopilot-status-text');
-            const toggleBtn = document.getElementById('btn-autopilot-toggle');
+            const icon = document.getElementById('ap-status-icon');
+            const pill = document.getElementById('ap-status-pill');
+            const toggleBtn = document.getElementById('btn-ap-toggle');
             const navBadge = document.getElementById('tab-badge-autopilot');
 
+            toggleBtn.setAttribute('data-running', running ? '1' : '0');
             if (running) {
-                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
-                statusText.className = 'text-xs font-bold text-emerald-700';
-                statusText.innerText = `Aktiv (${data.processed_count || 0} sortiert)`;
-                toggleBtn.className = 'px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-xs';
-                toggleBtn.innerText = '⏹️ Wächter stoppen';
-                if (navBadge) {
-                    navBadge.innerText = 'ON';
-                    navBadge.className = 'px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 font-bold';
-                    navBadge.classList.remove('hidden');
-                }
+                icon.className = 'w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl shrink-0';
+                pill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700';
+                pill.innerText = data.is_scanning ? 'Prüft gerade…' : 'Aktiv';
+                toggleBtn.className = 'px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2';
+                toggleBtn.innerText = '⏹️ Autopilot stoppen';
+                if (navBadge) navBadge.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
             } else {
-                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
-                statusText.className = 'text-xs font-bold text-slate-600';
-                statusText.innerText = 'Gestoppt';
-                toggleBtn.className = 'px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs';
-                toggleBtn.innerText = '▶️ Wächter starten';
-                if (navBadge) navBadge.classList.add('hidden');
+                icon.className = 'w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center text-2xl shrink-0';
+                pill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600';
+                pill.innerText = 'Pausiert';
+                toggleBtn.className = 'px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2';
+                toggleBtn.innerText = '▶️ Autopilot starten';
+                if (navBadge) navBadge.className = 'w-2 h-2 rounded-full bg-slate-300';
             }
 
-            const laBtn = document.getElementById('btn-launchagent');
-            if (laBtn) {
-                if (laInstalled) {
-                    laBtn.className = 'px-3.5 py-2 bg-emerald-50 hover:bg-rose-50 text-emerald-700 hover:text-rose-700 text-xs font-semibold rounded-xl transition border border-emerald-200 whitespace-nowrap';
-                    laBtn.innerText = '✓ Autostart aktiv (Deaktivieren)';
-                    laBtn.setAttribute('data-installed', '1');
-                } else {
-                    laBtn.className = 'px-3.5 py-2 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-xl transition border border-indigo-200 whitespace-nowrap';
-                    laBtn.innerText = '🚀 Autostart aktivieren';
-                    laBtn.setAttribute('data-installed', '0');
-                }
+            document.getElementById('ap-last-scan').innerText = data.last_scan_time || 'Noch keiner';
+            document.getElementById('ap-session-count').innerText = `${data.total_processed_session || 0} Dateien`;
+
+            const wartend = document.getElementById('ap-wartend');
+            if (data.wartend_im_eingang > 0) {
+                wartend.innerText = `📥 ${data.wartend_im_eingang} Datei(en) warten im Eingang: Für sie gibt es noch keine passende Ablage-Kategorie. Bitte über die KI-Vorschau einsortieren.`;
+                wartend.classList.remove('hidden');
+            } else {
+                wartend.classList.add('hidden');
+            }
+            const fehler = document.getElementById('ap-fehler');
+            if (data.last_error) {
+                fehler.innerText = `⚠ Letzter Fehler: ${data.last_error}`;
+                fehler.classList.remove('hidden');
+            } else {
+                fehler.classList.add('hidden');
+            }
+
+            const agentBadge = document.getElementById('ap-agent-badge');
+            const agentBtn = document.getElementById('btn-ap-agent');
+            agentBtn.setAttribute('data-installed', agentAktiv ? '1' : '0');
+            if (agentAktiv) {
+                agentBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700';
+                agentBadge.innerText = 'Aktiv';
+                agentBtn.innerText = 'Deaktivieren';
+            } else {
+                agentBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600';
+                agentBadge.innerText = 'Inaktiv';
+                agentBtn.innerText = 'Aktivieren';
             }
 
             if (populateInputs) {
                 document.getElementById('ap-watch-folders').value = (cfg.watch_folders || []).join('\n');
-                document.getElementById('ap-target-base').value = cfg.target_base_dir || '';
-                document.getElementById('ap-interval').value = cfg.poll_interval_seconds || 12;
-                document.getElementById('ap-min-age').value = cfg.min_file_age_seconds || 5;
+                document.getElementById('ap-target-folder').value = cfg.target_folder || '';
+                document.getElementById('ap-interval').value = cfg.interval_seconds || 30;
+                document.getElementById('ap-min-age').value = cfg.min_file_age_seconds || 10;
                 document.getElementById('ap-copy-mode').checked = Boolean(cfg.copy_mode);
                 document.getElementById('ap-apply-tags').checked = cfg.apply_tags !== false;
-                document.getElementById('ap-notify').checked = cfg.notify_macos !== false;
+                document.getElementById('ap-notifications').checked = cfg.notifications !== false;
             }
 
-            const eventsContainer = document.getElementById('autopilot-events-list');
-            const events = data.recent_events || [];
-            if (events.length === 0) {
-                eventsContainer.innerHTML = '<p class="text-xs text-slate-400">Noch keine automatischen Sortierungen in dieser Sitzung.</p>';
+            // Ablage-Modus: Ohne eigenen Zielordner geht alles in „03 Ablage“
+            const zielHinweis = document.getElementById('ap-ziel-hinweis');
+            const zielFeld = document.getElementById('ap-target-folder');
+            if (data.ablage_ziel) {
+                zielFeld.placeholder = 'Leer lassen = in die Ablage einsortieren';
+                zielHinweis.innerText = `Ablage-Modus aktiv: Ohne eigenen Zielordner wird nach ${data.ablage_ziel} einsortiert. Neue Kategorien legt der Autopilot nicht an.`;
+                zielHinweis.classList.remove('hidden');
             } else {
-                eventsContainer.innerHTML = events.map(ev => `
+                zielFeld.placeholder = 'Leer lassen = Unterordner direkt im überwachten Ordner anlegen';
+                zielHinweis.classList.add('hidden');
+            }
+
+            const logList = document.getElementById('ap-log-list');
+            const log = data.recent_log || [];
+            if (log.length === 0) {
+                logList.innerHTML = '<p class="text-xs text-slate-400 py-8 text-center">Noch keine automatischen Sortierungen protokolliert.</p>';
+            } else {
+                logList.innerHTML = log.map(ev => `
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 gap-2">
                         <div class="min-w-0">
                             <div class="flex items-center gap-2">
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">${ev.time}</span>
-                                <span class="font-medium text-xs text-slate-500 line-through truncate">${ev.original_name}</span>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 whitespace-nowrap">${escHtml((ev.timestamp || '').slice(0, 16).replace('T', ' '))}</span>
+                                <span class="font-medium text-xs text-slate-500 line-through truncate">${escHtml(ev.original_name)}</span>
                                 <span class="text-slate-400">→</span>
-                                <span class="font-bold text-xs text-emerald-700 truncate">${ev.new_name}</span>
+                                <span class="font-bold text-xs text-emerald-700 truncate">${escHtml(ev.new_name)}</span>
                             </div>
-                            <div class="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
-                                <span>📂 Zielordner: <b class="text-blue-700">${ev.folder}</b></span>
-                                <span>•</span>
-                                <span class="font-mono text-[10px] text-slate-400 truncate" title="${ev.dest}">${ev.dest}</span>
+                            <div class="text-[11px] text-slate-500 mt-1 truncate" title="${escHtml(ev.target_path)}">
+                                📂 Zielordner: <b class="text-blue-700">${escHtml(ev.folder)}</b>
                             </div>
                         </div>
-                        <button onclick="revealInFinder('${encodeURIComponent(ev.dest)}')" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 flex-shrink-0">
+                        <button onclick="revealInFinder('${encodeURIComponent(ev.target_path || '')}')" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 flex-shrink-0">
                             📁 Im Finder
                         </button>
                     </div>
@@ -2587,56 +2719,54 @@
             const foldersRaw = document.getElementById('ap-watch-folders').value.split('\n').map(s => s.trim()).filter(Boolean);
             return {
                 watch_folders: foldersRaw,
-                target_base_dir: document.getElementById('ap-target-base').value.trim(),
-                poll_interval_seconds: parseInt(document.getElementById('ap-interval').value || '12', 10),
-                min_file_age_seconds: parseInt(document.getElementById('ap-min-age').value || '5', 10),
+                target_folder: document.getElementById('ap-target-folder').value.trim(),
+                interval_seconds: parseInt(document.getElementById('ap-interval').value || '30', 10),
+                min_file_age_seconds: parseInt(document.getElementById('ap-min-age').value || '10', 10),
                 copy_mode: document.getElementById('ap-copy-mode').checked,
                 apply_tags: document.getElementById('ap-apply-tags').checked,
-                notify_macos: document.getElementById('ap-notify').checked
+                notifications: document.getElementById('ap-notifications').checked
             };
         }
 
-        async function saveAutopilotConfig() {
-            try {
-                const payload = getAutopilotFormPayload();
-                const res = await fetch('/api/autopilot/save', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                renderAutopilotState(data, true);
+        async function saveAutopilotConfig(zeigeMeldung = true) {
+            const res = await fetch('/api/autopilot/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(getAutopilotFormPayload())
+            });
+            const data = await res.json();
+            if (data.error) {
+                alert('Fehler beim Speichern: ' + data.error);
+                return null;
+            }
+            renderAutopilotState(data, true);
+            if (zeigeMeldung) {
                 const msg = document.getElementById('ap-save-msg');
                 msg.classList.remove('hidden');
                 setTimeout(() => msg.classList.add('hidden'), 2500);
-            } catch (e) {
-                alert('Fehler beim Speichern: ' + e.message);
             }
+            return data;
         }
 
         async function toggleAutopilot() {
-            const toggleBtn = document.getElementById('btn-autopilot-toggle');
-            const isRunning = toggleBtn.innerText.includes('stoppen');
-            const payload = getAutopilotFormPayload();
-            payload.action = isRunning ? 'stop' : 'start';
-
+            const running = document.getElementById('btn-ap-toggle').getAttribute('data-running') === '1';
             try {
+                if (!running) await saveAutopilotConfig(false);
                 const res = await fetch('/api/autopilot/toggle', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ enabled: !running })
                 });
-                const data = await res.json();
-                renderAutopilotState(data, false);
+                renderAutopilotState(await res.json(), false);
             } catch (e) {
                 alert('Fehler: ' + e.message);
             }
         }
 
         async function scanAutopilotNow() {
-            showLoading('Autopilot-Scan läuft...', 'Überwachte Ordner werden auf neue Dateien geprüft und sortiert...');
+            showLoading('Autopilot-Prüflauf läuft...', 'Überwachte Ordner werden auf neue Dateien geprüft und sortiert...');
             try {
-                await saveAutopilotConfig();
+                await saveAutopilotConfig(false);
                 const res = await fetch('/api/autopilot/scan_now', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -2644,30 +2774,37 @@
                 });
                 const data = await res.json();
                 renderAutopilotState(data, false);
-                const count = (data.new_events || []).length;
-                alert(count > 0 ? `✓ ${count} neue Datei(en) wurden automatisch sortiert!` : 'Keine neuen unsortierten Dateien in den überwachten Ordnern gefunden.');
+                const count = data.scanned_count || 0;
+                if (data.last_error) {
+                    alert('Der Prüflauf ist fehlgeschlagen: ' + data.last_error);
+                } else if (count > 0) {
+                    alert(`✓ ${count} neue Datei(en) wurden automatisch sortiert!`);
+                } else if (data.wartend_im_eingang > 0) {
+                    alert(`Nichts automatisch sortiert. ${data.wartend_im_eingang} Datei(en) warten im Eingang auf eine passende Kategorie.`);
+                } else {
+                    alert('Keine neuen unsortierten Dateien in den überwachten Ordnern gefunden.');
+                }
             } catch (e) {
-                alert('Fehler beim Sofort-Scan: ' + e.message);
+                alert('Fehler beim Prüflauf: ' + e.message);
             } finally {
                 hideLoading();
             }
         }
 
         async function toggleLaunchAgent() {
-            const btn = document.getElementById('btn-launchagent');
-            const installed = btn.getAttribute('data-installed') === '1';
+            const installed = document.getElementById('btn-ap-agent').getAttribute('data-installed') === '1';
             try {
-                await saveAutopilotConfig();
-                const res = await fetch('/api/autopilot/launchagent', {
+                await saveAutopilotConfig(false);
+                const res = await fetch('/api/autopilot/launch_agent', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ install: !installed })
                 });
                 const data = await res.json();
-                if (data.error) throw new Error(data.error);
-                await loadAutopilotStatus(false);
+                if (data.agent_result && data.agent_result.status === 'error') throw new Error(data.agent_result.error);
+                renderAutopilotState(data, false);
             } catch (e) {
-                alert('LaunchAgent Fehler: ' + e.message);
+                alert('Hintergrunddienst: ' + e.message);
             }
         }
 
@@ -2705,7 +2842,7 @@
                 });
                 const data = await res.json();
                 if (data.path) {
-                    document.getElementById('ap-target-base').value = data.path;
+                    document.getElementById('ap-target-folder').value = data.path;
                 }
             } catch (e) {
                 console.error(e);

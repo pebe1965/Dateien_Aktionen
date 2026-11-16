@@ -26,12 +26,42 @@ from classifier import Catalog
 from extractor import extract_content
 from organizer import (
     Organizer, rollback_manifest, get_unique_target_path,
-    set_macos_tags_and_comment, HISTORY_DIR, ANALYSIS_PROGRESS
+    set_macos_tags_and_comment, tags_fuer_analyse, lege_grundstruktur_an,
+    HISTORY_DIR, ANALYSIS_PROGRESS
 )
 from watcher import (
     GLOBAL_WATCHER, load_autopilot_config, save_autopilot_config,
     install_launch_agent, uninstall_launch_agent
 )
+
+
+def _speichere_env(werte: dict) -> None:
+    """Schreibt Einstellungen in die .env des Nutzers (config.ENV_PATH, nie ins Programm).
+
+    Nur die übergebenen Schlüssel werden ersetzt; alle anderen Zeilen bleiben stehen.
+    """
+    env_file = config.ENV_PATH
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    zeilen = []
+    if env_file.exists():
+        try:
+            zeilen = env_file.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            zeilen = []
+
+    offen = dict(werte)
+    neu = []
+    for zeile in zeilen:
+        key = zeile.split("=", 1)[0].strip() if "=" in zeile and not zeile.lstrip().startswith("#") else None
+        if key in offen:
+            neu.append(f"{key}={offen.pop(key)}")
+        else:
+            neu.append(zeile)
+    for key, val in offen.items():
+        neu.append(f"{key}={val}")
+
+    env_file.write_text("\n".join(neu) + "\n", encoding="utf-8")
+    os.chmod(env_file, 0o600)  # enthält Zugangscode bzw. Schlüssel
 
 
 def move_to_macos_trash(file_path: Path) -> bool:
@@ -159,6 +189,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "local_model": config.LOCAL_MODEL,
                 "ocr_ready": config.OCR_BINARY.exists(),
                 "folder_suggestion": str(Path.home() / "Downloads"),
+                "ordnung_basis": config.ORDNUNG_BASIS,
+                "sortier_modus": config.SORTIER_MODUS,
+                "ordnung_eingerichtet": bool(config.ordnung_pfad("ablage") and config.ordnung_pfad("ablage").is_dir()),
+                "ordnung_eingang": str(config.ordnung_pfad("eingang") or ""),
+                "ordnung_ablage": str(config.ordnung_pfad("ablage") or ""),
                 "app_version": getattr(config, "APP_VERSION", "1.0.0"),
                 "github_repo": getattr(config, "GITHUB_REPO", "pebe1965/Dateien_Aktionen")
             }
@@ -484,13 +519,55 @@ class DashboardHandler(BaseHTTPRequestHandler):
             plan_data = []
             for p in plan:
                 d = p.to_dict()
-                d["base_dir"] = str(folder)
+                # Basis für in der Vorschau geänderte Zielordner: im Ablage-Modus „03 Ablage“
+                d["base_dir"] = str(organizer.target_dir)
                 plan_data.append(d)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"plan": plan_data}).encode("utf-8"))
+            self.wfile.write(json.dumps({
+                "plan": plan_data,
+                "ablage_modus": organizer.ablage_modus,
+                "ziel": str(organizer.target_dir)
+            }).encode("utf-8"))
+            return
+
+        if url.path == "/api/ordnung/anlegen":
+            # Legt „01 Eingang“, „02 Projekte“, „03 Ablage“ und „Archiv“ im gewählten Basisordner an
+            basis_str = str(params.get("basis", "")).strip()
+            if not basis_str:
+                self.send_error_response("Bitte zuerst einen Basisordner wählen.")
+                return
+            basis = Path(basis_str).expanduser()
+            if not basis.is_dir():
+                self.send_error_response("Der Basisordner existiert nicht.")
+                return
+            try:
+                ergebnis = lege_grundstruktur_an(basis, mit_startkategorien=bool(params.get("startkategorien", False)))
+            except PermissionError:
+                self.send_error_response("Zugriff verweigert: In diesem Ordner darf das Programm keine Ordner anlegen.")
+                return
+            except Exception as e:
+                self.send_error_response(f"Ordner konnten nicht angelegt werden: {e}")
+                return
+
+            _speichere_env({"ORDNUNG_BASIS": str(basis), "SORTIER_MODUS": "ablage"})
+            config.ORDNUNG_BASIS = str(basis)
+            config.SORTIER_MODUS = "ablage"
+
+            # Den Eingang dem Autopiloten als überwachten Ordner mitgeben (startet ihn nicht)
+            eingang = str(config.ordnung_pfad("eingang"))
+            ap_cfg = load_autopilot_config()
+            folders = list(ap_cfg.get("watch_folders", []))
+            if eingang not in folders:
+                folders.append(eingang)
+                save_autopilot_config({"watch_folders": folders})
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, **ergebnis}).encode("utf-8"))
             return
 
         if url.path == "/api/batch_move":
@@ -621,11 +698,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # Native macOS Finder-Tags & Spotlight-Kommentar setzen
                 if apply_tags and it.get("analysis"):
                     a = it["analysis"]
-                    tags_to_set = [a.get("doc_type", ""), a.get("sender", "")]
-                    doc_date = a.get("doc_date") or ""
-                    if len(doc_date) >= 4:
-                        tags_to_set.append(doc_date[:4])
-                    set_macos_tags_and_comment(dst, tags=tags_to_set, comment=a.get("summary") or "")
+                    set_macos_tags_and_comment(dst, tags=tags_fuer_analyse(a), comment=a.get("summary") or "")
 
                 manifest_entries.append({
                     "source": str(src),
@@ -681,8 +754,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if url.path == "/api/save_config":
             # Speichere in .env — im Benutzerordner, nicht im Programm (übersteht Updates)
-            env_file = config.ENV_PATH
-            env_file.parent.mkdir(parents=True, exist_ok=True)
             prov = params.get("ai_provider", "app")
             g_key = params.get("gemini_api_key", "").strip()
             # Fehlt das Feld (alte Oberfläche), bleibt der gespeicherte Code stehen.
@@ -691,18 +762,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
             g_mod = params.get("gemini_model", "gemini-2.5-flash").strip()
             l_url = params.get("local_url", "http://localhost:1234/v1/chat/completions").strip()
 
-            content = f"""AI_PROVIDER={prov}
-NOTIONARY_ZUGANGSCODE={z_code}
-GEMINI_API_KEY={g_key or config.GEMINI_API_KEY}
-GEMINI_MODEL={g_mod or 'gemini-2.5-flash'}
-LOCAL_API_URL={l_url or 'http://localhost:1234/v1/chat/completions'}
-LOCAL_MODEL=local-model
-"""
-            with open(env_file, "w", encoding="utf-8") as f:
-                f.write(content)
-            os.chmod(env_file, 0o600)  # enthält Zugangscode bzw. Schlüssel
+            # Ordnungssystem: Fehlen die Felder (alte Oberfläche), bleiben die Werte stehen.
+            o_basis = params.get("ordnung_basis")
+            o_basis = config.ORDNUNG_BASIS if o_basis is None else str(o_basis).strip()
+            s_modus = params.get("sortier_modus")
+            s_modus = s_modus if s_modus in ("frei", "ablage") else config.SORTIER_MODUS
+
+            _speichere_env({
+                "AI_PROVIDER": prov,
+                "NOTIONARY_ZUGANGSCODE": z_code,
+                "GEMINI_API_KEY": g_key or config.GEMINI_API_KEY,
+                "GEMINI_MODEL": g_mod or "gemini-2.5-flash",
+                "LOCAL_API_URL": l_url or "http://localhost:1234/v1/chat/completions",
+                "LOCAL_MODEL": "local-model",
+                "ORDNUNG_BASIS": o_basis,
+                "SORTIER_MODUS": s_modus,
+            })
 
             # Im laufenden Prozess aktualisieren
+            config.ORDNUNG_BASIS = o_basis
+            config.SORTIER_MODUS = s_modus
             config.AI_PROVIDER = prov
             config.NOTIONARY_ZUGANGSCODE = z_code
             if g_key:

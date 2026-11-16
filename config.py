@@ -11,7 +11,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # --- DATEN DES NUTZERS ---
@@ -62,7 +62,9 @@ if env_path.exists():
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, val = line.split("=", 1)
-                    val = val.split("#")[0].strip().strip('"').strip("'")
+                    # Kommentar nur nach Leerzeichen abtrennen — ein Ordnerpfad darf „#“ enthalten
+                    val = val.strip()
+                    val = (val.split(" #")[0] if not val.startswith("#") else "").strip().strip('"').strip("'")
                     os.environ.setdefault(key.strip(), val)
     except Exception:
         pass
@@ -91,6 +93,48 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 # Lokale KI-Einstellungen (falls AI_PROVIDER = "local")
 LOCAL_API_URL = os.getenv("LOCAL_API_URL", "http://localhost:1234/v1/chat/completions")
 LOCAL_MODEL = os.getenv("LOCAL_MODEL", "local-model")
+
+# --- ORDNUNGSSYSTEM (Eingang / Projekte / Ablage / Archiv) ---
+# Basisordner, unter dem die vier Hauptordner liegen (z. B. in iCloud Drive).
+# Leer = kein Ordnungssystem eingerichtet. Der Pfad steht nur in der lokalen
+# .env des Nutzers, nie im Programm.
+ORDNUNG_BASIS = os.getenv("ORDNUNG_BASIS", "")
+# "frei"   -> die KI schlägt Ordner frei vor (Verhalten bis 1.4.0)
+# "ablage" -> es wird in die Kategorien von „03 Ablage“ einsortiert; neue
+#             Kategorien entstehen nur nach Bestätigung in der Vorschau
+SORTIER_MODUS = os.getenv("SORTIER_MODUS", "frei")
+
+ORDNUNG_ORDNER = {
+    "eingang": "01 Eingang",    # Briefkasten: alles Neue, Unverarbeitete
+    "projekte": "02 Projekte",  # Schreibtisch: aktuell Relevantes
+    "ablage": "03 Ablage",      # Schränke & Regale: dauerhafte Kategorien
+    "archiv": "Archiv",         # Keller: abgeschlossen, selten gebraucht
+}
+# Vorschlag für den Anfang — nur auf Wunsch angelegt, frei änderbar.
+ABLAGE_STARTKATEGORIEN = [
+    "Anschaffungen", "Arbeit", "Arzt", "Auto", "Finanzen", "Versicherung", "Wohnen",
+]
+
+
+def ordnung_pfad(name: str):
+    """Pfad eines Hauptordners ("eingang", "projekte", "ablage", "archiv") oder None.
+
+    Liest ORDNUNG_BASIS bei jedem Aufruf neu — die Oberfläche ändert den Wert
+    zur Laufzeit.
+    """
+    basis = (ORDNUNG_BASIS or "").strip()
+    if not basis:
+        return None
+    return Path(basis).expanduser() / ORDNUNG_ORDNER[name]
+
+
+def ablage_ziel():
+    """Der Ablage-Ordner, wenn der Ablage-Modus aktiv und eingerichtet ist — sonst None."""
+    if SORTIER_MODUS != "ablage":
+        return None
+    ablage = ordnung_pfad("ablage")
+    return ablage if ablage and ablage.is_dir() else None
+
 
 # --- OCR & CLOUD-EINSTELLUNGEN ---
 # Pfad zum kompilierten nativen macOS Vision-OCR-Tool

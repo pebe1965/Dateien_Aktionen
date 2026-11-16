@@ -1,7 +1,7 @@
 {
   "slug": "dateien-aktionen",
   "github_repo": "pebe1965/Dateien_Aktionen",
-  "description": "Ordner katalogisieren, Dubletten und ähnliche Fotos finden und Dokumente, Fotos und Medien per Texterkennung und KI sinnvoll umbenennen, taggen und sortieren – mit Vorschau vor jeder Änderung und Rückgängig.",
+  "description": "Ordner katalogisieren, Dubletten und ähnliche Fotos finden und Dokumente, Fotos und Medien per Texterkennung und KI sinnvoll umbenennen, taggen und in ein festes Ordnungssystem aus Eingang, Projekten, Ablage und Archiv einsortieren – mit Vorschau vor jeder Änderung und Rückgängig.",
   "integrations": [
     {
       "module": "Katalog & Dubletten",
@@ -16,12 +16,16 @@
       "description": "Wertet Aufnahmedatum, Ort, Kamera und Dauer aus, erkennt Bildinhalte und zeigt eine Vorschau auch für HEIC-Fotos, Videos und Audio."
     },
     {
+      "module": "Ordnungssystem",
+      "description": "Legt Eingang, Projekte, Ablage und Archiv an und sortiert in feste Kategorien der Ablage – ohne Jahresordner; neue Kategorien entstehen nur nach Bestätigung in der Vorschau."
+    },
+    {
       "module": "Finder-Tags & Ordner",
-      "description": "Setzt beim Sortieren farbige Finder-Tags und Spotlight-Kommentare; Zielordner sind in der Vorschau frei änderbar."
+      "description": "Setzt beim Sortieren farbige Finder-Tags und Spotlight-Kommentare, ergänzt vorhandene Tags und markiert steuerrelevante Belege mit „Steuer“ und Jahr; Zielordner sind in der Vorschau frei änderbar."
     },
     {
       "module": "Autopilot",
-      "description": "Überwacht Ordner wie Downloads oder Schreibtisch im Hintergrund, mit Mitteilungen und optionalem Autostart."
+      "description": "Überwacht den Eingang, Downloads oder den Schreibtisch im Hintergrund und sortiert Neues ein, mit Mitteilungen und optionalem Autostart."
     },
     {
       "module": "Sicher umbenennen",

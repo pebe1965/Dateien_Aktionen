@@ -20,6 +20,21 @@ Entwickelt für Apple Silicon Macs (M-Serie) unter Ausnutzung der **Apple Neural
 
 ---
 
+## Ordnungssystem: Eingang, Projekte, Ablage, Archiv
+
+In den Einstellungen lässt sich unter „Ordnungssystem“ ein Basisordner wählen (z. B. in iCloud Drive). „Grundstruktur anlegen“ erzeugt dort vier Bereiche:
+
+* `01 Eingang` – Briefkasten für alles Neue (Downloads, Scans, Anhänge)
+* `02 Projekte` – Schreibtisch für aktuell Relevantes
+* `03 Ablage` – dauerhafte Kategorien wie `Anschaffungen`, `Versicherung`, `Auto`
+* `Archiv` – Abgeschlossenes, das aufbewahrt wird
+
+Im Sortiermodus **Ablage** wird aus jedem gescannten Ordner in die vorhandenen Kategorien von `03 Ablage` einsortiert – ohne Jahresordner. Passt keine Kategorie, markiert die Vorschau den Vorschlag als neu; angelegt wird er erst beim Anwenden. Der Autopilot legt keine neuen Kategorien an und lässt solche Dateien im Eingang liegen.
+
+Steuerrelevante Belege bekommen keinen eigenen Ordner, sondern den Finder-Tag `Steuer <Jahr>`. Bereits vorhandene Finder-Tags einer Datei bleiben erhalten.
+
+---
+
 ## Schnellstart
 
 ### 1. Konfiguration einrichten

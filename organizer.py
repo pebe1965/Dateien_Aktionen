@@ -72,7 +72,7 @@ def discover_existing_subfolders(root_dir: Path, max_depth: int = 2) -> List[str
         for p in sorted(root_dir.iterdir()):
             if (
                 p.is_dir()
-                and not p.name.startswith(".")
+                and not p.name.startswith((".", "_"))
                 and p.name not in IGNORED_DIRS
                 and not p.name.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
             ):
@@ -83,7 +83,7 @@ def discover_existing_subfolders(root_dir: Path, max_depth: int = 2) -> List[str
                         for sub in sorted(p.iterdir()):
                             if (
                                 sub.is_dir()
-                                and not sub.name.startswith(".")
+                                and not sub.name.startswith((".", "_"))
                                 and sub.name not in IGNORED_DIRS
                                 and not sub.name.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
                             ):
@@ -131,6 +131,71 @@ def get_unique_target_path(target_path: Path) -> Path:
         counter += 1
 
 
+def lege_grundstruktur_an(basis: Path, mit_startkategorien: bool = False) -> Dict[str, Any]:
+    """Legt die vier Hauptordner des Ordnungssystems unter `basis` an.
+
+    Vorhandene Ordner bleiben unberührt (nichts wird überschrieben oder verschoben).
+    Gibt zurück, was neu angelegt wurde und was schon da war.
+    """
+    basis = Path(basis).expanduser()
+    angelegt: List[str] = []
+    vorhanden: List[str] = []
+
+    def _anlegen(pfad: Path) -> None:
+        rel = str(pfad.relative_to(basis))
+        if pfad.is_dir():
+            vorhanden.append(rel)
+        else:
+            pfad.mkdir(parents=True, exist_ok=True)
+            angelegt.append(rel)
+
+    for name in config.ORDNUNG_ORDNER.values():
+        _anlegen(basis / name)
+    if mit_startkategorien:
+        for kat in config.ABLAGE_STARTKATEGORIEN:
+            _anlegen(basis / config.ORDNUNG_ORDNER["ablage"] / kat)
+
+    return {"basis": str(basis), "angelegt": angelegt, "vorhanden": vorhanden}
+
+
+def tags_fuer_analyse(analysis: Any) -> List[str]:
+    """Finder-Tags zu einer Analyse: Art, Absender, Jahr — und „Steuer <Jahr>“ bei steuerrelevanten Belegen.
+
+    Nimmt ein AnalysisResult oder dessen dict (so kommt es aus der Oberfläche zurück).
+    """
+    a = analysis if isinstance(analysis, dict) else analysis.to_dict()
+    tags = [a.get("doc_type") or "", a.get("sender") or ""]
+    doc_date = str(a.get("doc_date") or "")
+    if len(doc_date) >= 4:
+        tags.append(doc_date[:4])
+    steuer_jahr = str(a.get("steuer_jahr") or "").strip()
+    if steuer_jahr:
+        tags.append(f"Steuer {steuer_jahr}")
+    return tags
+
+
+def _lese_finder_tags(libc: Any, c_path: bytes) -> List[str]:
+    """Liest die vorhandenen Finder-Tags einer Datei (leer, wenn keine gesetzt sind)."""
+    import plistlib
+    import ctypes
+
+    name = b"com.apple.metadata:_kMDItemUserTags"
+    try:
+        libc.getxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+        libc.getxattr.restype = ctypes.c_ssize_t
+        size = libc.getxattr(c_path, name, None, 0, 0, 0)
+        if size <= 0:
+            return []
+        buf = ctypes.create_string_buffer(size)
+        got = libc.getxattr(c_path, name, buf, size, 0, 0)
+        if got <= 0:
+            return []
+        werte = plistlib.loads(buf.raw[:got])
+        return [str(w) for w in werte] if isinstance(werte, list) else []
+    except Exception:
+        return []
+
+
 def set_macos_tags_and_comment(file_path: Path, tags: List[str], comment: str = "") -> bool:
     """
     Schreibt native macOS Finder-Tags (`com.apple.metadata:_kMDItemUserTags`) und
@@ -154,14 +219,20 @@ def set_macos_tags_and_comment(file_path: Path, tags: List[str], comment: str = 
 
         c_path = str(file_path.resolve()).encode("utf-8")
 
-        # 1. Finder-Tags setzen (saubere, eindeutige Liste ohne leere Strings)
-        clean_tags = []
+        # 1. Finder-Tags setzen (saubere, eindeutige Liste ohne leere Strings).
+        # Bereits vorhandene Tags bleiben erhalten — eigene Tags des Nutzers (auch
+        # farbige, gespeichert als "Name\n<Farbnummer>") dürfen nicht verschwinden.
+        clean_tags = _lese_finder_tags(libc, c_path)
+        schon_da = {t.split("\n")[0].strip().lower() for t in clean_tags}
+        neue = 0
         for t in tags:
             t_str = str(t).strip()
-            if t_str and t_str.lower() not in {"unbekannt", "sonstiges", "sortiert", "none", "null"} and t_str not in clean_tags:
+            if t_str and t_str.lower() not in {"unbekannt", "sonstiges", "sortiert", "none", "null"} and t_str.lower() not in schon_da:
                 clean_tags.append(t_str)
+                schon_da.add(t_str.lower())
+                neue += 1
 
-        if clean_tags:
+        if neue:
             tag_bplist = plistlib.dumps(clean_tags, fmt=plistlib.FMT_BINARY)
             libc.setxattr(
                 c_path,
@@ -193,7 +264,16 @@ class Organizer:
 
     def __init__(self, source_dir: Path, target_dir: Optional[Path] = None, provider: Optional[str] = None):
         self.source_dir = source_dir.resolve()
-        self.target_dir = target_dir.resolve() if target_dir else self.source_dir
+        # Ablage-Modus: Ohne ausdrückliches Ziel wird in „03 Ablage“ einsortiert —
+        # aus dem Eingang heraus in feste Kategorien, statt Unterordner im Eingang anzulegen.
+        ablage = config.ablage_ziel()
+        if target_dir:
+            self.target_dir = target_dir.resolve()
+        elif ablage:
+            self.target_dir = ablage.resolve()
+        else:
+            self.target_dir = self.source_dir
+        self.ablage_modus = bool(ablage and self.target_dir == ablage.resolve())
         self.provider = provider
         self.catalog = Catalog(self.source_dir)
         self.plan: List[PlannedAction] = []
@@ -248,7 +328,8 @@ class Organizer:
 
         def process_single_item(item: FileItem) -> PlannedAction:
             nonlocal cache_dirty
-            cache_key = f"{item.path}_{item.size_bytes}_{int(item.modified_at.timestamp())}_{active_prov}"
+            modus_key = f"ablage:{self.target_dir}" if self.ablage_modus else "frei"
+            cache_key = f"{item.path}_{item.size_bytes}_{int(item.modified_at.timestamp())}_{active_prov}_{modus_key}"
 
             with progress_lock:
                 ANALYSIS_PROGRESS["current_file"] = item.filename
@@ -276,7 +357,8 @@ class Organizer:
                     doc_type=c_entry.get("doc_type", "Sonstiges"),
                     topic=c_entry.get("topic", ""),
                     summary=c_entry.get("summary", ""),
-                    provider_used=f"{c_entry.get('provider_used', active_prov)} ⚡ Cache"
+                    provider_used=f"{c_entry.get('provider_used', active_prov)} ⚡ Cache",
+                    steuer_jahr=c_entry.get("steuer_jahr")
                 )
                 with progress_lock:
                     ANALYSIS_PROGRESS["cached_hits"] += 1
@@ -293,7 +375,8 @@ class Organizer:
                     provider=self.provider if self.provider else None,
                     prefix=None,  # im Cache ohne Präfix speichern
                     file_path=item.path,
-                    existing_folders=existing_folders
+                    existing_folders=existing_folders,
+                    ablage_modus=self.ablage_modus
                 )
 
                 # Im Cache ablegen (sofern nicht reiner Fallback bei gewünschter Cloud-KI)
@@ -310,7 +393,10 @@ class Organizer:
 
                 analysis = raw_analysis
 
-            # 3. Zielpfad ermitteln
+            # 3. Zielpfad ermitteln. Im Ablage-Modus hier frisch prüfen, ob die Kategorie
+            # schon existiert — ein Cache-Eintrag kann älter sein als der Ordner.
+            if self.ablage_modus:
+                analysis.neuer_ordner = not (self.target_dir / analysis.suggested_folder).is_dir()
             target_subfolder = self.target_dir / analysis.suggested_folder
             desired_target = target_subfolder / analysis.suggested_name
             final_target = get_unique_target_path(desired_target)
@@ -376,10 +462,7 @@ class Organizer:
             # Native macOS Finder-Tags & Spotlight-Kommentar setzen
             if apply_tags and action.analysis:
                 a = action.analysis
-                tags_to_set = [a.doc_type, a.sender]
-                if a.doc_date and len(a.doc_date) >= 4:
-                    tags_to_set.append(a.doc_date[:4])
-                set_macos_tags_and_comment(dst, tags=tags_to_set, comment=a.summary or "")
+                set_macos_tags_and_comment(dst, tags=tags_fuer_analyse(a), comment=a.summary or "")
 
             manifest_entries.append({
                 "source": str(src),

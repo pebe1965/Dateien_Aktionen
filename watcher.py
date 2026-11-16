@@ -17,6 +17,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+import config
 from config import (
     BASE_DIR, IGNORED_FILES, IGNORED_DIRS, MACOS_PACKAGE_EXTENSIONS
 )
@@ -121,6 +122,8 @@ class AutopilotWatcher:
         self.last_scan_time: Optional[str] = None
         self.total_processed_session: int = 0
         self.last_error: Optional[str] = None
+        # Dateien, für die es noch keine passende Ablage-Kategorie gab (bleiben im Eingang)
+        self._wartende: set = set()
 
     @property
     def running(self) -> bool:
@@ -154,6 +157,8 @@ class AutopilotWatcher:
             "last_scan_time": self.last_scan_time,
             "total_processed_session": self.total_processed_session,
             "last_error": self.last_error,
+            "wartend_im_eingang": sum(1 for p in self._wartende if Path(p).exists()),
+            "ablage_ziel": str(config.ablage_ziel() or ""),
             "launch_agent_installed": is_launch_agent_installed(),
             "config": cfg,
             "recent_log": load_autopilot_log(limit=30)
@@ -186,7 +191,9 @@ class AutopilotWatcher:
                 if not watch_dir.exists() or not watch_dir.is_dir():
                     continue
 
-                target_dir = Path(custom_target).expanduser().resolve() if custom_target else watch_dir
+                # Ziel: ausdrücklich gewählter Ordner → sonst im Ablage-Modus „03 Ablage“
+                # (der Organizer wählt sie selbst) → sonst Unterordner im überwachten Ordner.
+                target_dir = Path(custom_target).expanduser().resolve() if custom_target else None
 
                 # Nur Dateien auf oberster Ebene des überwachten Ordners betrachten,
                 # damit bereits einsortierte Unterordner nicht erneut durchsucht werden!
@@ -222,7 +229,22 @@ class AutopilotWatcher:
                     continue
 
                 organizer = Organizer(source_dir=watch_dir, target_dir=target_dir)
-                plan = organizer.prepare_plan(specific_files=ready_files, use_cache=True)
+                plan = organizer.prepare_plan(specific_paths=[str(f) for f in ready_files], use_cache=True)
+
+                # Ablage-Modus: Der Autopilot legt keine neuen Kategorien an. Solche Dateien
+                # bleiben im Eingang liegen und werden dort über die Vorschau einsortiert.
+                if organizer.ablage_modus:
+                    for action in plan:
+                        if action.analysis.neuer_ordner:
+                            try:
+                                st = action.source_path.stat()
+                                self._seen_signatures.add((str(action.source_path), int(st.st_mtime), st.st_size))
+                                self._wartende.add(str(action.source_path))
+                            except OSError:
+                                pass
+                    plan = [a for a in plan if not a.analysis.neuer_ordner]
+                    organizer.plan = plan
+
                 if not plan:
                     continue
 

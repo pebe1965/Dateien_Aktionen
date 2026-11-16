@@ -1,9 +1,12 @@
-## Neu in 1.3.0
+## Neu in 1.5.0
 
-* **Natives Mac-Fenster statt Browser-Tab:** Dateien_Aktionen öffnet sich jetzt als vollwertiges, eigenständiges macOS-Fenster und benötigt keinen Browser mehr.
-* **Kein Terminal-Fenster mehr:** Der Start erfolgt komplett im Hintergrund, ohne dass sich ein Terminal-Fenster öffnet.
-* **Zuverlässige Wiederaufnahme & Dock-Unterstützung:** Schließen über das rote Fenstersymbol und erneutes Klicken auf das App-Symbol im Dock oder unter „Programme“ öffnet das Fenster sofort wieder, ohne Fehlermeldungen.
-* **Mac-Tastenkürzel:** Gewohnte Tastenkombinationen wie Kopieren (Cmd+C), Einfügen (Cmd+V) und Alles auswählen (Cmd+A) in Textfeldern sowie Cmd+R (Neu laden) und Cmd+Q (Beenden) werden nativ unterstützt.
-* **Universal 2 für alle Macs:** Optimiert sowohl für Macs mit Apple Silicon (M1/M2/M3/M4) als auch Intel-Prozessoren ab macOS 12 (Monterey).
+* **Ordnungssystem mit vier festen Bereichen:** In den Einstellungen legt „Grundstruktur anlegen“ im gewählten Basisordner (z. B. in iCloud Drive) die Ordner „01 Eingang“, „02 Projekte“, „03 Ablage“ und „Archiv“ an – auf Wunsch mit Start-Kategorien wie Anschaffungen, Versicherung oder Auto. Vorhandene Ordner und Dateien bleiben unberührt.
+* **Neuer Sortiermodus „Ablage“:** Dateien werden in die vorhandenen Kategorien der Ablage einsortiert, ohne Jahresordner. Passt keine Kategorie, markiert die Vorschau den Vorschlag gelb als „Neue Kategorie“ – angelegt wird sie erst, wenn Sie die Änderung anwenden. Der bisherige freie Modus bleibt wählbar.
+* **Steuer-Tag statt Steuer-Ordner:** Steuerrelevante Belege bleiben in ihrer Kategorie und erhalten den Finder-Tag „Steuer“ mit dem passenden Jahr, etwa „Steuer 2026“. So finden Sie im Finder alle Belege eines Jahres mit einem Klick.
+* **Eigene Finder-Tags bleiben erhalten:** Tags, die eine Datei schon hatte, werden ergänzt und nicht mehr ersetzt.
+* **Knopf „Eingang“:** Setzt den Eingang mit einem Klick als Quellordner.
+* **Autopilot repariert:** Der Ordner-Wächter verarbeitete zuletzt keine Dateien, und seine Seite reagierte nicht auf Starten, Speichern und „Jetzt prüfen“. Beides funktioniert wieder. Im Modus „Ablage“ sortiert er in die Ablage; Dateien ohne passende Kategorie bleiben im Eingang und werden dort angezeigt.
+
+Hinweis: Nach dem Update fragt die erste KI-Vorschau jede Datei einmal neu an, auch wenn sie früher schon analysiert wurde.
 
 Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.

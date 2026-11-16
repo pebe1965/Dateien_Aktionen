@@ -107,7 +107,10 @@ def cmd_preview(args):
         a = action.analysis
         print(f"{C_CYAN}[{i}/{len(plan)}]{C_RESET} {C_BOLD}{action.source_path.name}{C_RESET}")
         print(f"   ➔ Neuer Name:    {C_GREEN}{C_BOLD}{a.suggested_name}{C_RESET}")
-        print(f"   ➔ Ziel-Ordner:   {C_BLUE}{a.suggested_folder}{C_RESET}")
+        neu_hinweis = f" {C_YELLOW}(neue Kategorie){C_RESET}" if a.neuer_ordner else ""
+        print(f"   ➔ Ziel-Ordner:   {C_BLUE}{a.suggested_folder}{C_RESET}{neu_hinweis}")
+        if a.steuer_jahr:
+            print(f"   ➔ Tag:           Steuer {a.steuer_jahr}")
         print(f"   ➔ Typ / Absender:{a.doc_type} von '{a.sender}' (Datum: {a.doc_date or 'n/a'})")
         if a.summary:
             print(f"   ➔ Inhalt:        {C_DIM}{a.summary}{C_RESET}")
@@ -120,16 +123,17 @@ def cmd_preview(args):
 def cmd_run(args):
     """Führt die Umbenennung und Sortierung nach Bestätigung aus."""
     folder = Path(args.path).resolve()
-    target_dir = Path(args.target_dir).resolve() if args.target_dir else folder
+    # Ohne --target-dir entscheidet der Organizer: im Ablage-Modus „03 Ablage“, sonst der Quellordner
+    target_dir = Path(args.target_dir).resolve() if args.target_dir else None
     provider = args.provider or AI_PROVIDER
+    organizer = Organizer(source_dir=folder, target_dir=target_dir, provider=provider)
 
     print_header("DATEI-ORGANISATION AUSFÜHREN")
     print(f"Quelle:  {folder}")
-    print(f"Ziel:    {target_dir}")
+    print(f"Ziel:    {organizer.target_dir}{' (Ablage-Modus)' if organizer.ablage_modus else ''}")
     print(f"KI:      {provider}")
     print(f"Modus:   {'Kopieren' if args.copy else 'Verschieben/Umbenennen'}\n")
 
-    organizer = Organizer(source_dir=folder, target_dir=target_dir, provider=provider)
     print("Erstelle Plan ...")
     plan = organizer.prepare_plan(
         category_filter=args.filter,

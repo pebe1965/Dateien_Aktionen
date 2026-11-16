@@ -48,6 +48,10 @@ class AnalysisResult:
     topic: str
     summary: str
     provider_used: str
+    # Jahr, für das der Beleg steuerlich zählt (→ Finder-Tag „Steuer 2026“), sonst None
+    steuer_jahr: Optional[str] = None
+    # Ablage-Modus: Der Zielordner existiert noch nicht (neue Kategorie, braucht Bestätigung)
+    neuer_ordner: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -59,7 +63,9 @@ class AnalysisResult:
             "doc_type": self.doc_type,
             "topic": self.topic,
             "summary": self.summary,
-            "provider_used": self.provider_used
+            "provider_used": self.provider_used,
+            "steuer_jahr": self.steuer_jahr,
+            "neuer_ordner": self.neuer_ordner
         }
 
 
@@ -103,6 +109,15 @@ WICHTIGE REGELN FÜR DOKUMENTE & MEDIEN:
      * doc_type = 'Video' bzw. 'Audio'
      * Nutze Titel, Album, Interpret oder Aufnahmedatum für einen sprechenden Namen und lege sie unter 'Medien/Videos' bzw. 'Medien/Audio' ab.
 
+5. STEUER:
+   - steuerrelevant = true nur bei Belegen, die typischerweise in eine deutsche Steuererklärung gehören
+     (z. B. Lohnsteuerbescheinigung, Steuerbescheid, Spendenquittung, Handwerkerrechnung, Arzt- oder
+     Apothekenrechnung, Versicherungsbeitrag, Arbeitsmittel, Zins-/Steuerbescheinigung der Bank,
+     Nebenkostenabrechnung). Im Zweifel und bei Fotos, Screenshots, Videos, Audio: false.
+   - steuerjahr = das Jahr, für dessen Steuererklärung der Beleg zählt: bei Rechnungen das Jahr der
+     Zahlung/Leistung, bei Bescheinigungen das bescheinigte Jahr (eine im Januar 2026 ausgestellte
+     Lohnsteuerbescheinigung 2025 → "2025"). Nicht steuerrelevant: null.
+
 Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt in exakt folgendem Format:
 {
   "doc_date": "YYYY-MM-DD",     // Das Hauptdatum (Dokumentendatum oder EXIF-Aufnahmedatum). Falls unbekannt: null
@@ -111,6 +126,8 @@ Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt in exakt folgendem Form
   "topic": "Thema_Kurz",        // z.B. Konto_IBAN1234, Strand_Sonnenuntergang, Fehlermeldung_Login (1-3 Worte, prägnant)
   "suggested_filename": "YYYY-MM-DD_Absender_Dokumententyp_Thema", // Ohne Dateiendung! Keine Sonderzeichen außer Unterstrichen
   "suggested_folder": "Kategorie/Unterordner", // z.B. Finanzen/bunq, Rechnungen/Telekom, Medien/Fotos/2026, Medien/Screenshots
+  "steuerrelevant": false,      // true oder false, siehe Regel 5
+  "steuerjahr": null,           // "YYYY" oder null, siehe Regel 5
   "summary": "Prägnante 1-Satz-Zusammenfassung des Dokuments oder Bildmotivs auf Deutsch."
 }
 
@@ -399,6 +416,18 @@ def _heuristic_analysis(filename: str, text: str, ext: str) -> Dict[str, Any]:
     else:
         suggested = f"{clean_filename(sender)}_{doc_type}_{topic}"
 
+    # Steuer: ohne KI bewusst zurückhaltend — nur eindeutige Fälle
+    steuer_worte = [
+        "lohnsteuerbescheinigung", "steuerbescheid", "spendenquittung",
+        "zuwendungsbestätigung", "steuerbescheinigung", "nebenkostenabrechnung"
+    ]
+    steuerrelevant = doc_type in {"Gehaltsabrechnung", "Bescheid"} or any(k in text_lower for k in steuer_worte)
+    # Bescheinigtes Jahr direkt hinter dem Stichwort („Lohnsteuerbescheinigung 2025“) geht vor Belegdatum
+    steuerjahr = None
+    jahr_match = re.search(r"(?:" + "|".join(steuer_worte) + r")\D{0,25}((?:19|20)\d{2})", text_lower)
+    if jahr_match:
+        steuerjahr = jahr_match.group(1)
+
     return {
         "doc_date": doc_date,
         "sender": sender,
@@ -406,8 +435,102 @@ def _heuristic_analysis(filename: str, text: str, ext: str) -> Dict[str, Any]:
         "topic": topic,
         "suggested_filename": clean_filename(suggested),
         "suggested_folder": suggested_folder,
+        "steuerrelevant": steuerrelevant,
+        "steuerjahr": steuerjahr,
         "summary": summary_txt
     }
+
+
+# --- ABLAGE-MODUS ---------------------------------------------------------
+# Feste Kategorien statt frei erfundener Ordner: Die KI wählt aus dem, was in
+# „03 Ablage“ schon da ist. Was sie trotzdem neu vorschlägt, wird markiert und
+# erst nach Bestätigung in der Vorschau angelegt.
+
+ABLAGE_REGELN = """
+ABLAGE-MODUS — diese Regeln haben VORRANG vor allen Ordner-Beispielen oben:
+- 'suggested_folder' ist EXAKT einer der unten aufgeführten vorhandenen Ordner (Schreibweise unverändert).
+- Nur wenn wirklich keiner passt: schlage EINE neue, dauerhaft gültige Themen-Kategorie vor
+  (ein kurzer Begriff wie 'Versicherung', 'Auto', 'Arzt', 'Anschaffungen') — keinen Absender-Ordner.
+- KEINE Jahresordner und keine Jahreszahl im Ordnernamen.
+- KEINEN Ordner 'Steuer' vorschlagen: Steuerliches bleibt in seiner Themen-Kategorie und wird nur über 'steuerrelevant' markiert.
+- Dateiname: Beginnt mit dem Beleg-/Kaufdatum (YYYY-MM-DD). Lass die Dokumentart weg, wenn sie schon aus dem
+  Ordner hervorgeht (z. B. kein 'Rechnung' im Ordner 'Anschaffungen', kein 'Police' in 'Versicherung').
+  Benenne so, wie man in ein paar Jahren danach suchen würde: Absender und worum es geht.
+"""
+
+# Welche Kategorie passt ohne KI zu welcher Dokumentart (erste vorhandene gewinnt)
+_ABLAGE_NACH_ART = {
+    "Rechnung": ["Anschaffungen", "Rechnungen", "Belege"],
+    "Kontoauszug": ["Finanzen", "Bank", "Konto"],
+    "Transaktionsuebersicht": ["Finanzen", "Bank", "Konto"],
+    "Vertrag": ["Verträge", "Vertraege", "Versicherung"],
+    "Gehaltsabrechnung": ["Arbeit", "Gehalt", "Finanzen"],
+    "Bescheid": ["Finanzen", "Behörden", "Behoerden", "Amt"],
+    "Foto": ["Fotos", "Bilder", "Medien"],
+    "Screenshot": ["Screenshots", "Bilder", "Medien"],
+    "Video": ["Videos", "Medien"],
+    "Audio": ["Audio", "Musik", "Medien"],
+}
+
+
+def bereinige_ordner(folder: Any) -> str:
+    """Macht aus einem Ordnervorschlag einen sicheren relativen Pfad (kein '..', kein führendes '/')."""
+    teile = []
+    for teil in re.split(r"[/\\]+", str(folder or "")):
+        teil = re.sub(r'[:*?"<>|]', "", teil).strip()
+        if teil and teil not in (".", ".."):
+            teile.append(teil)
+    return "/".join(teile)
+
+
+def ordne_in_ablage(folder: str, vorhandene: Optional[list]) -> tuple:
+    """Gleicht einen Vorschlag mit den vorhandenen Ablage-Ordnern ab.
+
+    Gibt (Ordner, ist_neu) zurück. Vorhandene Ordner behalten ihre Schreibweise;
+    Jahresordner am Ende eines neuen Vorschlags werden entfernt.
+    """
+    vorhandene = vorhandene or []
+    exakt = {v.lower(): v for v in vorhandene}
+    folder = bereinige_ordner(folder)
+
+    if folder.lower() in exakt:
+        return exakt[folder.lower()], False
+
+    teile = [t for t in folder.split("/") if t]
+    while teile and re.fullmatch(r"(19|20)\d{2}", teile[-1]):
+        teile.pop()
+    ohne_jahr = "/".join(teile)
+    if ohne_jahr.lower() in exakt:
+        return exakt[ohne_jahr.lower()], False
+
+    # Nur der letzte Teil passt (KI nennt 'Versicherung', vorhanden ist 'Unterlagen/Versicherung')
+    if teile:
+        for v in vorhandene:
+            if v.split("/")[-1].lower() == teile[-1].lower():
+                return v, False
+
+    return (ohne_jahr or "Unsortiert"), True
+
+
+def _ablage_ordner_heuristik(data: Dict[str, Any], text_lower: str, vorhandene: Optional[list]) -> str:
+    """Ohne KI: sucht zur erkannten Dokumentart/zum Absender einen vorhandenen Ablage-Ordner."""
+    vorhandene = vorhandene or []
+    nach_blatt = {}
+    for v in vorhandene:
+        nach_blatt.setdefault(v.split("/")[-1].lower(), v)
+
+    sender = str(data.get("sender") or "").lower()
+    if sender and sender in nach_blatt:
+        return nach_blatt[sender]
+    for kandidat in _ABLAGE_NACH_ART.get(str(data.get("doc_type") or ""), []):
+        if kandidat.lower() in nach_blatt:
+            return nach_blatt[kandidat.lower()]
+    # Kategoriename steht als ganzes Wort im Text (z. B. „Versicherung“, „Auto“)
+    for blatt, v in nach_blatt.items():
+        if len(blatt) >= 4 and re.search(rf"\b{re.escape(blatt)}\b", text_lower):
+            return v
+    # Nichts passt: nicht den frei erfundenen Ordner der Regeln übernehmen
+    return "Unsortiert"
 
 
 def analyze_file_content(
@@ -417,13 +540,15 @@ def analyze_file_content(
     provider: Optional[str] = None,
     prefix: Optional[str] = None,
     file_path: Optional[Path] = None,
-    existing_folders: Optional[list] = None
+    existing_folders: Optional[list] = None,
+    ablage_modus: bool = False
 ) -> AnalysisResult:
     """
     Hauptfunktion: Analysiert Dateiname, extrahierten Text/EXIF und (bei Bildern) das Bild selbst
     mit dem gewählten KI-Provider und liefert ein strukturiertes AnalysisResult zurück.
     Falls ein Präfix angegeben ist (z.B. "01_"), wird es vorangestellt.
     Falls existing_folders übergeben wird, bevorzugt die KI bereits vorhandene Ordner.
+    Mit ablage_modus sind die vorhandenen Ordner verbindlich (feste Kategorien der Ablage).
     """
     ext = Path(filename).suffix.lower()
     active_provider = provider if provider else config.AI_PROVIDER
@@ -433,7 +558,10 @@ def analyze_file_content(
     prompt = f"Dateiname: {filename}\n"
     if metadata_info:
         prompt += f"Zusätzliche Metadaten: {metadata_info}\n"
-    if existing_folders:
+    if ablage_modus:
+        folders_str = ", ".join(existing_folders[:150]) if existing_folders else "(noch keine — schlage eine Themen-Kategorie vor)"
+        prompt += f"{ABLAGE_REGELN}Vorhandene Ordner der Ablage: [{folders_str}]\n"
+    elif existing_folders:
         folders_str = ", ".join(existing_folders[:60])
         prompt += (
             f"\nBereits existierende Unterordner im Zielverzeichnis: [{folders_str}]\n"
@@ -488,6 +616,10 @@ def analyze_file_content(
         if active_provider != "offline":
             print(f"⚠️ [Fallback] KI nicht erreichbar, nutze Heuristik für '{filename}'")
         ai_data = _heuristic_analysis(filename, text_content, ext)
+        if ablage_modus:
+            ai_data["suggested_folder"] = _ablage_ordner_heuristik(
+                ai_data, (filename + " " + text_content[:3000]).lower(), existing_folders
+            )
         if active_provider != "offline":
             used_provider = "fallback_heuristik"
 
@@ -503,7 +635,20 @@ def analyze_file_content(
         suggested_clean = f"{p_clean}{suggested_clean}"
 
     final_filename = f"{suggested_clean}{ext}"
-    folder = ai_data.get("suggested_folder", "Sortiert")
+    # Ordnervorschlag absichern (kein '..'); im Ablage-Modus an die vorhandenen Kategorien binden
+    folder = bereinige_ordner(ai_data.get("suggested_folder")) or "Sortiert"
+    neuer_ordner = False
+    if ablage_modus:
+        folder, neuer_ordner = ordne_in_ablage(folder, existing_folders)
+
+    # Steuer: nur als Tag, nie als Ordner. Das Jahr kommt aus dem Belegdatum.
+    doc_date = ai_data.get("doc_date")
+    steuer_jahr = None
+    if ai_data.get("steuerrelevant") in (True, "true", "True", "ja"):
+        if re.fullmatch(r"(19|20)\d{2}", str(ai_data.get("steuerjahr") or "").strip()):
+            steuer_jahr = str(ai_data.get("steuerjahr")).strip()
+        elif re.match(r"(19|20)\d{2}", str(doc_date or "")):
+            steuer_jahr = str(doc_date)[:4]
 
     return AnalysisResult(
         original_name=filename,
@@ -515,6 +660,8 @@ def analyze_file_content(
         doc_type=ai_data.get("doc_type", "Sonstiges"),
         topic=ai_data.get("topic", ""),
         summary=ai_data.get("summary", ""),
-        provider_used=used_provider
+        provider_used=used_provider,
+        steuer_jahr=steuer_jahr,
+        neuer_ordner=neuer_ordner
     )
 
