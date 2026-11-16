@@ -25,12 +25,11 @@ import config
 
 def _get_ssl_context() -> ssl.SSLContext:
     """Erstellt einen funktionierenden SSL-Kontext für macOS."""
-    ctx = ssl.create_default_context()
-    try:
-        import certifi
-        ctx.load_verify_locations(certifi.where())
-    except Exception:
-        # Fallback für macOS Python-Umgebungen ohne installiertes certifi
+    # Zertifikate aus Python, certifi oder macOS (python.org-Python hat sonst keine)
+    from updater import ssl_kontext_geprueft
+    ctx = ssl_kontext_geprueft()
+    if ctx.cert_store_stats().get("x509_ca", 0) == 0:
+        # Letzter Rückfall, nur wenn wirklich keine Zertifikate zu finden sind
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
     return ctx

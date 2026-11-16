@@ -1199,7 +1199,12 @@
                     </div>
                 </div>
 
-                <div class="text-[11px] text-slate-500 bg-blue-50 p-3 rounded-xl border border-blue-200 flex items-start gap-2">
+                <div id="update-direct-box" class="hidden text-[11px] text-emerald-900 bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex items-start gap-2">
+                    <span class="text-sm">⚡</span>
+                    <span><b>Direkt-Update:</b> Das Programm lädt die neue Version, ersetzt sich selbst und startet neu. Einstellungen, Verlauf und Zugangscode bleiben erhalten.</span>
+                </div>
+                <div id="update-direct-status" class="hidden text-xs p-3 rounded-xl border"></div>
+                <div id="update-manual-box" class="text-[11px] text-slate-500 bg-blue-50 p-3 rounded-xl border border-blue-200 flex items-start gap-2">
                     <span class="text-sm">💡</span>
                     <span>Nach dem Download einfach die neue <b>Dateien_Aktionen.dmg</b> öffnen und in Ihren Programme-Ordner ziehen (auf „Ersetzen“ klicken).</span>
                 </div>
@@ -1212,6 +1217,9 @@
                 <a id="update-download-btn" href="#" target="_blank" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-xs flex items-center gap-1.5">
                     📥 Update herunterladen (.dmg)
                 </a>
+                <button id="update-direct-btn" onclick="runDirectUpdate()" class="hidden px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-xs flex items-center gap-1.5">
+                    ⚡ Jetzt direkt updaten
+                </button>
             </div>
         </div>
     </div>
@@ -1482,7 +1490,61 @@
             document.getElementById('update-modal-notes').innerText = latestUpdateData.release_notes || 'Allgemeine Verbesserungen und neue Funktionen.';
             const btn = document.getElementById('update-download-btn');
             btn.href = latestUpdateData.download_url || latestUpdateData.html_url;
+            const direkt = !!latestUpdateData.direct_update;
+            const dlBtn = document.getElementById('update-download-btn');
+            document.getElementById('update-direct-btn').classList.toggle('hidden', !direkt);
+            document.getElementById('update-direct-box').classList.toggle('hidden', !direkt);
+            document.getElementById('update-manual-box').classList.toggle('hidden', direkt);
+            // Mit Direkt-Update bleibt der Download als zweite, schlichte Möglichkeit
+            dlBtn.className = direkt
+                ? 'px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5'
+                : 'px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-xs flex items-center gap-1.5';
+            dlBtn.innerText = direkt ? '📥 Stattdessen herunterladen' : '📥 Update herunterladen (.dmg)';
+            document.getElementById('update-direct-status').classList.add('hidden');
             document.getElementById('update-modal').classList.remove('hidden');
+        }
+
+        function setDirectUpdateStatus(text, art) {
+            const el = document.getElementById('update-direct-status');
+            const farben = {
+                info: 'text-xs p-3 rounded-xl border bg-slate-50 border-slate-200 text-slate-700',
+                ok: 'text-xs p-3 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-800 font-semibold',
+                fehler: 'text-xs p-3 rounded-xl border bg-red-50 border-red-200 text-red-700'
+            };
+            el.className = farben[art] || farben.info;
+            el.innerText = text;
+        }
+
+        async function runDirectUpdate() {
+            const btn = document.getElementById('update-direct-btn');
+            btn.disabled = true;
+            btn.classList.add('opacity-60', 'cursor-wait');
+            setDirectUpdateStatus('⏳ Lade und installiere die neue Version … (das kann eine Minute dauern)', 'info');
+            try {
+                const res = await fetch('/api/self_update', { method: 'POST' });
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.error || 'Update fehlgeschlagen.');
+                setDirectUpdateStatus(`✓ Version ${data.version} ist installiert. Das Programm startet jetzt neu …`, 'ok');
+                warteAufNeueVersion(data.version);
+            } catch (e) {
+                setDirectUpdateStatus('✗ ' + e.message, 'fehler');
+                btn.disabled = false;
+                btn.classList.remove('opacity-60', 'cursor-wait');
+            }
+        }
+
+        // Im Browser (ohne Mac-Fenster) die Seite neu laden, sobald die neue Version antwortet
+        function warteAufNeueVersion(version) {
+            let versuche = 0;
+            const t = setInterval(async () => {
+                versuche++;
+                try {
+                    const r = await fetch('/api/status', { cache: 'no-store' });
+                    const d = await r.json();
+                    if (d.app_version === version) { clearInterval(t); location.reload(); }
+                } catch (e) { /* Server startet gerade neu */ }
+                if (versuche > 60) clearInterval(t);
+            }, 1000);
         }
 
         function closeUpdateModal() {

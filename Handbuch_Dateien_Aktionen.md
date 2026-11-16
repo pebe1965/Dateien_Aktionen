@@ -34,7 +34,7 @@ Dieses Handbuch erklärt jede Funktion Schritt für Schritt. Über das Suchfeld 
 2. Das Programmsymbol in den Ordner „Programme“ ziehen. Bei einer Nachfrage „Ersetzen“ wählen.
 3. Das Programm aus „Programme“ starten. Beim ersten Start fragt der Mac eventuell nach, ob du das Programm öffnen willst.
 
-Bei einem Update gehst du genauso vor. Einstellungen, Verlauf, Zugangscode und Sicherungsaufträge bleiben erhalten.
+Updates installierst du meist direkt im Programm (siehe Kapitel 15). Mit der DMG-Datei gehst du genauso vor wie beim ersten Installieren. In beiden Fällen bleiben Einstellungen, Verlauf, Zugangscode und Sicherungsaufträge erhalten.
 
 > Voraussetzung: Mac mit macOS 12 oder neuer und installiertes Python 3. Fehlt Python 3, meldet das Programm das beim Start.
 
@@ -569,7 +569,7 @@ Zeigt die installierte Version und sucht auf Wunsch nach einer neueren. Siehe Ka
 | KI-Analyse einer Datei | Dateiname, Anfang des erkannten Textes, Angaben wie Datum und Ort, bei Bildern eine verkleinerte Ansicht | Der eingestellte KI-Anbieter |
 | Einrichtungsassistent | Deine fünf Antworten | Der eingestellte KI-Anbieter |
 | Sicherung „Nextcloud direkt“ | Die gesicherten Dateien | Deine Nextcloud |
-| Update-Suche | Eine Abfrage der neuesten Version | GitHub |
+| Update-Suche und Direkt-Update | Eine Abfrage der neuesten Version; beim Direkt-Update der Download des neuen Programms | GitHub |
 
 Mit „Lokaler KI-Server“ oder „Offline-Heuristik“ verlässt bei der Analyse nichts den Mac. Die Texterkennung läuft immer auf dem Mac.
 
@@ -587,8 +587,23 @@ Einstellungen, Zugangscode, Verlauf und Sicherungsaufträge liegen in deinem Ben
 
 Das Programm prüft beim Start, ob eine neuere Version vorliegt. Gibt es eine, erscheint oben „Update verfügbar!“.
 
-1. Auf den Hinweis klicken. Es erscheinen die Neuerungen.
-2. „Update herunterladen (.dmg)“ klicken.
+### Direkt im Programm aktualisieren
+
+So bringst du das Programm mit wenigen Klicks auf den neuesten Stand, ohne etwas herunterzuladen und zu ziehen.
+
+1. Auf „Update verfügbar!“ klicken. Es erscheinen die Neuerungen.
+2. „Jetzt direkt updaten“ klicken.
+3. Warten, bis „ist installiert. Das Programm startet jetzt neu …“ erscheint. Das kann eine Minute dauern.
+4. Das Programm schließt sich und öffnet sich kurz darauf in der neuen Version.
+
+> Hinweis: Das Programm lädt die neue Version von GitHub über eine geprüfte, sichere Verbindung und ersetzt sich dann selbst. Geht dabei etwas schief, bleibt die bisherige Version unverändert.
+
+Der Knopf „Jetzt direkt updaten“ erscheint nur, wenn das Programm aus dem Ordner „Programme“ (oder einem anderen Ordner, in dem du schreiben darfst) gestartet wurde. Sonst bleibt nur der Download.
+
+### Mit der DMG-Datei aktualisieren
+
+1. Auf „Update verfügbar!“ klicken.
+2. „Update herunterladen (.dmg)“ oder „Stattdessen herunterladen“ klicken.
 3. Die heruntergeladene Datei öffnen und das Programm in „Programme“ ziehen, „Ersetzen“ wählen.
 4. Das Programm neu starten.
 
@@ -641,6 +656,13 @@ Liegt eine Datei nur in iCloud und nicht auf dem Mac, lädt das Programm sie bei
 - **„Im Ziel gibt es schon einen Ordner …“:** Im Ziel liegt ein gleichnamiger Ordner, der nicht von dieser Sicherung stammt. Gib dem Auftrag einen anderen Namen oder wähle ein anderes Ziel.
 - **„Zu wenig Platz“:** Im Ziel Platz schaffen oder die Aufbewahrung verkürzen.
 - **Nextcloud lehnt die Anmeldung ab:** Benutzername und App-Passwort prüfen, bei Bedarf ein neues App-Passwort erstellen.
+
+### Das Direkt-Update meldet einen Fehler
+
+- **„Keine Schreibrechte …“:** Das Programm darf seinen eigenen Ordner nicht ändern. Das Update mit „Stattdessen herunterladen“ über die DMG-Datei installieren.
+- **„Die sichere Verbindung zu GitHub konnte nicht geprüft werden“ oder „GitHub ist nicht erreichbar“:** Internetverbindung prüfen und es noch einmal versuchen, sonst die DMG-Datei verwenden.
+
+In allen Fällen bleibt die bisherige Version unverändert und funktioniert weiter.
 
 ### Nach einem Update läuft noch die alte Version
 

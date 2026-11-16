@@ -236,8 +236,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "release_name": "",
                 "release_notes": "",
                 "download_url": "",
-                "html_url": f"https://github.com/{repo}/releases"
+                "html_url": f"https://github.com/{repo}/releases",
+                "direct_update": False,
+                "direct_update_reason": ""
             }
+            try:
+                import updater
+                update_info["direct_update"], update_info["direct_update_reason"] = updater.direkt_update_moeglich()
+            except Exception:
+                pass
 
             try:
                 api_url = f"https://api.github.com/repos/{repo}/releases/latest"
@@ -489,6 +496,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
             params = json.loads(body) if body.strip() else {}
         except json.JSONDecodeError:
             self.send_error_response("Ungültiges JSON im Request-Body.")
+            return
+
+        if url.path == "/api/self_update":
+            # Update direkt im Programm: neues Release laden, App ersetzen, neu starten
+            import updater
+            try:
+                info = updater.installiere_update()
+            except updater.UpdateFehler as exc:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": str(exc)}).encode("utf-8"))
+                return
+            except Exception as exc:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": f"Update fehlgeschlagen: {exc}"}).encode("utf-8"))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "version": info["version"]}).encode("utf-8"))
+            self.wfile.flush()
+            updater.starte_neu(info["bundle"])
             return
 
         if url.path == "/api/pick_folder":
