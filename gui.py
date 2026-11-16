@@ -27,6 +27,8 @@ from extractor import extract_content
 from organizer import (
     Organizer, rollback_manifest, get_unique_target_path,
     set_macos_tags_and_comment, tags_fuer_analyse, lege_grundstruktur_an,
+    liste_projekte, lege_projekt_an, schliesse_projekt_ab, discover_existing_subfolders,
+    _projekt_ordner, zaehle_eingang, finde_steuer_belege, sammle_steuer_belege,
     HISTORY_DIR, ANALYSIS_PROGRESS
 )
 from watcher import (
@@ -62,6 +64,23 @@ def _speichere_env(werte: dict) -> None:
 
     env_file.write_text("\n".join(neu) + "\n", encoding="utf-8")
     os.chmod(env_file, 0o600)  # enthält Zugangscode bzw. Schlüssel
+
+
+def _aktiviere_ordnung(basis: Path, mit_startkategorien: bool) -> dict:
+    """Legt die Grundstruktur an, merkt sich den Basisordner und schaltet den Ablage-Modus ein."""
+    ergebnis = lege_grundstruktur_an(basis, mit_startkategorien=mit_startkategorien)
+    _speichere_env({"ORDNUNG_BASIS": str(basis), "SORTIER_MODUS": "ablage"})
+    config.ORDNUNG_BASIS = str(basis)
+    config.SORTIER_MODUS = "ablage"
+
+    # Den Eingang dem Autopiloten als überwachten Ordner mitgeben (startet ihn nicht)
+    eingang = str(config.ordnung_pfad("eingang"))
+    ap_cfg = load_autopilot_config()
+    folders = list(ap_cfg.get("watch_folders", []))
+    if eingang not in folders:
+        folders.append(eingang)
+        save_autopilot_config({"watch_folders": folders})
+    return ergebnis
 
 
 def move_to_macos_trash(file_path: Path) -> bool:
@@ -191,6 +210,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "folder_suggestion": str(Path.home() / "Downloads"),
                 "ordnung_basis": config.ORDNUNG_BASIS,
                 "sortier_modus": config.SORTIER_MODUS,
+                "namensstil": config.NAMENSSTIL,
                 "ordnung_eingerichtet": bool(config.ordnung_pfad("ablage") and config.ordnung_pfad("ablage").is_dir()),
                 "ordnung_eingang": str(config.ordnung_pfad("eingang") or ""),
                 "ordnung_ablage": str(config.ordnung_pfad("ablage") or ""),
@@ -255,6 +275,41 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(update_info).encode("utf-8"))
             return
 
+        if url.path == "/api/eingang":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"anzahl": zaehle_eingang()}).encode("utf-8"))
+            return
+
+        if url.path == "/api/steuer":
+            belege = finde_steuer_belege()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "eingerichtet": bool((config.ORDNUNG_BASIS or "").strip()),
+                "basis": config.ORDNUNG_BASIS,
+                "jahre": [{"jahr": j, "anzahl": len(belege[j])} for j in sorted(belege, reverse=True)],
+                "belege": belege
+            }).encode("utf-8"))
+            return
+
+        if url.path == "/api/projekte":
+            projekte_dir = config.ordnung_pfad("projekte")
+            ablage_dir = config.ordnung_pfad("ablage")
+            eingerichtet = bool(projekte_dir and projekte_dir.is_dir())
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "eingerichtet": eingerichtet,
+                "ordner": str(projekte_dir or ""),
+                "projekte": liste_projekte() if eingerichtet else [],
+                "kategorien": discover_existing_subfolders(ablage_dir) if ablage_dir and ablage_dir.is_dir() else []
+            }).encode("utf-8"))
+            return
+
         if url.path == "/api/history":
             manifests = []
             for f in sorted(HISTORY_DIR.glob("manifest_*.json"), reverse=True):
@@ -263,6 +318,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         m_data = json.load(m_file)
                     manifests.append({
                         "filename": f.name,
+                        "beschreibung": m_data.get("beschreibung", ""),
                         "date": m_data.get("created_at", "unbekannt")[:19].replace("T", " "),
                         "total_actions": m_data.get("total_actions", 0)
                     })
@@ -521,6 +577,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 d = p.to_dict()
                 # Basis für in der Vorschau geänderte Zielordner: im Ablage-Modus „03 Ablage“
                 d["base_dir"] = str(organizer.target_dir)
+                # Dateien, die zu einem laufenden Projekt gehören, landen in „02 Projekte“
+                if p.analysis.projekt:
+                    d["projekt_base"] = str(config.ordnung_pfad("projekte"))
                 plan_data.append(d)
 
             self.send_response(200)
@@ -531,6 +590,126 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "ablage_modus": organizer.ablage_modus,
                 "ziel": str(organizer.target_dir)
             }).encode("utf-8"))
+            return
+
+        if url.path == "/api/steuer/sammeln":
+            # Zielordner per Finder-Dialog wählen, dann die Belege des Jahres dorthin kopieren
+            jahr = str(params.get("jahr", "")).strip()
+            ziel_str = str(params.get("ziel", "")).strip()
+            if not ziel_str:
+                try:
+                    cmd = ["osascript", "-e", f'POSIX path of (choose folder with prompt "Wohin sollen die Steuer-Belege {jahr[:4]} kopiert werden?")']
+                    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    ziel_str = res.stdout.strip().rstrip("/") if res.returncode == 0 else ""
+                except Exception:
+                    ziel_str = ""
+            if not ziel_str:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "abgebrochen": True}).encode("utf-8"))
+                return
+            try:
+                ergebnis = sammle_steuer_belege(jahr, Path(ziel_str))
+            except ValueError as e:
+                self.send_error_response(str(e))
+                return
+            except Exception as e:
+                self.send_error_response(f"Die Belege konnten nicht kopiert werden: {e}")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, **ergebnis}).encode("utf-8"))
+            return
+
+        if url.path == "/api/assistent/entwurf":
+            # KI entwirft die Ablage-Kategorien — angelegt wird hier noch nichts
+            from ai_engine import entwirf_ablage
+            ablage_dir = config.ordnung_pfad("ablage")
+            vorhandene = discover_existing_subfolders(ablage_dir) if ablage_dir and ablage_dir.is_dir() else []
+            try:
+                entwurf = entwirf_ablage(params.get("antworten") or {}, vorhandene)
+            except Exception as e:
+                self.send_error_response(f"Der Entwurf ist fehlgeschlagen: {e}")
+                return
+            entwurf["vorhandene"] = vorhandene
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(entwurf).encode("utf-8"))
+            return
+
+        if url.path == "/api/assistent/anlegen":
+            from ai_engine import bereinige_ordner
+            basis_str = str(params.get("basis", "")).strip() or config.ORDNUNG_BASIS
+            if not basis_str or not Path(basis_str).expanduser().is_dir():
+                self.send_error_response("Bitte zuerst in den Einstellungen einen vorhandenen Basisordner wählen.")
+                return
+            try:
+                _aktiviere_ordnung(Path(basis_str).expanduser(), False)
+                ablage_dir = config.ordnung_pfad("ablage")
+                angelegt, vorhanden = [], []
+                for roh in (params.get("ordner") or [])[:200]:
+                    rel = bereinige_ordner(roh)
+                    teile = rel.split("/") if rel else []
+                    if not teile or len(teile) > 2 or any(t.startswith((".", "_")) for t in teile):
+                        continue
+                    pfad = ablage_dir.joinpath(*teile)
+                    if pfad.is_dir():
+                        vorhanden.append(rel)
+                    else:
+                        pfad.mkdir(parents=True, exist_ok=True)
+                        angelegt.append(rel)
+            except PermissionError:
+                self.send_error_response("Zugriff verweigert: In diesem Ordner darf das Programm keine Ordner anlegen.")
+                return
+            except Exception as e:
+                self.send_error_response(f"Ordner konnten nicht angelegt werden: {e}")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "angelegt": angelegt, "vorhanden": vorhanden}).encode("utf-8"))
+            return
+
+        if url.path == "/api/projekte/anlegen":
+            try:
+                ergebnis = lege_projekt_an(params.get("titel", ""), params.get("termin") or None)
+            except ValueError as e:
+                self.send_error_response(str(e))
+                return
+            except Exception as e:
+                self.send_error_response(f"Projekt konnte nicht angelegt werden: {e}")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, **ergebnis}).encode("utf-8"))
+            return
+
+        if url.path == "/api/projekte/abschliessen":
+            name = str(params.get("name", ""))
+            ziel = str(params.get("ziel", ""))
+            try:
+                if ziel == "papierkorb":
+                    pfad = _projekt_ordner(name)
+                    if not move_to_macos_trash(pfad):
+                        self.send_error_response("Das Projekt konnte nicht in den Papierkorb gelegt werden.")
+                        return
+                    ergebnis = {"ziel": "Papierkorb", "manifest": None}
+                else:
+                    ergebnis = schliesse_projekt_ab(name, ziel, str(params.get("kategorie", "")))
+            except ValueError as e:
+                self.send_error_response(str(e))
+                return
+            except Exception as e:
+                self.send_error_response(f"Projekt konnte nicht abgeschlossen werden: {e}")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, **ergebnis}).encode("utf-8"))
             return
 
         if url.path == "/api/ordnung/anlegen":
@@ -544,25 +723,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_error_response("Der Basisordner existiert nicht.")
                 return
             try:
-                ergebnis = lege_grundstruktur_an(basis, mit_startkategorien=bool(params.get("startkategorien", False)))
+                ergebnis = _aktiviere_ordnung(basis, bool(params.get("startkategorien", False)))
             except PermissionError:
                 self.send_error_response("Zugriff verweigert: In diesem Ordner darf das Programm keine Ordner anlegen.")
                 return
             except Exception as e:
                 self.send_error_response(f"Ordner konnten nicht angelegt werden: {e}")
                 return
-
-            _speichere_env({"ORDNUNG_BASIS": str(basis), "SORTIER_MODUS": "ablage"})
-            config.ORDNUNG_BASIS = str(basis)
-            config.SORTIER_MODUS = "ablage"
-
-            # Den Eingang dem Autopiloten als überwachten Ordner mitgeben (startet ihn nicht)
-            eingang = str(config.ordnung_pfad("eingang"))
-            ap_cfg = load_autopilot_config()
-            folders = list(ap_cfg.get("watch_folders", []))
-            if eingang not in folders:
-                folders.append(eingang)
-                save_autopilot_config({"watch_folders": folders})
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -673,6 +840,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # Editierten Zielordner sicher unterhalb des Basisordners auflösen
                 custom_folder = it.get("custom_folder", "").strip().strip("/")
                 base_dir_str = it.get("base_dir", "")
+                # Steht im Zielfeld noch das erkannte Projekt, geht die Datei nach „02 Projekte“ —
+                # wurde es überschrieben, gilt der eingetragene Ordner in der Ablage.
+                projekt = (it.get("analysis") or {}).get("projekt")
+                if projekt and custom_folder == projekt and it.get("projekt_base"):
+                    base_dir_str = it["projekt_base"]
                 if custom_folder and base_dir_str:
                     base_target_dir = Path(base_dir_str).resolve()
                     safe_parts = [pt for pt in Path(custom_folder).parts if pt not in ("..", ".", "/", "\\")]
@@ -767,6 +939,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             o_basis = config.ORDNUNG_BASIS if o_basis is None else str(o_basis).strip()
             s_modus = params.get("sortier_modus")
             s_modus = s_modus if s_modus in ("frei", "ablage") else config.SORTIER_MODUS
+            n_stil = params.get("namensstil")
+            n_stil = n_stil if n_stil in ("schema", "lesbar") else config.NAMENSSTIL
 
             _speichere_env({
                 "AI_PROVIDER": prov,
@@ -777,7 +951,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "LOCAL_MODEL": "local-model",
                 "ORDNUNG_BASIS": o_basis,
                 "SORTIER_MODUS": s_modus,
+                "NAMENSSTIL": n_stil,
             })
+            config.NAMENSSTIL = n_stil
 
             # Im laufenden Prozess aktualisieren
             config.ORDNUNG_BASIS = o_basis

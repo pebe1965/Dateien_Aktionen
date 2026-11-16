@@ -1,7 +1,7 @@
 {
   "slug": "dateien-aktionen",
   "github_repo": "pebe1965/Dateien_Aktionen",
-  "description": "Ordner katalogisieren, Dubletten und ähnliche Fotos finden und Dokumente, Fotos und Medien per Texterkennung und KI sinnvoll umbenennen, taggen und in ein festes Ordnungssystem aus Eingang, Projekten, Ablage und Archiv einsortieren – mit Vorschau vor jeder Änderung und Rückgängig.",
+  "description": "Ordner katalogisieren, Dubletten und ähnliche Fotos finden und Dokumente, Fotos und Medien per Texterkennung und KI sinnvoll umbenennen, taggen und in ein festes Ordnungssystem aus Eingang, Projekten, Ablage und Archiv einsortieren – mit Einrichtungsassistent, Vorschau vor jeder Änderung und Rückgängig.",
   "integrations": [
     {
       "module": "Katalog & Dubletten",
@@ -9,7 +9,7 @@
     },
     {
       "module": "Texterkennung & KI",
-      "description": "Liest Scans mit Apples Texterkennung und schlägt Namen im Format Datum_Absender_Art_Thema vor."
+      "description": "Liest Scans mit Apples Texterkennung und schlägt Namen mit Datum, Absender und Thema vor – wahlweise im Schema mit Unterstrichen oder lesbar mit Leerzeichen und Umlauten."
     },
     {
       "module": "Fotos & Medien",
@@ -17,15 +17,19 @@
     },
     {
       "module": "Ordnungssystem",
-      "description": "Legt Eingang, Projekte, Ablage und Archiv an und sortiert in feste Kategorien der Ablage – ohne Jahresordner; neue Kategorien entstehen nur nach Bestätigung in der Vorschau."
+      "description": "Legt Eingang, Projekte, Ablage und Archiv an; ein Assistent entwirft aus fünf Fragen passende Kategorien. Sortiert ohne Jahresordner, neue Kategorien entstehen nur nach Bestätigung in der Vorschau."
+    },
+    {
+      "module": "Projekte",
+      "description": "Laufende Vorhaben mit oder ohne Termin anlegen; die KI ordnet passende Dateien zu. Fertige Projekte wandern ins Archiv, in die Ablage oder in den Papierkorb."
     },
     {
       "module": "Finder-Tags & Ordner",
-      "description": "Setzt beim Sortieren farbige Finder-Tags und Spotlight-Kommentare, ergänzt vorhandene Tags und markiert steuerrelevante Belege mit „Steuer“ und Jahr; Zielordner sind in der Vorschau frei änderbar."
+      "description": "Setzt Finder-Tags und Spotlight-Kommentare, ergänzt vorhandene Tags und markiert steuerrelevante Belege mit „Steuer“ und Jahr; eine Übersicht sammelt sie je Jahr und kopiert sie auf Wunsch in einen Ordner."
     },
     {
       "module": "Autopilot",
-      "description": "Überwacht den Eingang, Downloads oder den Schreibtisch im Hintergrund und sortiert Neues ein, mit Mitteilungen und optionalem Autostart."
+      "description": "Überwacht den Eingang, Downloads oder den Schreibtisch im Hintergrund und sortiert Neues ein, mit Mitteilungen und optionalem Autostart; ein Zähler zeigt, was im Eingang wartet."
     },
     {
       "module": "Sicher umbenennen",

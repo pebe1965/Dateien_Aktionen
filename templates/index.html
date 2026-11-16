@@ -58,7 +58,7 @@
                             📂 Durchsuchen...
                         </button>
                         <button onclick="waehleEingang()" id="btn-eingang" class="hidden px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-sm font-medium transition whitespace-nowrap" title="Setzt „01 Eingang“ als Quellordner">
-                            📥 Eingang
+                            📥 Eingang <span id="eingang-zaehler" class="hidden ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[11px] font-bold"></span>
                         </button>
                     </div>
                     <div class="flex items-center justify-between gap-2 mt-2.5">
@@ -96,6 +96,13 @@
             <button onclick="openTab('autopilot')" id="tab-btn-autopilot" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
                 <span>⚡ Autopilot / Wächter</span>
                 <span id="tab-badge-autopilot" class="w-2 h-2 rounded-full bg-slate-300" title="Autopilot Status"></span>
+            </button>
+            <button onclick="openTab('projekte')" id="tab-btn-projekte" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
+                <span>📌 Projekte</span>
+                <span id="tab-badge-projekte" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">0</span>
+            </button>
+            <button onclick="openTab('steuer')" id="tab-btn-steuer" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+                🧾 Steuer
             </button>
             <button onclick="openTab('history')" id="tab-btn-history" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
                 🕒 Protokoll & Rückgängig
@@ -510,6 +517,68 @@
             </div>
         </div>
 
+        <!-- ==================== TAB: PROJEKTE (SCHREIBTISCH) ==================== -->
+        <div id="tab-projekte" class="tab-content hidden space-y-6">
+            <div id="projekte-nicht-eingerichtet" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300">
+                <div class="text-4xl mb-3">📌</div>
+                <h3 class="font-semibold text-slate-700 text-lg">Noch kein Ordnungssystem eingerichtet</h3>
+                <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                    Projekte liegen im Ordner „02 Projekte“. Lege zuerst in den
+                    <a href="#" onclick="openTab('settings'); return false;" class="text-blue-600 font-semibold hover:underline">Einstellungen</a>
+                    unter „Ordnungssystem“ die Grundstruktur an.
+                </p>
+            </div>
+
+            <div id="projekte-inhalt" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h4 class="font-bold text-slate-800 mb-1">Neues Projekt</h4>
+                    <p class="text-xs text-slate-500 mb-4">Für alles, was gerade läuft oder ansteht. Mit Termin sortieren sich die Projekte von selbst nach Datum; ohne Termin ist es ein laufender Arbeitsordner.</p>
+                    <div class="flex flex-col md:flex-row gap-3 items-end">
+                        <div class="flex-1 w-full">
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Name</label>
+                            <input type="text" id="projekt-titel" placeholder="z. B. Umzug, Steuererklärung, Geburtstag Anna" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" onkeydown="if(event.key === 'Enter') legeProjektAn()">
+                        </div>
+                        <div class="w-full md:w-48">
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Termin (optional)</label>
+                            <input type="date" id="projekt-termin" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <button onclick="legeProjektAn()" class="w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">➕ Projekt anlegen</button>
+                    </div>
+                    <p id="projekt-meldung" class="text-xs mt-2 hidden"></p>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h4 class="font-bold text-slate-800">Laufende Projekte</h4>
+                            <p class="text-xs text-slate-400">Im Sortiermodus „Ablage“ ordnet die KI-Vorschau passende Dateien direkt dem Projekt zu.</p>
+                        </div>
+                        <button onclick="ladeProjekte()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition">🔄 Aktualisieren</button>
+                    </div>
+                    <div id="projekte-liste" class="space-y-2.5"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: STEUER (NUR TAGS) ==================== -->
+        <div id="tab-steuer" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Steuer-Belege nach Jahr</h4>
+                        <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">Es gibt keinen Steuer-Ordner: Die Belege bleiben in ihrer Kategorie und tragen den Finder-Tag „Steuer“ mit Jahr. Hier siehst du alle auf einen Blick und kannst sie für die Steuererklärung gesammelt kopieren.</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <select id="steuer-jahr" onchange="zeigeSteuerJahr()" class="px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"></select>
+                        <button onclick="ladeSteuer()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-medium transition">🔄 Neu suchen</button>
+                        <button onclick="sammleSteuer()" id="btn-steuer-sammeln" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition whitespace-nowrap">📋 In Ordner kopieren…</button>
+                    </div>
+                </div>
+                <p id="steuer-meldung" class="text-xs mb-3 hidden"></p>
+                <div id="steuer-liste" class="space-y-1.5"></div>
+            </div>
+        </div>
+
         <!-- ==================== TAB 4: PROTOKOLL / UNDO ==================== -->
         <div id="tab-history" class="tab-content hidden">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -590,12 +659,31 @@
                         </div>
                         <p class="text-[11px] text-slate-400 mt-1">Vorhandene Ordner und Dateien bleiben unberührt – es werden nur fehlende Ordner ergänzt.</p>
 
+                        <div class="mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <div class="text-sm font-semibold text-slate-800">Einrichtungsassistent</div>
+                                    <p class="text-xs text-slate-600 mt-0.5">Fünf kurze Fragen zu Beruf und Alltag – daraus entwirft die KI Kategorien für deine Ablage. Du prüfst den Vorschlag, bevor etwas angelegt wird.</p>
+                                </div>
+                                <button type="button" onclick="oeffneAssistent()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold whitespace-nowrap">🧭 Assistent starten</button>
+                            </div>
+                        </div>
+
                         <label class="block text-xs font-bold text-slate-700 mt-4 mb-1">Sortieren nach</label>
                         <select id="cfg-sortier-modus" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                             <option value="frei">Frei – die KI schlägt Ordner vor (im gescannten Ordner)</option>
                             <option value="ablage">Ablage – in die festen Kategorien von „03 Ablage“ einsortieren</option>
                         </select>
                         <p class="text-[11px] text-slate-400 mt-1">Im Modus „Ablage“ gibt es keine Jahresordner; neue Kategorien entstehen nur, wenn du sie in der Vorschau bestätigst. Steuerrelevante Belege bleiben in ihrer Kategorie und erhalten den Finder-Tag „Steuer &lt;Jahr&gt;“.</p>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Namensstil</label>
+                        <select id="cfg-namensstil" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                            <option value="schema">Schema – 2026-03-14_Telekom_Rechnung_Mobilfunk (Unterstriche, ohne Umlaute)</option>
+                            <option value="lesbar">Lesbar – 2026-03-14 Telekom Mobilfunk März (Leerzeichen, mit Umlauten)</option>
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1">Gilt für neue Namensvorschläge. Das Datum steht in beiden Stilen vorn, damit sich Dateien von selbst zeitlich sortieren.</p>
                     </div>
 
                     <div class="pt-4 border-t border-slate-100">
@@ -633,6 +721,72 @@
             </div>
         </div>
     </main>
+
+    <!-- MODAL: EINRICHTUNGSASSISTENT -->
+    <div id="assistent-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4" onclick="if(event.target === this) schliesseAssistent()">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-base">🧭 Einrichtungsassistent: Ablage passend zu dir</h3>
+                <button onclick="schliesseAssistent()" class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+            </div>
+
+            <!-- Schritt 1: Fragen -->
+            <div id="assistent-fragen" class="p-6 overflow-y-auto space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">1. Was machst du beruflich?</label>
+                    <input type="text" id="as-beruf" placeholder="z. B. angestellt als Lehrer, selbstständige Grafikerin, in Rente, Studium" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">2. Was gehört zu deinem Alltag?</label>
+                    <div class="grid grid-cols-2 gap-1.5 text-xs text-slate-700">
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="miete"> Wohnung zur Miete</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="eigentum"> Eigenes Haus / Wohnung</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="auto"> Auto oder Motorrad</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="kinder"> Kinder</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="haustier"> Haustier</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="verein"> Verein oder Ehrenamt</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="selbststaendig"> Selbstständigkeit / Nebengewerbe</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="as-bereich rounded text-indigo-600" value="vermietung"> Vermietung</label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">3. Welche Unterlagen fallen bei dir regelmäßig an?</label>
+                    <textarea id="as-unterlagen" rows="2" placeholder="z. B. Rechnungen, Gehaltsabrechnungen, Arztbriefe, Kontoauszüge, Versicherungspost" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">4. Hobbys, eigene Vorhaben oder weitere Themen?</label>
+                    <input type="text" id="as-themen" placeholder="z. B. Fotografie, YouTube-Kanal, Garten, Reisen" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">5. Wie fein soll die Ablage gegliedert sein?</label>
+                    <select id="as-detailgrad" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white">
+                        <option value="kompakt">Kompakt – wenige breite Kategorien, eine Ebene</option>
+                        <option value="ausfuehrlich">Ausführlich – Oberkategorien mit Unterordnern</option>
+                    </select>
+                </div>
+                <p class="text-[11px] text-slate-400">Deine Antworten gehen einmalig als eine KI-Anfrage an den eingestellten KI-Anbieter. Ohne KI gibt es einen Standardvorschlag.</p>
+            </div>
+
+            <!-- Schritt 2: Vorschlag -->
+            <div id="assistent-vorschlag" class="hidden p-6 overflow-y-auto space-y-4 text-sm">
+                <p id="as-quelle" class="text-xs text-slate-500"></p>
+                <div id="as-baum" class="space-y-2"></div>
+                <div id="as-beispiele-box" class="hidden">
+                    <div class="text-xs font-bold text-slate-700 mb-1.5">So würden deine Dateien heißen</div>
+                    <div id="as-beispiele" class="space-y-1 text-xs"></div>
+                </div>
+            </div>
+
+            <div class="p-4 px-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                <span id="as-status" class="text-xs text-slate-500"></span>
+                <div class="flex items-center gap-2">
+                    <button id="as-btn-zurueck" onclick="assistentZurueck()" class="hidden px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200">← Antworten ändern</button>
+                    <button id="as-btn-entwurf" onclick="assistentEntwurf()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">Vorschlag erstellen</button>
+                    <button id="as-btn-anlegen" onclick="assistentAnlegen()" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold">Ausgewählte Ordner anlegen</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL: UNIVERSAL VORSCHAU & OCR INSPEKTOR -->
     <div id="ocr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4" onclick="if(event.target === this) closeOcrModal()">
@@ -920,6 +1074,8 @@
             }
 
             if (tabId === 'history') loadHistory();
+            if (tabId === 'projekte') ladeProjekte();
+            if (tabId === 'steuer') ladeSteuer();
             if (tabId === 'autopilot') loadAutopilotStatus(true);
         }
 
@@ -986,6 +1142,8 @@
                 document.getElementById('cfg-local-url').value = data.local_url;
                 document.getElementById('cfg-ordnung-basis').value = data.ordnung_basis || '';
                 document.getElementById('cfg-sortier-modus').value = data.sortier_modus || 'frei';
+                document.getElementById('cfg-namensstil').value = data.namensstil || 'schema';
+                ladeEingang();
                 ordnungEingang = data.ordnung_eingerichtet ? (data.ordnung_eingang || '') : '';
                 document.getElementById('btn-eingang').classList.toggle('hidden', !ordnungEingang);
                 if (data.folder_suggestion && !document.getElementById('folder-path').value) {
@@ -2335,6 +2493,7 @@
                 closeOcrModal();
                 closeMoveModal();
                 closeUpdateModal();
+                schliesseAssistent();
             }
         });
 
@@ -2411,6 +2570,7 @@
                             <input type="text" value="${escHtml(item.analysis.suggested_folder || '')}" class="new-folder-input w-full px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-semibold ${item.analysis.neuer_ordner ? 'border-amber-400 text-amber-900 bg-amber-50' : 'border-blue-200 text-blue-800 bg-blue-50/50'}" title="Ziel-Unterordner frei anpassbar">
                         </div>
                         ${item.analysis.neuer_ordner ? '<div class="text-[10px] font-semibold text-amber-700 mt-1">Neue Kategorie – wird angelegt</div>' : ''}
+                        ${item.analysis.projekt ? '<div class="text-[10px] font-semibold text-indigo-700 mt-1" title="Gehört zu einem laufenden Projekt. Ordner überschreiben, um stattdessen in die Ablage zu sortieren.">📌 Projekt – nach „02 Projekte“</div>' : ''}
                     </td>
                     <td class="p-4 w-2/12 text-xs">
                         <div class="font-semibold text-slate-800">${item.analysis.doc_type} • <span class="text-blue-700 font-bold">${item.analysis.sender}</span></div>
@@ -2479,6 +2639,7 @@
                 if (data.error) throw new Error(data.error);
 
                 alert(`✓ Erfolgreich abgeschlossen!\nManifest: ${data.manifest}`);
+                ladeEingang();
                 openTab('history');
             } catch (e) {
                 alert('Fehler: ' + e.message);
@@ -2501,7 +2662,7 @@
                 list.innerHTML = data.manifests.map(m => `
                     <div class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50">
                         <div>
-                            <div class="font-semibold text-slate-800 text-sm">${m.filename}</div>
+                            <div class="font-semibold text-slate-800 text-sm">${escHtml(m.beschreibung || m.filename)}</div>
                             <div class="text-xs text-slate-500 mt-0.5">${m.total_actions} Aktionen am ${m.date}</div>
                         </div>
                         <button onclick="undoManifest('${m.filename}')" class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition border border-rose-200">
@@ -2547,7 +2708,8 @@
                 gemini_model: document.getElementById('cfg-gemini-model').value,
                 local_url: document.getElementById('cfg-local-url').value,
                 ordnung_basis: document.getElementById('cfg-ordnung-basis').value.trim(),
-                sortier_modus: document.getElementById('cfg-sortier-modus').value
+                sortier_modus: document.getElementById('cfg-sortier-modus').value,
+                namensstil: document.getElementById('cfg-namensstil').value
             };
 
             try {
@@ -2592,6 +2754,318 @@
             } catch (e) {
                 status.className = 'text-xs mt-2 text-red-600';
                 status.innerText = '✗ Prüfung fehlgeschlagen.';
+            }
+        }
+
+        // ==================== EINGANG-ZÄHLER ====================
+        async function ladeEingang() {
+            try {
+                const res = await fetch('/api/eingang');
+                const data = await res.json();
+                const z = document.getElementById('eingang-zaehler');
+                const btn = document.getElementById('btn-eingang');
+                if (typeof data.anzahl === 'number' && data.anzahl > 0) {
+                    z.innerText = data.anzahl;
+                    z.classList.remove('hidden');
+                    btn.title = `${data.anzahl} Datei(en) warten im Eingang – klicken, um ihn als Quellordner zu setzen`;
+                } else {
+                    z.classList.add('hidden');
+                    btn.title = 'Setzt „01 Eingang“ als Quellordner';
+                }
+            } catch (e) { /* Zähler ist nur eine Anzeige */ }
+        }
+        setInterval(ladeEingang, 60000);
+
+        // ==================== STEUER ====================
+        let steuerDaten = { jahre: [], belege: {} };
+
+        function formatGroesse(b) {
+            if (b >= 1048576) return (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+            return Math.max(1, Math.round(b / 1024)) + ' KB';
+        }
+
+        async function ladeSteuer() {
+            const liste = document.getElementById('steuer-liste');
+            liste.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Suche Dateien mit Steuer-Tag…</p>';
+            try {
+                const res = await fetch('/api/steuer');
+                steuerDaten = await res.json();
+                const sel = document.getElementById('steuer-jahr');
+                const vorher = sel.value;
+                sel.innerHTML = steuerDaten.jahre.map(j => `<option value="${j.jahr}">Steuer ${j.jahr} (${j.anzahl})</option>`).join('');
+                if (steuerDaten.jahre.some(j => j.jahr === vorher)) sel.value = vorher;
+                zeigeSteuerJahr();
+            } catch (e) {
+                liste.innerHTML = '<p class="text-xs text-red-600 py-6 text-center">Die Suche ist fehlgeschlagen.</p>';
+            }
+        }
+
+        function zeigeSteuerJahr() {
+            const liste = document.getElementById('steuer-liste');
+            const sel = document.getElementById('steuer-jahr');
+            const leer = steuerDaten.jahre.length === 0;
+            sel.classList.toggle('hidden', leer);
+            document.getElementById('btn-steuer-sammeln').classList.toggle('hidden', leer);
+            if (!steuerDaten.eingerichtet) {
+                liste.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Gesucht wird im Basisordner des Ordnungssystems. Richte ihn zuerst in den Einstellungen ein.</p>';
+                return;
+            }
+            if (leer) {
+                liste.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Noch keine Datei trägt einen Steuer-Tag. Er wird beim Sortieren gesetzt, wenn die KI einen Beleg als steuerrelevant erkennt – oder von Hand im Finder (Tag „Steuer 2026“).</p>';
+                return;
+            }
+            const belege = steuerDaten.belege[sel.value] || [];
+            liste.innerHTML = belege.map(b => `
+                <div class="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                    <div class="min-w-0">
+                        <div class="text-xs font-semibold text-slate-800 truncate" title="${escHtml(b.pfad)}">${escHtml(b.name)}</div>
+                        <div class="text-[11px] text-slate-500 truncate">📂 ${escHtml(b.ordner)} · ${formatGroesse(b.groesse)}</div>
+                    </div>
+                    <button onclick="revealInFinder('${encodeURIComponent(b.pfad)}')" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 flex-shrink-0">📁 Im Finder</button>
+                </div>`).join('');
+        }
+
+        async function sammleSteuer() {
+            const jahr = document.getElementById('steuer-jahr').value;
+            const meldung = document.getElementById('steuer-meldung');
+            if (!jahr) return;
+            showLoading('Zielordner auswählen', 'Warten auf Finder-Dialog...');
+            try {
+                const res = await fetch('/api/steuer/sammeln', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ jahr: jahr })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                if (data.abgebrochen) return;
+                meldung.className = 'text-xs mb-3 text-emerald-700 font-medium';
+                meldung.innerText = `✓ ${data.kopiert} Datei(en) kopiert nach ${data.ziel}. Die Originale sind unverändert; die Kopien lassen sich unter „Protokoll & Rückgängig“ wieder entfernen.`;
+            } catch (e) {
+                meldung.className = 'text-xs mb-3 text-red-600';
+                meldung.innerText = '✗ ' + e.message;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ==================== EINRICHTUNGSASSISTENT ====================
+        function oeffneAssistent() {
+            assistentZurueck();
+            document.getElementById('as-status').innerText = '';
+            document.getElementById('assistent-modal').classList.remove('hidden');
+        }
+
+        function schliesseAssistent() {
+            document.getElementById('assistent-modal').classList.add('hidden');
+        }
+
+        function assistentZurueck() {
+            document.getElementById('assistent-fragen').classList.remove('hidden');
+            document.getElementById('assistent-vorschlag').classList.add('hidden');
+            document.getElementById('as-btn-entwurf').classList.remove('hidden');
+            document.getElementById('as-btn-anlegen').classList.add('hidden');
+            document.getElementById('as-btn-zurueck').classList.add('hidden');
+        }
+
+        async function assistentEntwurf() {
+            const status = document.getElementById('as-status');
+            const btn = document.getElementById('as-btn-entwurf');
+            const antworten = {
+                beruf: document.getElementById('as-beruf').value.trim(),
+                bereiche: Array.from(document.querySelectorAll('.as-bereich:checked')).map(c => c.value),
+                unterlagen: document.getElementById('as-unterlagen').value.trim(),
+                themen: document.getElementById('as-themen').value.trim(),
+                detailgrad: document.getElementById('as-detailgrad').value
+            };
+            status.className = 'text-xs text-slate-500';
+            status.innerText = 'Die KI entwirft deine Ablage…';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/assistent/entwurf', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ antworten: antworten })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                if (!data.kategorien.length) throw new Error('Der Vorschlag war leer. Bitte noch einmal versuchen.');
+
+                const vorhanden = new Set((data.vorhandene || []).map(v => v.toLowerCase()));
+                const zeile = (pfad, name, eingerueckt) => {
+                    const da = vorhanden.has(pfad.toLowerCase());
+                    return `<label class="flex items-center gap-2 ${eingerueckt ? 'ml-6 text-xs text-slate-700' : 'text-sm font-semibold text-slate-800'}">
+                        <input type="checkbox" class="as-ordner rounded text-emerald-600" value="${escHtml(pfad)}" ${da ? 'disabled' : 'checked'}>
+                        <span>📂 ${escHtml(name)}</span>${da ? '<span class="text-[10px] font-medium text-slate-400">schon vorhanden</span>' : ''}
+                    </label>`;
+                };
+                document.getElementById('as-baum').innerHTML = data.kategorien.map(k => `
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                        ${zeile(k.name, k.name, false)}
+                        ${k.hinweis ? `<div class="ml-6 text-[11px] text-slate-500">${escHtml(k.hinweis)}</div>` : ''}
+                        ${k.unterordner.map(u => zeile(k.name + '/' + u, u, true)).join('')}
+                    </div>`).join('');
+                document.getElementById('as-beispiele').innerHTML = (data.beispiele || []).map(b =>
+                    `<div class="flex flex-wrap gap-x-2"><span class="font-mono text-emerald-700">${escHtml(b.datei)}</span><span class="text-slate-400">→ ${escHtml(b.ordner)}</span></div>`).join('');
+                document.getElementById('as-beispiele-box').classList.toggle('hidden', !(data.beispiele || []).length);
+                document.getElementById('as-quelle').innerText = `Vorschlag: ${data.quelle}. Hake ab, was du nicht brauchst – angelegt wird nur das Ausgewählte in „03 Ablage“.`;
+
+                document.getElementById('assistent-fragen').classList.add('hidden');
+                document.getElementById('assistent-vorschlag').classList.remove('hidden');
+                btn.classList.add('hidden');
+                document.getElementById('as-btn-anlegen').classList.remove('hidden');
+                document.getElementById('as-btn-zurueck').classList.remove('hidden');
+                status.innerText = '';
+            } catch (e) {
+                status.className = 'text-xs text-red-600';
+                status.innerText = '✗ ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function assistentAnlegen() {
+            const status = document.getElementById('as-status');
+            const gewaehlt = Array.from(document.querySelectorAll('.as-ordner:checked:not(:disabled)')).map(c => c.value);
+            // Unterordner ohne angehakte Oberkategorie legen diese trotzdem mit an – das ist gewollt.
+            if (gewaehlt.length === 0) {
+                status.className = 'text-xs text-red-600';
+                status.innerText = 'Nichts ausgewählt.';
+                return;
+            }
+            const basis = document.getElementById('cfg-ordnung-basis').value.trim();
+            if (!basis) {
+                status.className = 'text-xs text-red-600';
+                status.innerText = 'Bitte zuerst in den Einstellungen einen Basisordner wählen.';
+                return;
+            }
+            try {
+                const res = await fetch('/api/assistent/anlegen', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ basis: basis, ordner: gewaehlt })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                schliesseAssistent();
+                const s2 = document.getElementById('cfg-ordnung-status');
+                s2.className = 'text-xs text-emerald-700 font-medium';
+                s2.innerText = `✓ ${data.angelegt.length} Ordner in der Ablage angelegt, Modus „Ablage“ aktiv.`;
+                fetchStatus();
+                loadAutopilotStatus(true);
+            } catch (e) {
+                status.className = 'text-xs text-red-600';
+                status.innerText = '✗ ' + e.message;
+            }
+        }
+
+        // ==================== PROJEKTE ====================
+        let projektKategorien = [];
+
+        async function ladeProjekte() {
+            try {
+                const res = await fetch('/api/projekte');
+                const data = await res.json();
+                document.getElementById('projekte-nicht-eingerichtet').classList.toggle('hidden', data.eingerichtet);
+                document.getElementById('projekte-inhalt').classList.toggle('hidden', !data.eingerichtet);
+                projektKategorien = data.kategorien || [];
+
+                const badge = document.getElementById('tab-badge-projekte');
+                badge.innerText = data.projekte.length;
+                badge.classList.toggle('hidden', data.projekte.length === 0);
+
+                const liste = document.getElementById('projekte-liste');
+                if (data.projekte.length === 0) {
+                    liste.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Noch keine Projekte. Lege oben das erste an.</p>';
+                    return;
+                }
+                liste.innerHTML = data.projekte.map((pr, idx) => {
+                    let termin = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">Laufend</span>';
+                    if (pr.termin) {
+                        const t = pr.tage_bis_termin;
+                        const datum = pr.termin.split('-').reverse().join('.');
+                        const text = t === 0 ? 'heute' : (t === 1 ? 'morgen' : (t > 1 ? `in ${t} Tagen` : (t === -1 ? 'seit gestern vorbei' : `seit ${-t} Tagen vorbei`)));
+                        const farbe = t < 0 ? 'bg-slate-200 text-slate-600' : (t <= 7 ? 'bg-rose-100 text-rose-700' : (t <= 30 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'));
+                        termin = `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${farbe} whitespace-nowrap">${datum} · ${text}</span>`;
+                    }
+                    return `
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-semibold text-sm text-slate-800 truncate">${escHtml(pr.titel)}</span>
+                                    ${termin}
+                                </div>
+                                <div class="text-[11px] text-slate-500 mt-0.5">${pr.dateien} Datei(en)${pr.termin && pr.tage_bis_termin < 0 ? ' · Termin vorbei – abschließen?' : ''}</div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button onclick="revealInFinder('${encodeURIComponent(pr.pfad)}')" class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-200">📁 Im Finder</button>
+                                <button onclick="document.getElementById('projekt-abschluss-${idx}').classList.toggle('hidden')" class="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200">✓ Abschließen…</button>
+                            </div>
+                        </div>
+                        <div id="projekt-abschluss-${idx}" class="hidden mt-3 pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+                            <span class="font-semibold text-slate-700">Wohin damit?</span>
+                            <select id="projekt-ziel-${idx}" onchange="document.getElementById('projekt-kat-${idx}').classList.toggle('hidden', this.value !== 'ablage')" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white">
+                                <option value="archiv">Archiv – aufbewahren, brauche ich kaum noch</option>
+                                <option value="ablage">Ablage – brauche ich weiterhin</option>
+                                <option value="papierkorb">Papierkorb – kann weg</option>
+                            </select>
+                            <select id="projekt-kat-${idx}" class="hidden px-3 py-1.5 rounded-lg border border-slate-300 bg-white">
+                                <option value="">Direkt in „03 Ablage“</option>
+                                ${projektKategorien.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('')}
+                            </select>
+                            <button data-name="${escHtml(pr.name)}" onclick="schliesseProjektAb(this.dataset.name, ${idx})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg">Verschieben</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Projekte:', e);
+            }
+        }
+
+        async function legeProjektAn() {
+            const titel = document.getElementById('projekt-titel').value.trim();
+            const termin = document.getElementById('projekt-termin').value;
+            const meldung = document.getElementById('projekt-meldung');
+            if (!titel) return;
+            try {
+                const res = await fetch('/api/projekte/anlegen', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ titel: titel, termin: termin || null })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                document.getElementById('projekt-titel').value = '';
+                document.getElementById('projekt-termin').value = '';
+                meldung.className = 'text-xs mt-2 text-emerald-700 font-medium';
+                meldung.innerText = `✓ Projekt „${data.name}“ angelegt.`;
+                ladeProjekte();
+            } catch (e) {
+                meldung.className = 'text-xs mt-2 text-red-600';
+                meldung.innerText = '✗ ' + e.message;
+            }
+        }
+
+        async function schliesseProjektAb(name, idx) {
+            const ziel = document.getElementById(`projekt-ziel-${idx}`).value;
+            const kategorie = document.getElementById(`projekt-kat-${idx}`).value;
+            const wohin = ziel === 'archiv' ? 'ins Archiv' : (ziel === 'ablage' ? `in die Ablage${kategorie ? ' (' + kategorie + ')' : ''}` : 'in den Papierkorb');
+            const zusatz = ziel === 'papierkorb'
+                ? '\n\nZurückholen geht nur im Finder über den Papierkorb („Zurücklegen“).'
+                : '\n\nDer Schritt lässt sich unter „Protokoll & Rückgängig“ zurücknehmen.';
+            if (!confirm(`Projekt „${name}“ mit allen Dateien ${wohin} verschieben?${zusatz}`)) return;
+            try {
+                const res = await fetch('/api/projekte/abschliessen', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: name, ziel: ziel, kategorie: kategorie })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                ladeProjekte();
+            } catch (e) {
+                alert('Fehler: ' + e.message);
             }
         }
 
@@ -2774,6 +3248,7 @@
                 });
                 const data = await res.json();
                 renderAutopilotState(data, false);
+                ladeEingang();
                 const count = data.scanned_count || 0;
                 if (data.last_error) {
                     alert('Der Prüflauf ist fehlgeschlagen: ' + data.last_error);
@@ -2855,6 +3330,7 @@
         initScanSettings();
         fetchStatus();
         loadAutopilotStatus(true);
+        ladeProjekte();
     </script>
 </body>
 </html>

@@ -52,6 +52,8 @@ class AnalysisResult:
     steuer_jahr: Optional[str] = None
     # Ablage-Modus: Der Zielordner existiert noch nicht (neue Kategorie, braucht Bestätigung)
     neuer_ordner: bool = False
+    # Ablage-Modus: Name des laufenden Projekts (Ordner in „02 Projekte“), zu dem die Datei gehört
+    projekt: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -65,7 +67,8 @@ class AnalysisResult:
             "summary": self.summary,
             "provider_used": self.provider_used,
             "steuer_jahr": self.steuer_jahr,
-            "neuer_ordner": self.neuer_ordner
+            "neuer_ordner": self.neuer_ordner,
+            "projekt": self.projekt
         }
 
 
@@ -144,13 +147,14 @@ def _query_gemini(
     api_key: str,
     model: str,
     image_base64: Optional[str] = None,
-    image_mime: str = "image/jpeg"
+    image_mime: str = "image/jpeg",
+    system_prompt: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """Sendet eine Anfrage an die Google Gemini API (eigener Schlüssel)."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     return _query_generate(
         prompt, url, {"x-goog-api-key": api_key}, "Gemini API",
-        image_base64=image_base64, image_mime=image_mime
+        image_base64=image_base64, image_mime=image_mime, system_prompt=system_prompt
     )
 
 
@@ -158,12 +162,13 @@ def _query_app(
     prompt: str,
     zugangscode: str,
     image_base64: Optional[str] = None,
-    image_mime: str = "image/jpeg"
+    image_mime: str = "image/jpeg",
+    system_prompt: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """Dieselbe Anfrage, aber über NotionaryAtlas — Modell und Schlüssel bestimmt die App."""
     return _query_generate(
         prompt, config.NOTIONARY_KI_URL, {"Authorization": f"Bearer {zugangscode}"}, "NotionaryAtlas",
-        image_base64=image_base64, image_mime=image_mime
+        image_base64=image_base64, image_mime=image_mime, system_prompt=system_prompt
     )
 
 
@@ -193,10 +198,14 @@ def _query_generate(
     auth_headers: Dict[str, str],
     ziel: str,
     image_base64: Optional[str] = None,
-    image_mime: str = "image/jpeg"
+    image_mime: str = "image/jpeg",
+    system_prompt: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
-    """Gemeinsamer Weg für Gemini direkt und über die App (gleiches Anfrageformat, inkl. Multimodal Vision)."""
-    parts = [{"text": SYSTEM_PROMPT + "\n\n" + prompt}]
+    """Gemeinsamer Weg für Gemini direkt und über die App (gleiches Anfrageformat, inkl. Multimodal Vision).
+
+    Ohne system_prompt gilt der Auftrag für die Datei-Analyse; der Einrichtungsassistent bringt seinen eigenen mit.
+    """
+    parts = [{"text": (system_prompt or SYSTEM_PROMPT) + "\n\n" + prompt}]
     if image_base64:
         parts.append({
             "inlineData": {
@@ -248,12 +257,12 @@ def _query_generate(
     return None
 
 
-def _query_local_llm(prompt: str, api_url: str, model: str) -> Optional[Dict[str, Any]]:
+def _query_local_llm(prompt: str, api_url: str, model: str, system_prompt: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Sendet eine Anfrage an einen lokalen OpenAI-kompatiblen Server."""
     payload = {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.1
@@ -473,6 +482,47 @@ _ABLAGE_NACH_ART = {
 }
 
 
+def _projekt_titel(name: str) -> str:
+    """Projektname ohne vorangestelltes Datum („2026-12-05_Umzug“ → „Umzug“)."""
+    return re.sub(r"^\d{4}-\d{2}-\d{2}[_ ]", "", name).strip()
+
+
+def finde_projekt(wert: Any, projekte: Optional[list]) -> Optional[str]:
+    """Gleicht die Projekt-Angabe der KI mit den vorhandenen Projekten ab (exakte Schreibweise oder None)."""
+    wert = str(wert or "").strip().lower()
+    if not wert or wert in {"null", "none", "kein", "keins"}:
+        return None
+    for p in projekte or []:
+        if wert in (p.lower(), _projekt_titel(p).lower()):
+            return p
+    return None
+
+
+def _projekt_heuristik(text_lower: str, projekte: Optional[list]) -> Optional[str]:
+    """Ohne KI: Der Projekttitel steht als ganzes Wort im Dateinamen oder Text."""
+    for p in projekte or []:
+        titel = _projekt_titel(p).lower()
+        if len(titel) >= 4 and re.search(rf"(?<![a-zäöüß0-9]){re.escape(titel)}(?![a-zäöüß0-9])", text_lower):
+            return p
+    return None
+
+
+NAMENSSTIL_LESBAR = """
+NAMENSSTIL — hat VORRANG vor den Dateinamen-Regeln oben:
+- 'suggested_filename' mit LEERZEICHEN statt Unterstrichen, Umlaute und ß normal schreiben.
+- Aufbau: 'YYYY-MM-DD Absender Thema' — kurz und so, wie man in ein paar Jahren danach suchen würde
+  (z. B. '2026-03-14 Telekom Mobilfunk März', '2025-11-02 Hausarzt Dr. Müller Blutbild').
+- Ohne Datum beginnt der Name direkt mit dem Absender.
+"""
+
+
+def lesbarer_dateiname(text: str) -> str:
+    """Dateiname im Stil „lesbar“: Leerzeichen statt Unterstriche, Umlaute bleiben."""
+    cleaned = re.sub(r'[/\\:*?"<>|]', "", str(text))
+    cleaned = re.sub(r"[\s_]+", " ", cleaned).strip(" .")
+    return cleaned
+
+
 def bereinige_ordner(folder: Any) -> str:
     """Macht aus einem Ordnervorschlag einen sicheren relativen Pfad (kein '..', kein führendes '/')."""
     teile = []
@@ -541,7 +591,8 @@ def analyze_file_content(
     prefix: Optional[str] = None,
     file_path: Optional[Path] = None,
     existing_folders: Optional[list] = None,
-    ablage_modus: bool = False
+    ablage_modus: bool = False,
+    projekte: Optional[list] = None
 ) -> AnalysisResult:
     """
     Hauptfunktion: Analysiert Dateiname, extrahierten Text/EXIF und (bei Bildern) das Bild selbst
@@ -558,9 +609,18 @@ def analyze_file_content(
     prompt = f"Dateiname: {filename}\n"
     if metadata_info:
         prompt += f"Zusätzliche Metadaten: {metadata_info}\n"
+    if config.NAMENSSTIL == "lesbar":
+        prompt += NAMENSSTIL_LESBAR
     if ablage_modus:
         folders_str = ", ".join(existing_folders[:150]) if existing_folders else "(noch keine — schlage eine Themen-Kategorie vor)"
         prompt += f"{ABLAGE_REGELN}Vorhandene Ordner der Ablage: [{folders_str}]\n"
+        if projekte:
+            prompt += (
+                f"\nLaufende Projekte: [{', '.join(projekte[:60])}]\n"
+                "Gehört die Datei EINDEUTIG zu einem dieser Projekte (Thema, Anlass oder Termin passen klar), "
+                "ergänze im JSON das Feld \"projekt\" mit EXAKT diesem Projektnamen. Sonst \"projekt\": null. "
+                "Im Zweifel null — dann kommt die Datei in die Ablage.\n"
+            )
     elif existing_folders:
         folders_str = ", ".join(existing_folders[:60])
         prompt += (
@@ -617,15 +677,18 @@ def analyze_file_content(
             print(f"⚠️ [Fallback] KI nicht erreichbar, nutze Heuristik für '{filename}'")
         ai_data = _heuristic_analysis(filename, text_content, ext)
         if ablage_modus:
-            ai_data["suggested_folder"] = _ablage_ordner_heuristik(
-                ai_data, (filename + " " + text_content[:3000]).lower(), existing_folders
-            )
+            text_klein = (filename + " " + text_content[:3000]).lower()
+            ai_data["suggested_folder"] = _ablage_ordner_heuristik(ai_data, text_klein, existing_folders)
+            ai_data["projekt"] = _projekt_heuristik(text_klein, projekte)
         if active_provider != "offline":
             used_provider = "fallback_heuristik"
 
     # Sichere Normalisierung des Dateinamens
     suggested_base = ai_data.get("suggested_filename", Path(filename).stem)
-    suggested_clean = clean_filename(suggested_base)
+    if config.NAMENSSTIL == "lesbar":
+        suggested_clean = lesbarer_dateiname(suggested_base) or clean_filename(suggested_base)
+    else:
+        suggested_clean = clean_filename(suggested_base)
 
     # Optionales Präfix voranstellen
     if prefix:
@@ -662,6 +725,138 @@ def analyze_file_content(
         summary=ai_data.get("summary", ""),
         provider_used=used_provider,
         steuer_jahr=steuer_jahr,
-        neuer_ordner=neuer_ordner
+        neuer_ordner=neuer_ordner,
+        projekt=finde_projekt(ai_data.get("projekt"), projekte) if ablage_modus else None
     )
 
+
+
+# --- EINRICHTUNGSASSISTENT -------------------------------------------------
+# Aus wenigen Antworten zum beruflichen und privaten Umfeld entwirft die KI die
+# Kategorien für „03 Ablage“. Angelegt wird erst nach Bestätigung in der Oberfläche.
+
+ASSISTENT_PROMPT = """Du bist Experte für digitale Ordnung und Dateiverwaltung. Entwirf die Kategorien für die
+dauerhafte Ablage eines Menschen ("03 Ablage" = Schränke und Regale einer Wohnung).
+
+REGELN:
+- Kategorien sind dauerhaft gültige THEMEN, die sich nicht überschneiden (z. B. Anschaffungen, Versicherung, Auto, Arzt).
+- Höchstens zwei Ebenen: Oberkategorie und Unterordner. Bei Detailgrad "kompakt" nur eine Ebene mit 6–10 Kategorien,
+  bei "ausführlich" 4–8 Oberkategorien mit je 2–8 Unterordnern.
+- KEINE Jahresordner, KEINE Absender-/Firmenordner, KEIN Ordner "Steuer" (Steuerliches bleibt beim Thema und wird per Tag markiert),
+  KEIN "Sonstiges", "Diverses" oder "Eingang", KEINE Projekte (zeitlich Begrenztes gehört nicht in die Ablage).
+- Benenne so, wie die Person in ein paar Jahren danach suchen würde: kurze deutsche Begriffe, Umlaute erlaubt, keine Sonderzeichen.
+- Nimm nur auf, was zur Person passt. Vorhandene Ordner behalten ihre Schreibweise und werden nicht doppelt vorgeschlagen.
+- Gib zusätzlich 6–8 Beispiele für typische Dateien dieser Person: Dateiname mit Beleg-/Kaufdatum vorn (JJJJ-MM-TT),
+  ohne redundante Kürzel wie "RE_", und den Ordner, in den die Datei gehört.
+
+Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in diesem Format:
+{
+  "kategorien": [
+    {"name": "Oberkategorie", "unterordner": ["Unterordner 1", "Unterordner 2"], "hinweis": "Ein Satz, was hier hineingehört."}
+  ],
+  "beispiele": [
+    {"datei": "2026-03-14 Telekom Mobilfunk März.pdf", "ordner": "Oberkategorie/Unterordner 1"}
+  ]
+}
+"""
+
+_ASSISTENT_BEREICHE = {
+    "miete": ("Wohnen", ["Mietvertrag", "Nebenkosten", "Strom und Internet"]),
+    "eigentum": ("Wohnen", ["Kauf und Grundbuch", "Handwerker", "Nebenkosten", "Strom und Internet"]),
+    "auto": ("Auto", []),
+    "kinder": ("Kinder", ["Schule und Kita", "Gesundheit"]),
+    "haustier": ("Haustier", []),
+    "verein": ("Verein", []),
+    "selbststaendig": ("Selbstständigkeit", ["Ausgangsrechnungen", "Eingangsrechnungen", "Kunden", "Verträge"]),
+    "vermietung": ("Vermietung", ["Mieter", "Nebenkosten", "Instandhaltung"]),
+}
+
+
+def _ordnername(wert: Any) -> str:
+    """Ein einzelner Ordnername aus dem Entwurf: ohne Pfadtrenner, ohne Jahreszahl, nicht „Steuer“."""
+    name = bereinige_ordner(str(wert or "").replace("/", " "))
+    if not name or name.startswith((".", "_")) or len(name) > 60:
+        return ""
+    if re.fullmatch(r"(19|20)\d{2}", name) or name.lower() in {"steuer", "steuern", "sonstiges", "diverses", "eingang"}:
+        return ""
+    return name
+
+
+def _entwurf_ohne_ki(antworten: Dict[str, Any]) -> Dict[str, Any]:
+    """Fester Vorschlag aus den Antworten, falls keine KI erreichbar ist."""
+    kategorien: Dict[str, list] = {
+        "Anschaffungen": [], "Arzt": [], "Finanzen": ["Bank", "Altersvorsorge"], "Versicherung": [],
+        "Arbeit": ["Verträge", "Gehalt", "Zeugnisse"],
+    }
+    for bereich in antworten.get("bereiche") or []:
+        if bereich in _ASSISTENT_BEREICHE:
+            name, unter = _ASSISTENT_BEREICHE[bereich]
+            vorhanden = kategorien.setdefault(name, [])
+            vorhanden.extend(u for u in unter if u not in vorhanden)
+    if str(antworten.get("detailgrad")) == "kompakt":
+        kategorien = {k: [] for k in kategorien}
+    return {
+        "kategorien": [{"name": k, "unterordner": v, "hinweis": ""} for k, v in sorted(kategorien.items())],
+        "beispiele": [
+            {"datei": "2026-03-14 Telekom Mobilfunk März.pdf", "ordner": "Anschaffungen"},
+            {"datei": "2026-01-20 Lohnsteuerbescheinigung 2025.pdf", "ordner": "Arbeit"},
+            {"datei": "2025-11-02 Hausarzt Blutbild.pdf", "ordner": "Arzt"},
+        ],
+    }
+
+
+def entwirf_ablage(antworten: Dict[str, Any], vorhandene: Optional[list] = None) -> Dict[str, Any]:
+    """Entwirft die Ablage-Kategorien. Gibt {"kategorien", "beispiele", "quelle"} zurück — legt nichts an."""
+    vorhandene = vorhandene or []
+    prompt = (
+        f"Beruf / Lebenssituation: {str(antworten.get('beruf') or 'keine Angabe')[:400]}\n"
+        f"Lebensbereiche: {', '.join(str(b) for b in (antworten.get('bereiche') or [])) or 'keine Angabe'}\n"
+        f"Regelmäßig anfallende Unterlagen: {str(antworten.get('unterlagen') or 'keine Angabe')[:600]}\n"
+        f"Hobbys, eigene Vorhaben, weitere Themen: {str(antworten.get('themen') or 'keine Angabe')[:400]}\n"
+        f"Detailgrad: {'kompakt' if str(antworten.get('detailgrad')) == 'kompakt' else 'ausführlich'}\n"
+        f"Bereits vorhandene Ordner in der Ablage: [{', '.join(vorhandene[:80]) or 'keine'}]\n"
+    )
+
+    daten: Optional[Dict[str, Any]] = None
+    quelle = "Standardvorschlag (ohne KI)"
+    anbieter = config.AI_PROVIDER
+    if anbieter == "app" and config.NOTIONARY_ZUGANGSCODE:
+        daten = _query_app(prompt, config.NOTIONARY_ZUGANGSCODE, system_prompt=ASSISTENT_PROMPT)
+        if daten:
+            quelle = "NotionaryAtlas"
+    elif anbieter == "gemini" and config.GEMINI_API_KEY:
+        daten = _query_gemini(prompt, config.GEMINI_API_KEY, config.GEMINI_MODEL, system_prompt=ASSISTENT_PROMPT)
+        if daten:
+            quelle = f"Gemini ({config.GEMINI_MODEL})"
+    elif anbieter == "local":
+        daten = _query_local_llm(prompt, config.LOCAL_API_URL, config.LOCAL_MODEL, system_prompt=ASSISTENT_PROMPT)
+        if daten:
+            quelle = f"lokal ({config.LOCAL_MODEL})"
+
+    if not isinstance(daten, dict) or not isinstance(daten.get("kategorien"), list):
+        daten = _entwurf_ohne_ki(antworten)
+        quelle = "Standardvorschlag (ohne KI)"
+
+    # Antwort der KI absichern: nur saubere Namen, höchstens zwei Ebenen, nichts doppelt
+    kategorien = []
+    gesehen = set()
+    for eintrag in daten.get("kategorien", [])[:20]:
+        if not isinstance(eintrag, dict):
+            continue
+        name = _ordnername(eintrag.get("name"))
+        if not name or name.lower() in gesehen:
+            continue
+        gesehen.add(name.lower())
+        unter = []
+        for u in (eintrag.get("unterordner") or [])[:12]:
+            u_name = _ordnername(u)
+            if u_name and u_name.lower() not in {x.lower() for x in unter}:
+                unter.append(u_name)
+        kategorien.append({"name": name, "unterordner": unter, "hinweis": str(eintrag.get("hinweis") or "")[:200]})
+
+    beispiele = []
+    for b in (daten.get("beispiele") or [])[:10]:
+        if isinstance(b, dict) and b.get("datei"):
+            beispiele.append({"datei": str(b["datei"])[:120], "ordner": bereinige_ordner(b.get("ordner"))})
+
+    return {"kategorien": kategorien, "beispiele": beispiele, "quelle": quelle}

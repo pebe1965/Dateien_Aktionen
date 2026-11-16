@@ -8,8 +8,10 @@ Orchestriert den Ablauf:
 """
 
 import os
+import re
 import json
 import shutil
+import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -156,6 +158,234 @@ def lege_grundstruktur_an(basis: Path, mit_startkategorien: bool = False) -> Dic
             _anlegen(basis / config.ORDNUNG_ORDNER["ablage"] / kat)
 
     return {"basis": str(basis), "angelegt": angelegt, "vorhanden": vorhanden}
+
+
+# --- PROJEKTE („02 Projekte“ = Schreibtisch) -------------------------------
+# Ein Projekt ist ein Ordner direkt in „02 Projekte“: mit Termin als
+# „JJJJ-MM-TT_Name“ (sortiert sich von selbst chronologisch) oder ohne als „Name“.
+
+_PROJEKT_DATUM = re.compile(r"^(\d{4}-\d{2}-\d{2})[_ ](.+)$")
+
+
+def _projekt_ordner(name: str) -> Path:
+    """Prüft einen Projektnamen aus der Oberfläche und gibt den Ordner zurück (nur direkte Unterordner)."""
+    projekte = config.ordnung_pfad("projekte")
+    if not projekte or not projekte.is_dir():
+        raise ValueError("Das Ordnungssystem ist noch nicht eingerichtet.")
+    name = str(name or "").strip()
+    if not name or Path(name).name != name or name.startswith((".", "_")):
+        raise ValueError("Ungültiger Projektname.")
+    pfad = projekte / name
+    if not pfad.is_dir():
+        raise ValueError(f"Projekt nicht gefunden: {name}")
+    return pfad
+
+
+def liste_projekte() -> List[Dict[str, Any]]:
+    """Alle laufenden Projekte, Termine zuerst (chronologisch), danach die ohne Termin."""
+    projekte = config.ordnung_pfad("projekte")
+    ergebnis: List[Dict[str, Any]] = []
+    if not projekte or not projekte.is_dir():
+        return ergebnis
+    try:
+        ordner = sorted(p for p in projekte.iterdir() if p.is_dir() and not p.name.startswith((".", "_")))
+    except (PermissionError, OSError):
+        return ergebnis
+
+    for p in ordner:
+        if p.name.lower().endswith(MACOS_PACKAGE_EXTENSIONS):
+            continue
+        m = _PROJEKT_DATUM.match(p.name)
+        termin, titel = (m.group(1), m.group(2)) if m else (None, p.name)
+        tage = None
+        if termin:
+            try:
+                tage = (datetime.strptime(termin, "%Y-%m-%d").date() - datetime.now().date()).days
+            except ValueError:
+                termin, titel = None, p.name
+        anzahl = 0
+        try:
+            for _root, dirs, files in os.walk(p):
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                anzahl += sum(1 for f in files if not f.startswith(".") and f not in config.IGNORED_FILES)
+                if anzahl > 5000:
+                    break
+        except OSError:
+            pass
+        ergebnis.append({
+            "name": p.name, "titel": titel, "termin": termin, "tage_bis_termin": tage,
+            "dateien": anzahl, "pfad": str(p)
+        })
+    ergebnis.sort(key=lambda e: (e["termin"] is None, e["termin"] or "", e["titel"].lower()))
+    return ergebnis
+
+
+def lege_projekt_an(titel: str, termin: Optional[str] = None) -> Dict[str, Any]:
+    """Legt ein Projekt an. Mit Termin (JJJJ-MM-TT) heißt der Ordner „JJJJ-MM-TT_Titel“."""
+    projekte = config.ordnung_pfad("projekte")
+    if not projekte or not projekte.is_dir():
+        raise ValueError("Das Ordnungssystem ist noch nicht eingerichtet (Einstellungen → Grundstruktur anlegen).")
+
+    titel = re.sub(r'[/\\:*?"<>|]', " ", str(titel or ""))
+    titel = re.sub(r"\s+", " ", titel).strip().lstrip("._")
+    if not titel:
+        raise ValueError("Bitte einen Projektnamen eingeben.")
+
+    termin = str(termin or "").strip()
+    if termin:
+        try:
+            datetime.strptime(termin, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Der Termin muss ein Datum im Format JJJJ-MM-TT sein.")
+        name = f"{termin}_{titel}"
+    else:
+        name = titel
+
+    pfad = projekte / name
+    if pfad.exists():
+        raise ValueError(f"Ein Projekt „{name}“ gibt es schon.")
+    pfad.mkdir()
+    return {"name": name, "pfad": str(pfad)}
+
+
+def schliesse_projekt_ab(name: str, ziel: str, kategorie: str = "") -> Dict[str, Any]:
+    """Verschiebt ein abgeschlossenes Projekt als Ganzes ins Archiv oder in eine Kategorie der Ablage.
+
+    Schreibt ein Manifest, damit sich der Schritt über „Rückgängig“ zurücknehmen lässt.
+    (Der Papierkorb läuft über die Oberfläche — dort holt man es im Finder zurück.)
+    """
+    quelle = _projekt_ordner(name)
+
+    if ziel == "archiv":
+        ziel_eltern = config.ordnung_pfad("archiv")
+    elif ziel == "ablage":
+        ablage = config.ordnung_pfad("ablage")
+        teile = [t for t in re.split(r"[/\\]+", str(kategorie or "")) if t and t not in (".", "..")]
+        ziel_eltern = ablage.joinpath(*teile) if teile else ablage
+        if not ziel_eltern.is_dir():
+            raise ValueError("Diese Kategorie gibt es in der Ablage nicht.")
+    else:
+        raise ValueError("Unbekanntes Ziel.")
+
+    ziel_eltern.mkdir(parents=True, exist_ok=True)
+    ziel_pfad = ziel_eltern / quelle.name
+    zaehler = 1
+    while ziel_pfad.exists():
+        ziel_pfad = ziel_eltern / f"{quelle.name}_{zaehler}"
+        zaehler += 1
+    shutil.move(str(quelle), str(ziel_pfad))
+
+    jetzt = datetime.now()
+    manifest_file = HISTORY_DIR / f"manifest_{jetzt.strftime('%Y%m%d_%H%M%S')}.json"
+    with open(manifest_file, "w", encoding="utf-8") as f:
+        json.dump({
+            "created_at": jetzt.isoformat(),
+            "total_actions": 1,
+            "beschreibung": f"Projekt „{quelle.name}“ abgeschlossen",
+            "actions": [{"source": str(quelle), "target": str(ziel_pfad), "copy_mode": False, "timestamp": jetzt.isoformat()}]
+        }, f, indent=2, ensure_ascii=False)
+
+    return {"ziel": str(ziel_pfad), "manifest": manifest_file.name}
+
+
+def zaehle_eingang() -> Optional[int]:
+    """Wie viele Dateien im Eingang auf Verarbeitung warten (None, wenn kein Eingang eingerichtet ist)."""
+    eingang = config.ordnung_pfad("eingang")
+    if not eingang or not eingang.is_dir():
+        return None
+    try:
+        return sum(
+            1 for e in eingang.iterdir()
+            if e.is_file() and not e.name.startswith(".") and e.name not in config.IGNORED_FILES
+        )
+    except (PermissionError, OSError):
+        return None
+
+
+# --- STEUER: nur Tags, kein Ordner ------------------------------------------
+_STEUER_TAG = re.compile(r"^Steuer ((?:19|20)\d{2})$")
+STEUER_SAMMELORDNER = "Steuer-Belege"
+
+
+def finde_steuer_belege() -> Dict[str, List[Dict[str, Any]]]:
+    """Sucht im Ordnungssystem alle Dateien mit dem Finder-Tag „Steuer <Jahr>“, gruppiert nach Jahr.
+
+    Liest die Tags direkt an den Dateien (unabhängig vom Spotlight-Index). Sammelkopien
+    („Steuer-Belege …“) werden übersprungen, damit nichts doppelt zählt.
+    """
+    import ctypes
+    import ctypes.util
+
+    basis = Path(config.ORDNUNG_BASIS).expanduser() if (config.ORDNUNG_BASIS or "").strip() else None
+    ergebnis: Dict[str, List[Dict[str, Any]]] = {}
+    if not basis or not basis.is_dir():
+        return ergebnis
+
+    libc = ctypes.CDLL(ctypes.util.find_library("c") or "/usr/lib/libSystem.B.dylib")
+    for root, dirs, files in os.walk(basis):
+        dirs[:] = sorted(
+            d for d in dirs
+            if not d.startswith(".") and d not in IGNORED_DIRS
+            and not d.startswith(STEUER_SAMMELORDNER) and not d.lower().endswith(MACOS_PACKAGE_EXTENSIONS)
+        )
+        for fname in sorted(files):
+            if fname.startswith(".") or fname in config.IGNORED_FILES:
+                continue
+            pfad = Path(root) / fname
+            for tag in _lese_finder_tags(libc, str(pfad).encode("utf-8")):
+                m = _STEUER_TAG.match(tag.split("\n")[0].strip())
+                if not m:
+                    continue
+                try:
+                    groesse = pfad.stat().st_size
+                except OSError:
+                    groesse = 0
+                ergebnis.setdefault(m.group(1), []).append({
+                    "name": fname,
+                    "pfad": str(pfad),
+                    "ordner": str(Path(root).relative_to(basis)),
+                    "groesse": groesse,
+                })
+    return ergebnis
+
+
+def sammle_steuer_belege(jahr: str, ziel_eltern: Path) -> Dict[str, Any]:
+    """Kopiert alle Belege eines Steuerjahres nach `<ziel>/Steuer-Belege <Jahr>/<Kategorie>/`.
+
+    Die Originale bleiben, wo sie sind. Ein Manifest erlaubt, die Kopien über „Rückgängig“ wieder zu entfernen.
+    """
+    jahr = str(jahr).strip()
+    if not re.fullmatch(r"(19|20)\d{2}", jahr):
+        raise ValueError("Ungültiges Jahr.")
+    ziel_eltern = Path(ziel_eltern).expanduser()
+    if not ziel_eltern.is_dir():
+        raise ValueError("Der Zielordner existiert nicht.")
+    belege = finde_steuer_belege().get(jahr, [])
+    if not belege:
+        raise ValueError(f"Keine Dateien mit dem Tag „Steuer {jahr}“ gefunden.")
+
+    ziel = ziel_eltern / f"{STEUER_SAMMELORDNER} {jahr}"
+    jetzt = datetime.now()
+    eintraege = []
+    for b in belege:
+        quelle = Path(b["pfad"])
+        if not quelle.is_file():
+            continue
+        unterordner = ziel / (Path(b["ordner"]).name or "Allgemein")
+        unterordner.mkdir(parents=True, exist_ok=True)
+        dst = get_unique_target_path(unterordner / quelle.name)
+        shutil.copy2(quelle, dst)
+        eintraege.append({"source": str(quelle), "target": str(dst), "copy_mode": True, "timestamp": jetzt.isoformat()})
+
+    manifest_file = HISTORY_DIR / f"manifest_{jetzt.strftime('%Y%m%d_%H%M%S')}.json"
+    with open(manifest_file, "w", encoding="utf-8") as f:
+        json.dump({
+            "created_at": jetzt.isoformat(),
+            "total_actions": len(eintraege),
+            "beschreibung": f"Steuer-Belege {jahr} kopiert",
+            "actions": eintraege
+        }, f, indent=2, ensure_ascii=False)
+    return {"ziel": str(ziel), "kopiert": len(eintraege), "manifest": manifest_file.name}
 
 
 def tags_fuer_analyse(analysis: Any) -> List[str]:
@@ -321,6 +551,10 @@ class Organizer:
             return self.plan
 
         existing_folders = discover_existing_subfolders(self.target_dir)
+        # Laufende Projekte: Im Ablage-Modus darf die KI eine Datei einem Projekt zuordnen
+        projekte_dir = config.ordnung_pfad("projekte") if self.ablage_modus else None
+        projekt_namen = [p["name"] for p in liste_projekte()] if projekte_dir else []
+        projekt_key = hashlib.sha1("|".join(projekt_namen).encode("utf-8")).hexdigest()[:8]
         cache = _load_analysis_cache() if use_cache else {}
         cache_dirty = False
         active_prov = self.provider if self.provider else config.AI_PROVIDER
@@ -328,7 +562,9 @@ class Organizer:
 
         def process_single_item(item: FileItem) -> PlannedAction:
             nonlocal cache_dirty
-            modus_key = f"ablage:{self.target_dir}" if self.ablage_modus else "frei"
+            modus_key = f"ablage:{self.target_dir}:{projekt_key}" if self.ablage_modus else "frei"
+            if config.NAMENSSTIL == "lesbar":
+                modus_key += ":lesbar"
             cache_key = f"{item.path}_{item.size_bytes}_{int(item.modified_at.timestamp())}_{active_prov}_{modus_key}"
 
             with progress_lock:
@@ -358,7 +594,8 @@ class Organizer:
                     topic=c_entry.get("topic", ""),
                     summary=c_entry.get("summary", ""),
                     provider_used=f"{c_entry.get('provider_used', active_prov)} ⚡ Cache",
-                    steuer_jahr=c_entry.get("steuer_jahr")
+                    steuer_jahr=c_entry.get("steuer_jahr"),
+                    projekt=c_entry.get("projekt")
                 )
                 with progress_lock:
                     ANALYSIS_PROGRESS["cached_hits"] += 1
@@ -376,7 +613,8 @@ class Organizer:
                     prefix=None,  # im Cache ohne Präfix speichern
                     file_path=item.path,
                     existing_folders=existing_folders,
-                    ablage_modus=self.ablage_modus
+                    ablage_modus=self.ablage_modus,
+                    projekte=projekt_namen
                 )
 
                 # Im Cache ablegen (sofern nicht reiner Fallback bei gewünschter Cloud-KI)
@@ -395,9 +633,16 @@ class Organizer:
 
             # 3. Zielpfad ermitteln. Im Ablage-Modus hier frisch prüfen, ob die Kategorie
             # schon existiert — ein Cache-Eintrag kann älter sein als der Ordner.
-            if self.ablage_modus:
-                analysis.neuer_ordner = not (self.target_dir / analysis.suggested_folder).is_dir()
-            target_subfolder = self.target_dir / analysis.suggested_folder
+            if analysis.projekt and analysis.projekt in projekt_namen:
+                # Gehört zu einem laufenden Projekt → auf den Schreibtisch statt in die Ablage
+                analysis.suggested_folder = analysis.projekt
+                analysis.neuer_ordner = False
+                target_subfolder = projekte_dir / analysis.projekt
+            else:
+                analysis.projekt = None
+                if self.ablage_modus:
+                    analysis.neuer_ordner = not (self.target_dir / analysis.suggested_folder).is_dir()
+                target_subfolder = self.target_dir / analysis.suggested_folder
             desired_target = target_subfolder / analysis.suggested_name
             final_target = get_unique_target_path(desired_target)
 

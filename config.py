@@ -11,7 +11,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.6.0"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # --- DATEN DES NUTZERS ---
@@ -103,6 +103,11 @@ ORDNUNG_BASIS = os.getenv("ORDNUNG_BASIS", "")
 # "ablage" -> es wird in die Kategorien von „03 Ablage“ einsortiert; neue
 #             Kategorien entstehen nur nach Bestätigung in der Vorschau
 SORTIER_MODUS = os.getenv("SORTIER_MODUS", "frei")
+
+# Namensstil der vorgeschlagenen Dateinamen:
+# "schema" -> 2026-03-14_Telekom_Rechnung_Mobilfunk (Unterstriche, ohne Umlaute — wie bisher)
+# "lesbar" -> 2026-03-14 Telekom Mobilfunk März (Leerzeichen, Umlaute erlaubt)
+NAMENSSTIL = os.getenv("NAMENSSTIL", "schema")
 
 ORDNUNG_ORDNER = {
     "eingang": "01 Eingang",    # Briefkasten: alles Neue, Unverarbeitete

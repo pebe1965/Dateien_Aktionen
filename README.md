@@ -31,7 +31,15 @@ In den Einstellungen lässt sich unter „Ordnungssystem“ ein Basisordner wäh
 
 Im Sortiermodus **Ablage** wird aus jedem gescannten Ordner in die vorhandenen Kategorien von `03 Ablage` einsortiert – ohne Jahresordner. Passt keine Kategorie, markiert die Vorschau den Vorschlag als neu; angelegt wird er erst beim Anwenden. Der Autopilot legt keine neuen Kategorien an und lässt solche Dateien im Eingang liegen.
 
+**Projekte:** Im Reiter „Projekte“ legt man laufende Vorhaben an – mit Termin als `JJJJ-MM-TT_Name` (sortiert sich von selbst nach Datum) oder ohne als `Name`. Im Modus „Ablage“ ordnet die KI-Vorschau passende Dateien direkt dem Projekt zu. Ein abgeschlossenes Projekt wandert als Ganzes ins Archiv, in eine Kategorie der Ablage oder in den Papierkorb; Archiv und Ablage lassen sich über das Protokoll rückgängig machen.
+
 Steuerrelevante Belege bekommen keinen eigenen Ordner, sondern den Finder-Tag `Steuer <Jahr>`. Bereits vorhandene Finder-Tags einer Datei bleiben erhalten.
+
+**Einrichtungsassistent:** Fünf kurze Fragen zu Beruf und Alltag, daraus entwirft die KI die Kategorien der Ablage samt Beispielen für Dateinamen. Angelegt wird nur, was im Vorschlag angehakt bleibt.
+
+**Steuer-Übersicht:** Der Reiter „Steuer“ listet alle Dateien mit Steuer-Tag nach Jahr und kopiert sie auf Wunsch gesammelt in einen Ordner `Steuer-Belege <Jahr>` – die Originale bleiben, wo sie sind.
+
+**Eingang-Zähler und Namensstil:** Der Knopf „Eingang“ zeigt, wie viele Dateien warten. In den Einstellungen lässt sich zwischen dem Schema mit Unterstrichen und einem lesbaren Stil mit Leerzeichen und Umlauten wählen.
 
 ---
 
