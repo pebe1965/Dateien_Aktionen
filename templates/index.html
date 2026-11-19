@@ -127,6 +127,10 @@
                 <span>💾 Sicherung</span>
                 <span id="tab-badge-sicherung" class="hidden w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Sicherung läuft"></span>
             </button>
+            <button onclick="openTab('speicher')" id="tab-btn-speicher" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
+                <span>🗄️ Speicherplatz</span>
+                <span id="tab-badge-speicher" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">0</span>
+            </button>
             <button onclick="openTab('handbuch')" id="tab-btn-handbuch" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
                 📖 Handbuch
             </button>
@@ -792,6 +796,75 @@
             </div>
         </div>
 
+        <!-- ==================== TAB: SPEICHERPLATZ ==================== -->
+        <div id="tab-speicher" class="tab-content hidden space-y-6">
+
+            <!-- Platte -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Was belegt den Platz?</h4>
+                        <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">Durchsucht einen Ordner und zeigt, was darin den Platz belegt – versteckte Ordner zählen mit. Jeder Fund bekommt eine Stufe, damit du nicht raten musst, was gefahrlos wegkann. <a href="#" onclick="zeigeHandbuch('12. Speicherplatz'); return false;" class="text-blue-600 font-semibold hover:underline">Anleitung im Handbuch</a></p>
+                    </div>
+                    <button onclick="ladeSpeicherBasis()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200">Aktualisieren</button>
+                </div>
+                <div id="sp-platte" class="mt-4 text-sm text-slate-500">Lade …</div>
+                <div id="sp-vollzugriff" class="hidden mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
+            </div>
+
+            <!-- Ordner wählen und messen -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h5 class="font-bold text-slate-800 text-sm mb-3">Ordner durchsuchen</h5>
+                <div id="sp-vorschlaege" class="flex items-center gap-2 flex-wrap mb-3"></div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <input type="text" id="sp-pfad" placeholder="/Users/…" class="flex-1 min-w-[18rem] px-3 py-2 rounded-xl border border-slate-300 font-mono text-xs">
+                    <button onclick="spWaehleOrdner()" class="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200">Anderer Ordner …</button>
+                </div>
+                <div class="flex items-center gap-3 flex-wrap mt-3">
+                    <label class="text-xs text-slate-600">Größte Dateien ab</label>
+                    <select id="sp-mindest" class="px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                        <option value="10">10 MB</option>
+                        <option value="50">50 MB</option>
+                        <option value="100" selected>100 MB</option>
+                        <option value="500">500 MB</option>
+                        <option value="1024">1 GB</option>
+                    </select>
+                    <button id="sp-start" onclick="spStarteScan()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold">Durchsuchen</button>
+                    <button id="sp-abbrechen" onclick="spAbbrechen()" class="hidden px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold border border-rose-200">Abbrechen</button>
+                    <span class="text-[11px] text-slate-400">Gemessen wird der belegte Platz, wie der Befehl <span class="font-mono">du</span> – deshalb kann die Zahl von der Anzeige im Finder abweichen.</span>
+                </div>
+                <div id="sp-fortschritt" class="hidden mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <div class="flex items-center gap-2 text-xs text-slate-700 font-semibold">
+                        <span class="inline-block w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span id="sp-fortschritt-zahlen">…</span>
+                    </div>
+                    <div id="sp-fortschritt-pfad" class="text-[11px] text-slate-500 font-mono truncate mt-1"></div>
+                </div>
+            </div>
+
+            <!-- Papierkorb -->
+            <div id="sp-papierkorb" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-200"></div>
+
+            <!-- Ergebnis -->
+            <div id="sp-ergebnis" class="hidden space-y-4"></div>
+
+            <!-- Auswahl -->
+            <div id="sp-leiste" class="hidden sticky bottom-4 z-30 bg-slate-900 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between gap-4 flex-wrap">
+                <div class="text-sm">
+                    <div id="sp-leiste-summe" class="font-bold"></div>
+                    <div id="sp-leiste-info" class="text-[11px] text-slate-300 mt-0.5"></div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <select id="sp-modus" class="px-3 py-2 rounded-xl text-xs text-slate-800">
+                        <option value="papierkorb" selected>In den Papierkorb</option>
+                        <option value="endgueltig">Endgültig löschen</option>
+                    </select>
+                    <button onclick="spAuswahlLeeren()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-semibold">Auswahl aufheben</button>
+                    <button onclick="spVorschau()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-900 rounded-xl text-xs font-bold">Vorschau anzeigen</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ==================== TAB 4: PROTOKOLL / UNDO ==================== -->
         <div id="tab-history" class="tab-content hidden">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -1225,6 +1298,30 @@
     </div>
 
     <!-- Loading Spinner Modal -->
+    <!-- Vorschau vor dem Freigeben (Trockenlauf) -->
+    <div id="sp-vorschau-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4" onclick="if(event.target === this) spSchliesseVorschau()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div class="p-5 border-b border-slate-200">
+                <h4 id="sp-vorschau-titel" class="font-bold text-slate-800">Vorschau</h4>
+                <p id="sp-vorschau-unter" class="text-xs text-slate-500 mt-0.5"></p>
+            </div>
+            <div id="sp-vorschau-inhalt" class="p-5 overflow-y-auto space-y-2"></div>
+            <div class="p-5 border-t border-slate-200 space-y-3">
+                <label id="sp-vorschau-bestaetigung-wrap" class="hidden flex items-start gap-2 text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 cursor-pointer">
+                    <input type="checkbox" id="sp-vorschau-bestaetigung" onchange="spPruefeBestaetigung()" class="mt-0.5">
+                    <span id="sp-vorschau-bestaetigung-text"></span>
+                </label>
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div id="sp-vorschau-summe" class="text-sm font-bold text-slate-800"></div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="spSchliesseVorschau()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200">Abbrechen</button>
+                        <button id="sp-vorschau-knopf" onclick="spFreigeben()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold">Jetzt freigeben</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="loading-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
         <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 w-full max-w-md text-center mx-4">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -1318,6 +1415,7 @@
             if (tabId === 'projekte') ladeProjekte();
             if (tabId === 'steuer') ladeSteuer();
             if (tabId === 'sicherung') ladeSicherung();
+            if (tabId === 'speicher') ladeSpeicherBasis();
             if (tabId === 'handbuch') ladeHandbuch();
             if (tabId === 'autopilot') loadAutopilotStatus(true);
         }
@@ -2981,9 +3079,11 @@
                             <div class="font-semibold text-slate-800 text-sm">${escHtml(m.beschreibung || m.filename)}</div>
                             <div class="text-xs text-slate-500 mt-0.5">${m.total_actions} Aktionen am ${m.date}</div>
                         </div>
-                        <button onclick="undoManifest('${m.filename}')" class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition border border-rose-200">
+                        ${m.rueckgaengig === false
+                            ? '<span class="px-3.5 py-1.5 bg-slate-100 text-slate-500 text-xs font-semibold rounded-lg border border-slate-200" title="Endgültig gelöschte Dateien lassen sich nicht zurückholen.">nicht wiederherstellbar</span>'
+                            : `<button onclick="undoManifest('${m.filename}')" class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition border border-rose-200">
                             ↩️ Rückgängig machen
-                        </button>
+                        </button>`}
                     </div>
                 `).join('');
             } catch (e) {
@@ -3166,6 +3266,498 @@
         function hbSpringe(id) {
             const ziel = document.getElementById(id);
             if (ziel) ziel.scrollIntoView({ block: 'start' });
+        }
+
+        // ==================== SPEICHERPLATZ ====================
+        let spBasis = null;          // Platte, Papierkorb, Vorschläge
+        let spErgebnis = null;       // Ergebnis des letzten Scans
+        let spAnsicht = 'baum';      // 'baum' oder 'dateien'
+        let spAuswahl = new Map();   // Pfad -> { bytes, stufe, name }
+        let spOffen = new Set();     // aufgeklappte Ordner
+        let spEintraege = [];        // Index -> Eintrag (für die Knöpfe in der Liste)
+        let spWeg = new Set();       // schon freigegebene Pfade
+        let spTimer = null;
+        let spVorschauDaten = null;
+        let spFreiBytes = 0;         // in diesem Scan schon freigegeben
+
+        const SP_STUFEN = {
+            gefahrlos:    { text: 'Gefahrlos',        klasse: 'bg-emerald-100 text-emerald-800' },
+            entscheidung: { text: 'Ihre Entscheidung', klasse: 'bg-amber-100 text-amber-800' },
+            tabu:         { text: 'Nicht anfassen',   klasse: 'bg-slate-200 text-slate-600' }
+        };
+
+        function spChip(stufe) {
+            const s = SP_STUFEN[stufe] || SP_STUFEN.entscheidung;
+            return `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${s.klasse} whitespace-nowrap">${s.text}</span>`;
+        }
+
+        async function ladeSpeicherBasis() {
+            try {
+                const res = await fetch('/api/speicher/basis');
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                spBasis = data;
+
+                spZeichnePlatte(data.platte);
+                spZeichnePapierkorb(data.papierkorb);
+
+                const warnung = document.getElementById('sp-vollzugriff');
+                if (data.vollzugriff && data.vollzugriff.ok === false) {
+                    warnung.innerHTML = '<b>Teile des Benutzerordners bleiben unsichtbar.</b> Ohne die Freigabe „Festplattenvollzugriff“ darf das Programm manche Ordner nicht lesen – die Summen sind dann zu niedrig. Du erteilst sie in den Systemeinstellungen unter „Datenschutz &amp; Sicherheit → Festplattenvollzugriff“, indem du dort „Dateien_Aktionen“ einschaltest und das Programm neu startest.';
+                    warnung.classList.remove('hidden');
+                } else {
+                    warnung.classList.add('hidden');
+                }
+
+                const vor = document.getElementById('sp-vorschlaege');
+                vor.innerHTML = (data.vorschlaege || []).map(v =>
+                    `<button onclick="spSetzePfad('${encodeURIComponent(v.pfad)}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">${escHtml(v.name)}</button>`
+                ).join('');
+
+                const feld = document.getElementById('sp-pfad');
+                if (!feld.value && data.vorschlaege && data.vorschlaege.length) feld.value = data.vorschlaege[0].pfad;
+                if (data.mindestgroesse_mb) {
+                    const sel = document.getElementById('sp-mindest');
+                    if ([...sel.options].some(o => o.value === String(data.mindestgroesse_mb))) sel.value = String(data.mindestgroesse_mb);
+                }
+
+                // Läuft noch ein Scan (z. B. nach einem Reiterwechsel)? Dann weiter beobachten.
+                if (data.scan && data.scan.laeuft) {
+                    spZeigeLauf(true);
+                    spBeobachte();
+                } else if (data.scan && data.scan.fertig && !spErgebnis) {
+                    const s = await (await fetch('/api/speicher/status')).json();
+                    if (s.ergebnis) { spErgebnis = s.ergebnis; spZeichneErgebnis(); }
+                }
+            } catch (e) {
+                document.getElementById('sp-platte').innerHTML = `<span class="text-rose-600 text-xs">${escHtml(e.message)}</span>`;
+            }
+        }
+
+        function spZeichnePlatte(pl) {
+            if (!pl) return;
+            const prozent = pl.gesamt ? Math.min(100, Math.round(pl.belegt / pl.gesamt * 100)) : 0;
+            const farbe = prozent > 90 ? 'bg-rose-500' : (prozent > 75 ? 'bg-amber-500' : 'bg-emerald-500');
+            document.getElementById('sp-platte').innerHTML = `
+                <div class="flex items-end justify-between gap-4 flex-wrap mb-2">
+                    <div class="text-slate-800"><span class="text-2xl font-bold">${formatBytes(pl.frei)}</span> <span class="text-xs text-slate-500">frei</span></div>
+                    <div class="text-xs text-slate-500">${formatBytes(pl.belegt)} von ${formatBytes(pl.gesamt)} belegt (${prozent} %)</div>
+                </div>
+                <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden"><div class="h-3 ${farbe}" style="width:${prozent}%"></div></div>`;
+        }
+
+        function spZeichnePapierkorb(pk) {
+            const karte = document.getElementById('sp-papierkorb');
+            if (!pk || !pk.gelesen) { karte.classList.add('hidden'); return; }
+            karte.classList.remove('hidden');
+            const titel = pk.anzahl === 0
+                ? '🗑️ Der Papierkorb ist leer'
+                : `🗑️ Der Papierkorb belegt ${escHtml(formatBytes(pk.bytes))}${pk.ungefaehr ? ' (mindestens)' : ''}`;
+            const unter = pk.anzahl === 0
+                ? 'Hier steht künftig, wie viel Platz der Papierkorb belegt.'
+                : `${pk.anzahl === 1 ? '1 Objekt' : pk.anzahl + ' Objekte'}. Dieser Platz wird erst frei, wenn der Papierkorb geleert ist – danach ist nichts davon wiederherstellbar.`
+                  + (pk.ungefaehr ? ' Die Größe stammt vom Finder; versteckte Einträge sind darin nicht enthalten.' : '');
+            karte.innerHTML = `
+                <div class="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">${titel}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">${unter}</div>
+                    </div>
+                    <button onclick="spLeerePapierkorb()" class="px-3 py-2 ${pk.anzahl ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} rounded-xl text-xs font-bold" ${pk.anzahl ? '' : 'disabled'}>Papierkorb leeren</button>
+                </div>`;
+        }
+
+        async function spLeerePapierkorb() {
+            const pk = spBasis && spBasis.papierkorb ? spBasis.papierkorb : { anzahl: 0, bytes: 0 };
+            if (!confirm(`Den Papierkorb endgültig leeren?\n\n${pk.anzahl === 1 ? '1 Objekt' : pk.anzahl + ' Objekte'}, ${formatBytes(pk.bytes)}.\nDas lässt sich nicht rückgängig machen.`)) return;
+            showLoading('Papierkorb leeren', 'Der Finder leert den Papierkorb …');
+            try {
+                const res = await fetch('/api/speicher/papierkorb_leeren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                spBasis.papierkorb = data.papierkorb;
+                spZeichnePapierkorb(data.papierkorb);
+                spZeichnePlatte(data.platte);
+                alert(`✓ Papierkorb geleert: ${formatBytes(data.vorher_bytes)} freigegeben.`);
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function spSetzePfad(kodiert) {
+            document.getElementById('sp-pfad').value = decodeURIComponent(kodiert);
+        }
+
+        async function spWaehleOrdner() {
+            showLoading('Ordner auswählen', 'Warten auf Finder-Dialog …');
+            try {
+                const res = await fetch('/api/pick_folder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                const data = await res.json();
+                if (data.path) document.getElementById('sp-pfad').value = data.path;
+            } catch (e) {
+                console.error(e);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function spZeigeLauf(laeuft) {
+            document.getElementById('sp-start').classList.toggle('hidden', laeuft);
+            document.getElementById('sp-abbrechen').classList.toggle('hidden', !laeuft);
+            document.getElementById('sp-fortschritt').classList.toggle('hidden', !laeuft);
+        }
+
+        async function spStarteScan() {
+            const pfad = document.getElementById('sp-pfad').value.trim();
+            if (!pfad) return alert('Bitte zuerst einen Ordner wählen.');
+            const mb = parseInt(document.getElementById('sp-mindest').value, 10) || 100;
+            try {
+                const res = await fetch('/api/speicher/scan', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: pfad, mindestgroesse_mb: mb })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                spErgebnis = null;
+                spAuswahl.clear();
+                spWeg.clear();
+                spFreiBytes = 0;
+                spOffen.clear();
+                spZeichneLeiste();
+                document.getElementById('sp-ergebnis').classList.add('hidden');
+                spZeigeLauf(true);
+                spBeobachte();
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            }
+        }
+
+        function spBeobachte() {
+            if (spTimer) clearInterval(spTimer);
+            spTimer = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/speicher/status');
+                    const s = await res.json();
+                    document.getElementById('sp-fortschritt-zahlen').innerText =
+                        `${s.ordner.toLocaleString('de-DE')} Ordner, ${s.dateien.toLocaleString('de-DE')} Dateien, ${formatBytes(s.bytes)} gemessen (${s.dauer} s)`;
+                    document.getElementById('sp-fortschritt-pfad').innerText = s.aktuell || '';
+                    if (s.laeuft) return;
+
+                    clearInterval(spTimer); spTimer = null;
+                    spZeigeLauf(false);
+                    if (s.fehler) { alert('Fehler: ' + s.fehler); return; }
+                    if (s.abgebrochen) {
+                        document.getElementById('sp-fortschritt').classList.remove('hidden');
+                        document.getElementById('sp-fortschritt-zahlen').innerText = 'Abgebrochen – es wurde nichts verändert.';
+                        document.getElementById('sp-fortschritt-pfad').innerText = '';
+                        return;
+                    }
+                    if (s.ergebnis) { spErgebnis = s.ergebnis; spZeichneErgebnis(); ladeSpeicherBasis(); }
+                } catch (e) {
+                    clearInterval(spTimer); spTimer = null; spZeigeLauf(false);
+                }
+            }, 500);
+        }
+
+        async function spAbbrechen() {
+            document.getElementById('sp-fortschritt-zahlen').innerText = 'Wird abgebrochen …';
+            try {
+                await fetch('/api/speicher/abbrechen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+            } catch (e) {}
+        }
+
+        function spWechsleAnsicht(ansicht) {
+            spAnsicht = ansicht;
+            spZeichneErgebnis();
+        }
+
+        function spZeichneErgebnis() {
+            const e = spErgebnis;
+            const kasten = document.getElementById('sp-ergebnis');
+            if (!e) { kasten.classList.add('hidden'); return; }
+            kasten.classList.remove('hidden');
+            spEintraege = [];
+
+            const abweichung = e.bytes_logisch && Math.abs(e.bytes_logisch - e.bytes) / Math.max(1, e.bytes) > 0.05;
+            const knopf = (id, text) => `<button onclick="spWechsleAnsicht('${id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold ${spAnsicht === id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${text}</button>`;
+
+            let html = `
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-start justify-between gap-4 flex-wrap">
+                        <div>
+                            <div class="text-lg font-bold text-slate-800">${formatBytes(e.bytes)} in ${escHtml(e.baum.name)}</div>
+                            <div class="text-xs text-slate-500 mt-0.5 font-mono">${escHtml(e.startordner)}</div>
+                            <div class="text-xs text-slate-500 mt-1">
+                                ${e.ordner.toLocaleString('de-DE')} Ordner, ${e.dateien.toLocaleString('de-DE')} Dateien · gemessen am ${escHtml(e.gemessen_am)} in ${e.dauer} s ·
+                                belegter Platz (wie <span class="font-mono">du -sk</span>)${abweichung ? `, Inhalt zusammengerechnet ${formatBytes(e.bytes_logisch)}` : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">${knopf('baum', 'Ordner')}${knopf('dateien', 'Größte Dateien')}</div>
+                    </div>
+                    ${spFreiBytes ? `<div class="mt-3 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">Seit der Messung freigegeben: <b>${formatBytes(spFreiBytes)}</b>. Die Summen oben stammen vom Zeitpunkt der Messung – ein neuer Durchlauf zeigt den aktuellen Stand.</div>` : ''}
+                </div>`;
+
+            if (spAnsicht === 'baum') {
+                html += `<div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="text-[11px] text-slate-500 px-2 pb-2">Aufklappen zeigt die größten Unterordner und Dateien. Versteckte Ordner sind mit „versteckt“ gekennzeichnet.</div>
+                    ${spBaumHtml(e.baum, 0, e.baum.bytes || 1)}</div>`;
+            } else {
+                html += spDateienHtml(e);
+            }
+
+            if (e.uebersprungen_anzahl) {
+                const liste = (e.uebersprungen || []).slice(0, 50).map(u =>
+                    `<li class="font-mono text-[11px] truncate">${escHtml(u.pfad)} <span class="text-slate-400">– ${escHtml(u.grund)}</span></li>`).join('');
+                html += `<div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <h5 class="font-bold text-slate-800 text-sm">${e.uebersprungen_anzahl} Ordner übersprungen</h5>
+                    <p class="text-xs text-slate-500 mt-0.5 mb-2">Diese Ordner waren nicht lesbar oder liegen auf einem anderen Laufwerk. Sie sind in den Summen nicht enthalten.</p>
+                    <ul class="space-y-0.5 text-slate-600">${liste}</ul>
+                    ${e.uebersprungen_anzahl > 50 ? `<p class="text-[11px] text-slate-400 mt-2">… und ${e.uebersprungen_anzahl - 50} weitere.</p>` : ''}
+                </div>`;
+            }
+
+            html += `<div class="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900">
+                <b>Doppelte Dateien</b> sucht der Reiter „Duplikate-Manager“ – dort findet das Programm auch ähnliche Fotos.
+                ${e.hardlinks_einmal ? `<br>${e.hardlinks_einmal} mehrfach verknüpfte Dateien wurden nur einmal gezählt.` : ''}
+            </div>`;
+
+            kasten.innerHTML = html;
+            spZeichneLeiste();
+        }
+
+        function spEintragIndex(eintrag) {
+            spEintraege.push(eintrag);
+            return spEintraege.length - 1;
+        }
+
+        function spZeile(eintrag, tiefe, wurzelBytes, istOrdner, aufklappbar) {
+            if (spWeg.has(eintrag.pfad)) return '';
+            const idx = spEintragIndex(eintrag);
+            const prozent = Math.min(100, Math.round(eintrag.bytes / wurzelBytes * 100));
+            const offen = spOffen.has(eintrag.pfad);
+            const auswaehlbar = eintrag.stufe !== 'tabu';
+            const kodiert = encodeURIComponent(eintrag.pfad);
+            const zeigeHinweis = eintrag.hinweis && (eintrag.stufe !== 'entscheidung' || eintrag.hinweis.indexOf('Sieht nach') === 0 || eintrag.hinweis.indexOf('Liegt in einem') === 0);
+            return `
+                <div class="flex items-start gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 border-b border-slate-100" style="padding-left:${8 + tiefe * 18}px">
+                    ${auswaehlbar
+                        ? `<input type="checkbox" class="mt-1" ${spAuswahl.has(eintrag.pfad) ? 'checked' : ''} onchange="spWaehle(${idx}, this.checked)">`
+                        : `<span class="w-3.5 inline-block" title="Nicht anfassen"></span>`}
+                    ${aufklappbar
+                        ? `<button onclick="spKlappe('${kodiert}')" class="text-slate-400 hover:text-slate-700 text-xs w-3.5">${offen ? '▾' : '▸'}</button>`
+                        : `<span class="w-3.5 inline-block"></span>`}
+                    <span>${istOrdner ? '📁' : (eintrag.paket ? '📦' : '📄')}</span>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-sm font-medium text-slate-800 truncate">${escHtml(eintrag.name)}</span>
+                            ${eintrag.versteckt ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700">versteckt</span>' : ''}
+                            ${spChip(eintrag.stufe)}
+                            ${!istOrdner && eintrag.art ? `<span class="text-[10px] text-slate-400">${escHtml(eintrag.art)}${eintrag.geaendert ? ' · ' + escHtml(eintrag.geaendert) : ''}</span>` : ''}
+                        </div>
+                        ${zeigeHinweis ? `<div class="text-[11px] text-slate-500 mt-0.5">${escHtml(eintrag.hinweis)}</div>` : ''}
+                    </div>
+                    <div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2 hidden sm:block"><div class="h-1.5 ${eintrag.stufe === 'gefahrlos' ? 'bg-emerald-400' : 'bg-slate-400'}" style="width:${prozent}%"></div></div>
+                    <span class="text-xs font-mono text-slate-600 w-20 text-right mt-1">${formatBytes(eintrag.bytes)}</span>
+                    <button onclick="revealInFinder('${kodiert}')" class="text-[11px] text-blue-600 hover:underline whitespace-nowrap mt-1" title="Im Finder zeigen">Im Finder</button>
+                </div>`;
+        }
+
+        function spBaumHtml(knoten, tiefe, wurzelBytes) {
+            const hatKinder = (knoten.kinder && knoten.kinder.length) || (knoten.datei_liste && knoten.datei_liste.length);
+            const wurzel = tiefe === 0;
+            if (wurzel) spOffen.add(knoten.pfad);
+            let html = spZeile(knoten, tiefe, wurzelBytes, true, !!hatKinder && !wurzel);
+            if (!spOffen.has(knoten.pfad)) return html;
+
+            (knoten.kinder || []).forEach(kind => { html += spBaumHtml(kind, tiefe + 1, wurzelBytes); });
+            (knoten.datei_liste || []).forEach(datei => { html += spZeile(datei, tiefe + 1, wurzelBytes, false, false); });
+
+            const wo = knoten.weitere_ordner || { anzahl: 0, bytes: 0 };
+            const wd = knoten.weitere_dateien || { anzahl: 0, bytes: 0 };
+            if (wo.anzahl || wd.anzahl) {
+                const teile = [];
+                if (wo.anzahl) teile.push(`${wo.anzahl} kleinere Ordner (${formatBytes(wo.bytes)})`);
+                if (wd.anzahl) teile.push(`${wd.anzahl} weitere Dateien (${formatBytes(wd.bytes)})`);
+                html += `<div class="text-[11px] text-slate-400 py-1" style="padding-left:${8 + (tiefe + 1) * 18 + 26}px">… ${teile.join(' und ')} – in der Summe oben enthalten.</div>`;
+            }
+            return html;
+        }
+
+        function spDateienHtml(e) {
+            if (!e.grosse_dateien.length) {
+                return `<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-sm text-slate-500">Keine Datei ist größer als ${e.mindestgroesse_mb} MB. Wähle oben eine kleinere Mindestgröße.</div>`;
+            }
+            const zeilen = e.grosse_dateien.map(d => {
+                if (spWeg.has(d.pfad)) return '';
+                const idx = spEintragIndex(d);
+                const kodiert = encodeURIComponent(d.pfad);
+                return `
+                <div class="flex items-start gap-2 py-2 px-2 rounded-lg hover:bg-slate-50 border-b border-slate-100">
+                    ${d.stufe !== 'tabu'
+                        ? `<input type="checkbox" class="mt-1" ${spAuswahl.has(d.pfad) ? 'checked' : ''} onchange="spWaehle(${idx}, this.checked)">`
+                        : '<span class="w-3.5 inline-block"></span>'}
+                    <span>${d.paket ? '📦' : '📄'}</span>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-sm font-medium text-slate-800 truncate">${escHtml(d.name)}</span>
+                            ${d.versteckt ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700">versteckt</span>' : ''}
+                            ${spChip(d.stufe)}
+                            <span class="text-[10px] text-slate-400">${escHtml(d.art)}${d.geaendert ? ' · geändert ' + escHtml(d.geaendert) : ''}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400 font-mono truncate" title="${escHtml(d.pfad)}">${escHtml(d.pfad)}</div>
+                    </div>
+                    <span class="text-xs font-mono text-slate-600 w-20 text-right mt-1">${formatBytes(d.bytes)}</span>
+                    <button onclick="revealInFinder('${kodiert}')" class="text-[11px] text-blue-600 hover:underline whitespace-nowrap mt-1">Im Finder</button>
+                </div>`;
+            }).join('');
+            return `<div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+                <div class="text-[11px] text-slate-500 px-2 pb-2">${e.grosse_dateien_gesamt} Dateien ab ${e.mindestgroesse_mb} MB${e.grosse_dateien_gesamt > e.grosse_dateien.length ? ` – die ${e.grosse_dateien.length} größten` : ''}, nach Größe sortiert.</div>
+                ${zeilen}</div>`;
+        }
+
+        function spKlappe(kodiert) {
+            const pfad = decodeURIComponent(kodiert);
+            if (spOffen.has(pfad)) spOffen.delete(pfad); else spOffen.add(pfad);
+            spZeichneErgebnis();
+        }
+
+        function spWaehle(idx, an) {
+            const eintrag = spEintraege[idx];
+            if (!eintrag) return;
+            if (an) spAuswahl.set(eintrag.pfad, { bytes: eintrag.bytes, stufe: eintrag.stufe, name: eintrag.name });
+            else spAuswahl.delete(eintrag.pfad);
+            spZeichneLeiste();
+        }
+
+        function spAuswahlLeeren() {
+            spAuswahl.clear();
+            spZeichneErgebnis();
+        }
+
+        function spZeichneLeiste() {
+            const leiste = document.getElementById('sp-leiste');
+            const badge = document.getElementById('tab-badge-speicher');
+            if (!spAuswahl.size) {
+                leiste.classList.add('hidden');
+                badge.classList.add('hidden');
+                return;
+            }
+            let bytes = 0, eigene = 0;
+            spAuswahl.forEach(v => { bytes += v.bytes; if (v.stufe !== 'gefahrlos') eigene++; });
+            leiste.classList.remove('hidden');
+            badge.innerText = spAuswahl.size;
+            badge.classList.remove('hidden');
+            document.getElementById('sp-leiste-summe').innerText =
+                `${formatBytes(bytes)} werden frei · ${spAuswahl.size === 1 ? '1 Eintrag' : spAuswahl.size + ' Einträge'} ausgewählt`;
+            document.getElementById('sp-leiste-info').innerText = eigene
+                ? `${eigene} davon sind eigene Dateien – bitte vorher im Finder ansehen.`
+                : 'Alle ausgewählten Einträge sind bekannte Zwischenspeicher.';
+        }
+
+        async function spVorschau() {
+            if (!spAuswahl.size) return;
+            const modus = document.getElementById('sp-modus').value;
+            showLoading('Vorschau', 'Die Auswahl wird gemessen …');
+            try {
+                const res = await fetch('/api/speicher/vorschau', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pfade: [...spAuswahl.keys()], modus })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                spVorschauDaten = data;
+
+                document.getElementById('sp-vorschau-titel').innerText =
+                    modus === 'papierkorb' ? 'In den Papierkorb legen' : 'Endgültig löschen';
+                document.getElementById('sp-vorschau-unter').innerText = data.papierkorb_hinweis;
+                document.getElementById('sp-vorschau-inhalt').innerHTML = data.eintraege.map(x => `
+                    <div class="flex items-start gap-2 p-3 rounded-xl border border-slate-200">
+                        <span>${x.ist_ordner ? '📁' : '📄'}</span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="text-sm font-semibold text-slate-800">${escHtml(x.name)}</span>${spChip(x.stufe)}
+                            </div>
+                            <div class="text-[11px] text-slate-500 font-mono truncate">${escHtml(x.ordner)}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">${escHtml(x.hinweis)}</div>
+                        </div>
+                        <div class="text-right whitespace-nowrap">
+                            <div class="text-xs font-mono font-bold text-slate-700">${formatBytes(x.bytes)}</div>
+                            <div class="text-[11px] text-slate-400">${x.dateien === 1 ? '1 Datei' : x.dateien + ' Dateien'} → ${escHtml(x.ziel)}</div>
+                        </div>
+                    </div>`).join('') + (data.enthalten.length ? `
+                    <div class="text-[11px] text-slate-500 p-2">${data.enthalten.length} ausgewählte Einträge liegen in einem anderen ausgewählten Ordner und werden nur einmal gezählt.</div>` : '');
+
+                document.getElementById('sp-vorschau-summe').innerText =
+                    `${data.gesamt_lesbar} · ${data.gesamt_dateien === 1 ? '1 Datei' : data.gesamt_dateien + ' Dateien'}`;
+
+                const wrap = document.getElementById('sp-vorschau-bestaetigung-wrap');
+                const box = document.getElementById('sp-vorschau-bestaetigung');
+                box.checked = false;
+                if (data.braucht_bestaetigung) {
+                    document.getElementById('sp-vorschau-bestaetigung-text').innerText =
+                        `Ich habe verstanden: ${data.gesamt_dateien === 1 ? '1 Datei' : data.gesamt_dateien + ' Dateien'} mit ${data.gesamt_lesbar} werden endgültig gelöscht und sind nicht wiederherstellbar.`;
+                    wrap.classList.remove('hidden');
+                } else {
+                    wrap.classList.add('hidden');
+                }
+                spPruefeBestaetigung();
+                document.getElementById('sp-vorschau-modal').classList.remove('hidden');
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function spPruefeBestaetigung() {
+            const knopf = document.getElementById('sp-vorschau-knopf');
+            const noetig = spVorschauDaten && spVorschauDaten.braucht_bestaetigung;
+            const bestaetigt = document.getElementById('sp-vorschau-bestaetigung').checked;
+            knopf.disabled = !!(noetig && !bestaetigt);
+            knopf.classList.toggle('opacity-40', knopf.disabled);
+            knopf.classList.toggle('cursor-not-allowed', knopf.disabled);
+            knopf.innerText = spVorschauDaten && spVorschauDaten.modus === 'papierkorb'
+                ? 'In den Papierkorb legen' : 'Endgültig löschen';
+        }
+
+        function spSchliesseVorschau() {
+            document.getElementById('sp-vorschau-modal').classList.add('hidden');
+        }
+
+        async function spFreigeben() {
+            if (!spVorschauDaten) return;
+            const modus = spVorschauDaten.modus;
+            const bestaetigt = document.getElementById('sp-vorschau-bestaetigung').checked;
+            showLoading(modus === 'papierkorb' ? 'In den Papierkorb legen' : 'Endgültig löschen', 'Bitte warten …');
+            try {
+                const res = await fetch('/api/speicher/freigeben', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pfade: [...spAuswahl.keys()], modus, bestaetigt })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                spVorschauDaten.eintraege.forEach(x => spWeg.add(x.pfad));
+                spFreiBytes += data.bytes || 0;
+                spAuswahl.clear();
+                spSchliesseVorschau();
+                spZeichneErgebnis();
+                await ladeSpeicherBasis();
+
+                let text = `✓ ${data.lesbar} freigegeben (${data.erledigt === 1 ? '1 Eintrag' : data.erledigt + ' Einträge'}).\n\n${data.hinweis}`;
+                if (data.manifest) text += `\n\nIm Protokoll: ${data.manifest}`;
+                if (data.fehlgeschlagen && data.fehlgeschlagen.length) {
+                    text += `\n\nNicht möglich bei ${data.fehlgeschlagen.length === 1 ? 'einem Eintrag' : data.fehlgeschlagen.length + ' Einträgen'}:\n` +
+                        data.fehlgeschlagen.map(f => `• ${f.pfad} – ${f.grund}`).join('\n');
+                }
+                alert(text);
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            } finally {
+                hideLoading();
+            }
         }
 
         // Öffnet das Handbuch an einem Kapitel, z. B. zeigeHandbuch('11. Sicherung')

@@ -1,7 +1,7 @@
 {
   "slug": "dateien-aktionen",
   "github_repo": "pebe1965/Dateien_Aktionen",
-  "description": "Ordner katalogisieren, Dubletten finden, Dokumente, Fotos und Medien per Texterkennung und KI umbenennen, taggen und in ein festes Ordnungssystem aus Eingang, Projekten, Ablage und Archiv einsortieren – dazu Datensicherung auf Festplatte, NAS oder in die Cloud. Mit Vorschau vor jeder Änderung, Rückgängig und eingebautem Handbuch.",
+  "description": "Ordner katalogisieren, Dubletten finden, Dokumente, Fotos und Medien per Texterkennung und KI umbenennen, taggen und in ein festes Ordnungssystem aus Eingang, Projekten, Ablage und Archiv einsortieren – dazu Datensicherung auf Festplatte, NAS oder in die Cloud und ein Aufräumer, der zeigt, was den Speicherplatz belegt. Mit Vorschau vor jeder Änderung, Rückgängig und Handbuch.",
   "integrations": [
     {
       "module": "Katalog & Dubletten",
@@ -12,12 +12,8 @@
       "description": "Liest Scans mit Apples Texterkennung, wertet bei Fotos und Medien Aufnahmedatum, Ort und Bildinhalt aus und schlägt Namen mit Datum, Absender und Thema vor – im Schema oder lesbar mit Leerzeichen und Umlauten."
     },
     {
-      "module": "Ordnungssystem",
-      "description": "Legt Eingang, Projekte, Ablage und Archiv an; ein Assistent entwirft aus fünf Fragen passende Kategorien. Sortiert ohne Jahresordner, neue Kategorien entstehen nur nach Bestätigung in der Vorschau."
-    },
-    {
-      "module": "Projekte",
-      "description": "Laufende Vorhaben mit oder ohne Termin anlegen; die KI ordnet passende Dateien zu. Fertige Projekte wandern ins Archiv, in die Ablage oder in den Papierkorb."
+      "module": "Ordnungssystem & Projekte",
+      "description": "Legt Eingang, Projekte, Ablage und Archiv an; ein Assistent entwirft aus fünf Fragen passende Kategorien. Laufende Vorhaben bekommen einen eigenen Ordner, fertige wandern ins Archiv oder in die Ablage."
     },
     {
       "module": "Finder-Tags & Ordner",
@@ -26,6 +22,10 @@
     {
       "module": "Autopilot",
       "description": "Überwacht den Eingang, Downloads oder den Schreibtisch im Hintergrund und sortiert Neues ein, mit Mitteilungen und optionalem Autostart; ein Zähler zeigt, was im Eingang wartet."
+    },
+    {
+      "module": "Speicherplatz",
+      "description": "Zeigt, was die Platte füllt: größte Ordner und Dateien, versteckte Zwischenspeicher inbegriffen. Jeder Fund ist als gefahrlos, eigene Entscheidung oder nicht anfassen eingeordnet und geht nach einer Vorschau in den Papierkorb."
     },
     {
       "module": "Sicherung",

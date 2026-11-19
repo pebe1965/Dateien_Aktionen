@@ -34,7 +34,7 @@ Dieses Handbuch erklärt jede Funktion Schritt für Schritt. Über das Suchfeld 
 2. Das Programmsymbol in den Ordner „Programme“ ziehen. Bei einer Nachfrage „Ersetzen“ wählen.
 3. Das Programm aus „Programme“ starten. Beim ersten Start fragt der Mac eventuell nach, ob du das Programm öffnen willst.
 
-Updates installierst du meist direkt im Programm (siehe Kapitel 15). Mit der DMG-Datei gehst du genauso vor wie beim ersten Installieren. In beiden Fällen bleiben Einstellungen, Verlauf, Zugangscode und Sicherungsaufträge erhalten.
+Updates installierst du meist direkt im Programm (siehe Kapitel 16). Mit der DMG-Datei gehst du genauso vor wie beim ersten Installieren. In beiden Fällen bleiben Einstellungen, Verlauf, Zugangscode und Sicherungsaufträge erhalten.
 
 > Voraussetzung: Mac mit macOS 12 oder neuer und installiertes Python 3. Fehlt Python 3, meldet das Programm das beim Start.
 
@@ -51,7 +51,7 @@ Die Erkennung von Inhalten läuft über eine KI. Empfohlen ist der Weg über dei
 
 Oben rechts zeigt ein Feld den Zustand der KI. Steht dort „Zugangscode fehlt“, führt ein Klick darauf in die Einstellungen.
 
-Andere Möglichkeiten erklärt Kapitel 13.
+Andere Möglichkeiten erklärt Kapitel 14.
 
 ### Der erste Durchlauf
 
@@ -82,6 +82,7 @@ Oben steht immer die **Ordnerauswahl** mit den beiden Knöpfen „1. Katalogisie
 | Projekte | Laufende Vorhaben |
 | Steuer | Belege mit Steuer-Tag |
 | Sicherung | Sicherungsaufträge und Wiederherstellen |
+| Speicherplatz | Was die Platte füllt – und wie du Platz frei machst |
 | Handbuch | Dieses Handbuch |
 | Protokoll & Rückgängig | Frühere Aktionen zurücknehmen |
 | Einstellungen | KI, Ordnungssystem, Namensstil, Updates |
@@ -509,7 +510,72 @@ Sicherungen mit „Nextcloud direkt“ stellst du in der Nextcloud selbst wieder
 
 Unter „Letzte Läufe“ steht zu jedem Lauf Zeitpunkt, Auslöser, Dauer und Ergebnis. Konnte eine Datei nicht gesichert werden, steht sie dort mit dem Grund.
 
-## 12. Protokoll & Rückgängig
+## 12. Speicherplatz
+
+Der Reiter **Speicherplatz** zeigt, was auf deiner Festplatte den Platz belegt, und gibt ihn auf Wunsch frei. Er sucht auch in versteckten Ordnern, die der Finder nicht anzeigt – dort liegen oft die größten Brocken.
+
+> Hinweis: Das Programm räumt nur in deinem Benutzerordner auf. Alles außerhalb wird angezeigt, aber nie gelöscht.
+
+### Einen Ordner durchsuchen
+
+1. Öffne den Reiter **Speicherplatz**.
+2. Wähle oben einen der Knöpfe – **Benutzerordner**, **Downloads**, **Schreibtisch**, **Filme**, **Bilder**, **Dokumente** – oder klicke **Anderer Ordner …** und suche einen Ordner aus.
+3. Stelle bei **Größte Dateien ab** ein, ab welcher Größe eine einzelne Datei in der Liste erscheinen soll. Voreingestellt sind 100 MB.
+4. Klicke **Durchsuchen**.
+
+Während der Suche siehst du, wie viele Ordner und Dateien schon gezählt sind und wo das Programm gerade liest. Mit **Abbrechen** hörst du jederzeit auf – es wird dabei nichts verändert. Der ganze Benutzerordner kann ein paar Minuten dauern.
+
+Ganz oben steht, wie viel Platz die Festplatte insgesamt hat, wie viel belegt und wie viel frei ist.
+
+### Warum die Größe von der Anzeige im Finder abweicht
+
+Das Programm misst den **belegten Platz** – also das, was wirklich frei wird, wenn du etwas löschst. Der Finder rechnet bei Ordnern oft anders und zählt zum Beispiel Dateien doppelt, die mehrfach verknüpft sind. Darum kann der Finder für denselben Ordner eine viel größere Zahl nennen. Unter dem Ergebnis steht immer, wie gemessen wurde.
+
+### Die beiden Ansichten
+
+- **Ordner:** Ein Baum, nach Größe sortiert. Ein Klick auf das Dreieck klappt einen Ordner auf und zeigt seine größten Unterordner und Dateien. Versteckte Ordner sind mit **versteckt** gekennzeichnet. Programme und Mediatheken zählen als ein Eintrag, so wie sie im Finder erscheinen.
+- **Größte Dateien:** Eine einfache Liste aller Dateien ab der eingestellten Größe, mit Pfad, Größe, Änderungsdatum und Art.
+
+Mit **Im Finder** an jedem Eintrag schaust du hinein, bevor du etwas löschst.
+
+### Die drei Stufen
+
+Jeder Fund bekommt eine Stufe, damit du nicht raten musst:
+
+| Stufe | Bedeutung |
+| --- | --- |
+| Gefahrlos | Bekannte Zwischenspeicher, die sich von selbst neu aufbauen – etwa `node_modules`, `.next`, `.turbo`, `__pycache__`, `DerivedData` oder die Ordner unter „Library/Caches“ |
+| Ihre Entscheidung | Deine eigenen Dateien: Videos, Fotos, Archive, Downloads, alte Installationsdateien |
+| Nicht anfassen | Systemordner, Programmdaten, Fotomediatheken und alles außerhalb des Benutzerordners. Wird angezeigt, aber nicht zum Löschen angeboten |
+
+Ein Ordner gilt nur dann als gefahrlos, wenn **keine eigenen Dateien** darin liegen. Heißt ein Ordner „Cache“, enthält aber deine Videos, steht er als **Ihre Entscheidung** in der Liste – mit dem Hinweis, was darin gefunden wurde. Bei „Nicht anfassen“ steht dabei, wo du stattdessen aufräumst, zum Beispiel iOS-Simulatoren in Xcode.
+
+### Platz frei machen
+
+1. Setze bei den Einträgen, die weg sollen, einen Haken. Unten erscheint eine Leiste mit der Summe „X werden frei“.
+2. Wähle dort **In den Papierkorb** (empfohlen) oder **Endgültig löschen**.
+3. Klicke **Vorschau anzeigen**. Du siehst, was gelöscht wird, wie viel das ist und wohin es geht – noch passiert nichts.
+4. Klicke **In den Papierkorb legen** beziehungsweise **Endgültig löschen**.
+
+> Achtung: Der Platz wird erst frei, wenn der Papierkorb geleert ist. Bis dahin kannst du alles zurückholen.
+
+Beim endgültigen Löschen eigener Dateien musst du zusätzlich bestätigen, dass du verstanden hast, wie viele Dateien und wie viel Platz es betrifft. Bei bekannten Zwischenspeichern entfällt diese zweite Frage.
+
+### Alles zurückholen
+
+Jede Aktion steht im Reiter **Protokoll & Rückgängig**. Was du in den Papierkorb gelegt hast, holt **Rückgängig machen** an seinen alten Platz zurück. Endgültig Gelöschtes steht ebenfalls im Protokoll, aber mit dem Vermerk **nicht wiederherstellbar** – zurück geht es dann nicht mehr.
+
+### Den Papierkorb leeren
+
+Oben im Reiter steht, wie viel Platz der Papierkorb belegt. **Papierkorb leeren** gibt diesen Platz frei. Danach ist nichts davon mehr zurückzuholen, deshalb fragt das Programm vorher nach.
+
+### Was der Reiter nicht tut
+
+- Er löscht nichts außerhalb deines Benutzerordners und fragt nie nach deinem Mac-Passwort.
+- Der Autopilot löscht nie von selbst etwas.
+- Doppelte Dateien sucht der Reiter **Duplikate-Manager**; dort findest du auch ähnliche Fotos.
+
+## 13. Protokoll & Rückgängig
 
 Jede Aktion, die Dateien umbenennt, verschiebt oder kopiert, wird festgehalten: Anwenden aus der Vorschau, Autopilot, Projekt abschließen, Steuer-Belege kopieren, Wiederherstellen aus einer Sicherung.
 
@@ -527,7 +593,7 @@ Verschobene Dateien kommen an ihren alten Ort und erhalten ihren alten Namen. Ko
 - **Gesetzte Finder-Tags** bleiben an der Datei.
 - **Dateien, die du danach selbst verschoben hast:** Das Programm findet sie nicht mehr und überspringt sie.
 
-## 13. Einstellungen
+## 14. Einstellungen
 
 ### KI-Provider
 
@@ -558,9 +624,9 @@ Basisordner, Grundstruktur, Einrichtungsassistent und Sortiermodus. Siehe Kapite
 
 ### Software-Aktualisierung
 
-Zeigt die installierte Version und sucht auf Wunsch nach einer neueren. Siehe Kapitel 15.
+Zeigt die installierte Version und sucht auf Wunsch nach einer neueren. Siehe Kapitel 16.
 
-## 14. Datenschutz und Sicherheit
+## 15. Datenschutz und Sicherheit
 
 ### Was den Mac verlässt
 
@@ -583,7 +649,7 @@ Einstellungen, Zugangscode, Verlauf und Sicherungsaufträge liegen in deinem Ben
 - Vorhandene Dateien überschreiben.
 - Endgültig löschen. Gelöschtes liegt im Papierkorb. Einzige Ausnahme ist das Aufräumen alter Stände im eigenen Sicherungsordner.
 
-## 15. Updates
+## 16. Updates
 
 Das Programm prüft beim Start, ob eine neuere Version vorliegt. Gibt es eine, erscheint oben „Update verfügbar!“.
 
@@ -609,7 +675,7 @@ Der Knopf „Jetzt direkt updaten“ erscheint nur, wenn das Programm aus dem Or
 
 In den Einstellungen kannst du mit „Auf GitHub nach Updates suchen“ jederzeit selbst nachsehen.
 
-## 16. Problemlösungen
+## 17. Problemlösungen
 
 ### Der Katalog oder die Vorschau findet keine Dateien
 
@@ -621,6 +687,17 @@ Das Programm zeigt in diesem Fall einen gelben Hinweis mit der Zahl der nicht du
 2. Erneut „1. Katalogisieren“ klicken.
 
 Der Haken wird gemerkt und gilt auch beim nächsten Start. Versteckte Dateien und Systemdateien wie `.DS_Store` zählen nie mit. Programme (`.app`) erscheinen im Katalog, in der KI-Vorschau aber nicht – sie werden nie umbenannt.
+
+### Der Speicherplatz zeigt weniger an, als die Festplatte belegt
+
+Dann darf das Programm Teile deines Benutzerordners nicht lesen. Im Reiter steht in diesem Fall ein gelber Hinweis, und am Ende der Ergebnisse stehen die übersprungenen Ordner.
+
+1. Öffne die Systemeinstellungen und dort „Datenschutz & Sicherheit“.
+2. Wähle **Festplattenvollzugriff**.
+3. Schalte **Dateien_Aktionen** ein.
+4. Starte das Programm neu und suche erneut.
+
+Übersprungen werden außerdem Ordner, die auf einem anderen Laufwerk liegen – etwa eine eingebundene externe Platte. Sie zählen nicht mit; durchsuche sie bei Bedarf einzeln.
 
 ### Die KI liefert keine Vorschläge
 
@@ -668,7 +745,7 @@ In allen Fällen bleibt die bisherige Version unverändert und funktioniert weit
 
 Das Programm vollständig beenden und neu starten.
 
-## 17. Begriffe
+## 18. Begriffe
 
 | Begriff | Erklärung |
 | --- | --- |
@@ -681,12 +758,15 @@ Das Programm vollständig beenden und neu starten.
 | Finder-Tag | Schlagwort an einer Datei, im Finder sichtbar und durchsuchbar |
 | Hintergrunddienst | Läuft ab der Anmeldung am Mac ohne geöffnetes Fenster |
 | NAS | Netzwerkspeicher, ein Laufwerk im eigenen Netz |
+| Belegter Platz | Was eine Datei auf der Festplatte wirklich belegt – und beim Löschen frei wird |
 | Spiegel | Sicherungsart, die die Dateien einzeln in gleicher Struktur ablegt |
+| Versteckter Ordner | Ordner, dessen Name mit einem Punkt beginnt; der Finder zeigt ihn normalerweise nicht |
+| Zwischenspeicher | Daten, die ein Programm jederzeit neu anlegen kann; Löschen kostet höchstens Zeit |
 | Texterkennung | Liest Text aus Scans und Fotos, auch OCR genannt |
 | Vorschau | Zeigt geplante Änderungen, bevor etwas passiert |
 | Zugangscode | Code aus dem NotionaryAtlas-Marketplace, der die KI freischaltet |
 
-## 18. Für Fortgeschrittene: die Kommandozeile
+## 19. Für Fortgeschrittene: die Kommandozeile
 
 Alle Kernfunktionen gibt es auch im Terminal. Die Befehle führst du im Programmordner aus.
 

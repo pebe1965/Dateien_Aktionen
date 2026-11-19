@@ -732,6 +732,11 @@ def rollback_manifest(manifest_path: Path) -> int:
     """
     Macht alle Operationen einer Manifest-Datei exakt rückgängig.
     Gibt die Anzahl der zurückgesetzten Dateien zurück.
+
+    Einträge aus dem Reiter „Speicherplatz“ tragen ein Feld „aktion“:
+    „papierkorb“ wird über den Finder zurückgeholt (``~/.Trash`` ist für die
+    App ohne „Festplattenvollzugriff“ gesperrt), „endgueltig“ lässt sich nicht
+    zurückholen und wird übersprungen.
     """
     if not manifest_path.exists():
         raise FileNotFoundError(f"Manifest nicht gefunden: {manifest_path}")
@@ -747,6 +752,17 @@ def rollback_manifest(manifest_path: Path) -> int:
         src = Path(entry["source"])
         dst = Path(entry["target"])
         is_copy = entry.get("copy_mode", False)
+        aktion = entry.get("aktion", "")
+
+        if aktion == "endgueltig":
+            # Endgültig Gelöschtes ist nicht wiederherstellbar — nur protokolliert.
+            continue
+
+        if aktion == "papierkorb":
+            import speicher
+            if dst and speicher.hole_aus_papierkorb(dst, src):
+                restored_count += 1
+            continue
 
         if is_copy:
             # Bei einer Kopie wird die Kopie am Zielort wieder gelöscht

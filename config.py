@@ -210,3 +210,124 @@ MACOS_PACKAGE_EXTENSIONS = (
     ".download", ".sparsebundle", ".sparseimage", ".qlgenerator", ".mdimporter",
     ".prefpane", ".saver", ".slide", ".scptd", ".pkg", ".mpkg", ".abbu", ".vmsd", ".vmwarevm"
 )
+
+
+# --- SPEICHERPLATZ (Reiter „Speicherplatz“) ---
+# Entstanden aus einer Aufräumaktion von Hand: Die Platte war fast voll und die
+# Ursachen (30 GB in einem versteckten .turbo/cache, 38 GB Videos in einem
+# Ordner namens „Cache“) ließen sich nur im Terminal finden. Die Listen hier
+# sind Daten, keine Logik — die Einordnung macht speicher.py.
+
+# Mindestgröße (MB) für die Ansicht „Größte Dateien“
+SPEICHER_MINDESTGROESSE_MB = int(os.getenv("SPEICHER_MINDESTGROESSE_MB", "100") or 100)
+
+# Wie der Baum angezeigt wird: Tiefe, Einträge je Ebene, Gesamtzahl der Knoten
+SPEICHER_BAUM_TIEFE = 6
+SPEICHER_BAUM_BREITE = 15
+# Wie viele Ordner je Ebene in den Baum dürfen. Je Ebene ein eigenes Budget:
+# Ohne das verbrauchten die tiefen Ordner (node_modules!) das Gesamtbudget,
+# und der Baum kam oben leer an.
+SPEICHER_BAUM_KNOTEN_JE_TIEFE = {0: 1, 1: 40, 2: 300, 3: 800, 4: 1200, 5: 1500, 6: 1500}
+# Ein Unterordner kommt nur in den Baum, wenn er mindestens so groß ist …
+SPEICHER_BAUM_MINDEST_BYTES = 10 * 1024 * 1024
+# … oder diesen Anteil des Startordners ausmacht
+SPEICHER_BAUM_MINDEST_ANTEIL = 0.01
+
+# Stufe „Gefahrlos“: Ordnernamen bekannter Zwischenspeicher, die sich von
+# selbst neu aufbauen. Der Hinweis steht so in der Oberfläche.
+# Achtung: Ein Treffer allein genügt nicht — enthält der Ordner eigene Fotos,
+# Videos, Musik oder Dokumente, wird er zu „Ihre Entscheidung“ (Fall CapCut).
+GEFAHRLOS_NAMEN = {
+    "node_modules": "Pakete eines Projekts. „npm install“ lädt sie wieder.",
+    ".next": "Build-Ausgabe von Next.js. Baut sich beim nächsten Build neu auf.",
+    ".nuxt": "Build-Ausgabe von Nuxt. Baut sich beim nächsten Build neu auf.",
+    ".turbo": "Zwischenspeicher von Turborepo. Baut sich neu auf.",
+    ".parcel-cache": "Zwischenspeicher von Parcel. Baut sich neu auf.",
+    ".vite": "Zwischenspeicher von Vite. Baut sich neu auf.",
+    ".svelte-kit": "Build-Ausgabe von SvelteKit. Baut sich neu auf.",
+    ".angular": "Zwischenspeicher von Angular. Baut sich neu auf.",
+    ".pio": "Zwischenspeicher von PlatformIO. Baut sich neu auf.",
+    "__pycache__": "Zwischendateien von Python. Entstehen bei Bedarf neu.",
+    ".pytest_cache": "Zwischenspeicher von pytest.",
+    ".mypy_cache": "Zwischenspeicher von mypy.",
+    ".ruff_cache": "Zwischenspeicher von Ruff.",
+    ".gradle": "Zwischenspeicher von Gradle. Lädt bei Bedarf neu.",
+    "deriveddata": "Build-Ordner von Xcode. Xcode legt ihn neu an.",
+    ".sass-cache": "Zwischenspeicher von Sass.",
+    "cache": "Heißt „Cache“ — meist ein Zwischenspeicher.",
+    "caches": "Heißt „Caches“ — meist ein Zwischenspeicher.",
+}
+
+# Stufe „Gefahrlos“ nach Lage: Es gilt die längste passende Regel, deshalb
+# zählt „~/Library/Caches“ stärker als die Auffangregel „~/Library“.
+GEFAHRLOS_PFADE = [
+    ("~/.npm", "Zwischenspeicher von npm. Lädt bei Bedarf neu."),
+    ("~/.cache", "Zwischenspeicher verschiedener Programme."),
+    ("~/.yarn/cache", "Zwischenspeicher von Yarn."),
+    ("~/.pnpm-store", "Zwischenspeicher von pnpm."),
+    ("~/Library/pnpm/store", "Zwischenspeicher von pnpm. Lädt bei Bedarf neu."),
+    ("~/.bun/install/cache", "Zwischenspeicher von Bun."),
+    ("~/.gradle", "Zwischenspeicher von Gradle."),
+    ("~/.cocoapods", "Zwischenspeicher von CocoaPods."),
+    ("~/Library/Caches", "Zwischenspeicher eines Programms. Wird neu angelegt."),
+    ("~/Library/Developer/Xcode/DerivedData", "Build-Ordner von Xcode. Xcode legt ihn neu an."),
+    ("~/Library/Developer/Xcode/iOS DeviceSupport", "Hilfsdateien für angeschlossene Geräte. Werden bei Bedarf neu geladen."),
+    ("~/Library/Logs", "Protokolle von Programmen."),
+    ("~/.Trash", "Der Papierkorb."),
+]
+
+# Stufe „Nicht anfassen“: wird angezeigt, aber ohne Knopf zum Löschen.
+# Der Hinweis sagt, wo man es stattdessen aufräumt.
+NICHT_ANFASSEN_PFADE = [
+    ("~/Library/Application Support", "Programmdaten. Hier liegen die Daten deiner Programme — aufräumen nur im Programm selbst."),
+    ("~/Library/Containers", "Daten von Programmen aus dem App Store."),
+    ("~/Library/Group Containers", "Gemeinsame Daten mehrerer Programme."),
+    ("~/Library/Mobile Documents", "iCloud Drive. Hier löschst du besser im Finder."),
+    ("~/Library/CloudStorage", "Cloud-Ordner (iCloud, Dropbox, OneDrive). Hier löschst du besser im Finder."),
+    ("~/Library/Keychains", "Schlüsselbund mit deinen Passwörtern."),
+    ("~/Library/Mail", "Deine Mails. Aufräumen in der Mail-App."),
+    ("~/Library/Messages", "Deine Nachrichten. Aufräumen in der Nachrichten-App."),
+    ("~/Library/Photos", "Daten der Fotos-App. Aufräumen in der Fotos-App."),
+    ("~/Library/Developer/CoreSimulator", "iOS-Simulatoren. Aufräumen in Xcode unter „Window → Devices and Simulators“."),
+    ("~/Library", "Programmdaten von macOS und deinen Programmen."),
+    ("~/Applications", "Programme. Zum Entfernen das Programm deinstallieren."),
+]
+
+# Ordner, die beim Messen übersprungen werden. Cloud-Ordner antworten bei jeder
+# Datei über das Netz — ein Scan des Benutzerordners blieb darin minutenlang
+# hängen. Freigeben lässt sich dort ohnehin nichts; der Papierkorb wird im
+# Reiter getrennt gemessen. Wer einen davon selbst als Startordner wählt,
+# bekommt ihn trotzdem gemessen.
+SPEICHER_NICHT_DURCHSUCHEN = [
+    ("~/Library/Mobile Documents", "iCloud Drive – wird über das Netz gelesen und deshalb nicht mitgemessen."),
+    ("~/Library/CloudStorage", "Cloud-Ordner (Dropbox, Google Drive, OneDrive) – wird nicht mitgemessen."),
+    ("~/.Trash", "Der Papierkorb – seine Größe steht oben im Reiter."),
+]
+
+# Pakete, die als Ganzes nicht zum Löschen angeboten werden
+NICHT_ANFASSEN_PAKETE = {
+    ".app": "Ein Programm. Zum Entfernen in den Papierkorb ziehen.",
+    ".photoslibrary": "Eine Fotomediathek. Aufräumen in der Fotos-App.",
+    ".aplibrary": "Eine Fotomediathek. Aufräumen in der Fotos-App.",
+    ".imovielibrary": "Eine iMovie-Mediathek. Aufräumen in iMovie.",
+    ".theater": "Ein iMovie-Film. Aufräumen in iMovie.",
+    ".fcpbundle": "Eine Final-Cut-Mediathek. Aufräumen in Final Cut Pro.",
+    ".logicx": "Ein Logic-Projekt. Aufräumen in Logic Pro.",
+    ".framework": "Programmbestandteil.",
+}
+
+# Woran „eigene Dateien“ erkannt werden: Fotos, Videos, Musik ab 2 MB und
+# Dokumente ab 100 KB. Endungen wie .md, .json oder .svg zählen nicht mit —
+# davon liegen tausende in jedem node_modules.
+SPEICHER_EIGENE_MEDIEN_ENDUNGEN = (
+    FILE_CATEGORIES["VIDEOS"] | FILE_CATEGORIES["BILDER"] | FILE_CATEGORIES["AUDIO"]
+) - {".svg", ".gif", ".bmp", ".ico"}
+SPEICHER_EIGENE_DOKUMENT_ENDUNGEN = {
+    ".pdf", ".pages", ".numbers", ".key", ".doc", ".docx",
+    ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp", ".rtf",
+}
+SPEICHER_MEDIEN_MINDEST_BYTES = 2 * 1024 * 1024
+SPEICHER_DOKUMENT_MINDEST_BYTES = 100 * 1024
+# Ab so viel eigenen Dateien gilt ein Zwischenspeicher als „Ihre Entscheidung“
+SPEICHER_EIGENE_SCHWELLE_BYTES = 20 * 1024 * 1024
+SPEICHER_EIGENE_SCHWELLE_ANTEIL = 0.10

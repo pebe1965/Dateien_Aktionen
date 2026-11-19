@@ -32,6 +32,7 @@ from organizer import (
     HISTORY_DIR, ANALYSIS_PROGRESS
 )
 import backup
+import speicher
 from watcher import (
     GLOBAL_WATCHER, load_autopilot_config, save_autopilot_config,
     install_launch_agent, uninstall_launch_agent, is_launch_agent_installed
@@ -84,54 +85,32 @@ def _aktiviere_ordnung(basis: Path, mit_startkategorien: bool) -> dict:
     return ergebnis
 
 
+def _speicher_vorschlaege() -> list:
+    """Startordner, die im Reiter „Speicherplatz“ als Knöpfe angeboten werden."""
+    heim = Path.home()
+    kandidaten = [
+        ("Benutzerordner", heim),
+        ("Downloads", heim / "Downloads"),
+        ("Schreibtisch", heim / "Desktop"),
+        ("Filme", heim / "Movies"),
+        ("Bilder", heim / "Pictures"),
+        ("Dokumente", heim / "Documents"),
+    ]
+    return [{"name": name, "pfad": str(pfad)} for name, pfad in kandidaten if pfad.is_dir()]
+
+
 def move_to_macos_trash(file_path: Path) -> bool:
-    """Verschiebt eine Datei sicher in den macOS Papierkorb (~/.Trash)."""
+    """Verschiebt eine Datei oder einen Ordner in den Papierkorb des Mac.
+
+    Die Umsetzung steht in ``speicher.in_papierkorb()`` — sie meldet auch, wo
+    im Papierkorb es gelandet ist, damit „Rückgängig“ es zurückholen kann.
+    """
     try:
-        if not file_path.exists():
-            return True
+        if not Path(file_path).exists():
+            return True  # schon weg: für den Aufrufer erledigt
     except Exception:
         pass
-
-    resolved = file_path.resolve()
-
-    # 1. Bevorzuge /usr/bin/trash (Apple-eigenes CLI-Tool, kein Finder-AppleScript-Popup nötig)
-    if Path("/usr/bin/trash").is_file():
-        try:
-            res = subprocess.run(
-                ["/usr/bin/trash", str(resolved)],
-                capture_output=True, text=True, check=False, timeout=20
-            )
-            if res.returncode == 0 and not resolved.exists():
-                return True
-        except Exception:
-            pass
-
-    # 2. Applescript Finder delete (nativer Papierkorb mit Zurücklegen-Option)
-    try:
-        escaped_path = str(resolved).replace('\\', '\\\\').replace('"', '\\"')
-        cmd = ["osascript", "-e", f'tell application "Finder" to delete (POSIX file "{escaped_path}")']
-        # Timeout auf 30 Sekunden: Wenn macOS nach Erlaubnis fragt, hat der Nutzer Zeit zu reagieren
-        res = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
-        if res.returncode == 0 and not resolved.exists():
-            return True
-    except Exception:
-        pass
-
-    # 3. Fallback: Direkt in ~/.Trash verschieben mit Zeitstempel bei Namensdopplung
-    try:
-        trash_dir = Path.home() / ".Trash"
-        if trash_dir.exists():
-            target = trash_dir / file_path.name
-            if target.exists():
-                stem = file_path.stem
-                suffix = file_path.suffix
-                ts = datetime.now().strftime("%H%M%S")
-                target = trash_dir / f"{stem}_{ts}{suffix}"
-            shutil.move(str(file_path), str(target))
-            return True
-    except Exception:
-        pass
-    return False
+    return speicher.in_papierkorb(file_path) is not None
 
 
 PORT = 8765
@@ -312,6 +291,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({k: v for k, v in backup.STATUS.items() if k != "abbrechen"}).encode("utf-8"))
             return
 
+        if url.path == "/api/speicher/basis":
+            # Zustand des Reiters, ohne zu scannen: Platte, Papierkorb, Vorschläge
+            try:
+                daten = {
+                    "platte": speicher.platte(),
+                    "papierkorb": speicher.papierkorb_info(),
+                    "vollzugriff": speicher.hat_vollzugriff(),
+                    "mindestgroesse_mb": config.SPEICHER_MINDESTGROESSE_MB,
+                    "vorschlaege": _speicher_vorschlaege(),
+                    "scan": speicher.status(mit_ergebnis=False),
+                }
+            except speicher.SpeicherFehler as exc:
+                self.send_error_response(str(exc))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(daten).encode("utf-8"))
+            return
+
+        if url.path == "/api/speicher/status":
+            query = parse_qs(url.query)
+            mit_ergebnis = query.get("ergebnis", ["1"])[0] != "0"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(speicher.status(mit_ergebnis=mit_ergebnis)).encode("utf-8"))
+            return
+
         if url.path == "/api/eingang":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -357,7 +365,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "filename": f.name,
                         "beschreibung": m_data.get("beschreibung", ""),
                         "date": m_data.get("created_at", "unbekannt")[:19].replace("T", " "),
-                        "total_actions": m_data.get("total_actions", 0)
+                        "total_actions": m_data.get("total_actions", 0),
+                        # Endgültig Gelöschtes (Reiter „Speicherplatz“) steht im
+                        # Protokoll, lässt sich aber nicht zurückholen.
+                        "rueckgaengig": m_data.get("rueckgaengig", True),
+                        "quelle": m_data.get("quelle", "")
                     })
                 except Exception:
                     pass
@@ -1289,6 +1301,74 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
+        if url.path == "/api/speicher/scan":
+            try:
+                antwort = speicher.starte_scan(
+                    params.get("path", ""),
+                    params.get("mindestgroesse_mb"),
+                )
+            except speicher.SpeicherFehler as exc:
+                self.send_error_response(str(exc))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
+            return
+
+        if url.path == "/api/speicher/abbrechen":
+            antwort = speicher.brich_ab()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
+            return
+
+        if url.path == "/api/speicher/vorschau":
+            try:
+                antwort = speicher.vorschau(
+                    params.get("pfade", []),
+                    params.get("modus", "papierkorb"),
+                )
+            except speicher.SpeicherFehler as exc:
+                self.send_error_response(str(exc))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
+            return
+
+        if url.path == "/api/speicher/freigeben":
+            try:
+                antwort = speicher.freigeben(
+                    params.get("pfade", []),
+                    params.get("modus", "papierkorb"),
+                    bool(params.get("bestaetigt", False)),
+                )
+            except speicher.SpeicherFehler as exc:
+                self.send_error_response(str(exc))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
+            return
+
+        if url.path == "/api/speicher/papierkorb_leeren":
+            try:
+                antwort = speicher.papierkorb_leeren()
+            except speicher.SpeicherFehler as exc:
+                self.send_error_response(str(exc))
+                return
+            antwort["papierkorb"] = speicher.papierkorb_info()
+            antwort["platte"] = speicher.platte()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
             return
 
         self.send_response(404)
