@@ -240,6 +240,70 @@ static NSString *findPythonExecutable(NSString *appDir) {
     return nil;
 }
 
+// --- Dialoge aus der Oberfläche (alert, confirm) ---
+// Ohne diese Methoden zeigt WKWebView gar nichts an: alert() bleibt stumm und
+// confirm() liefert sofort "false". Im App-Fenster passierte deshalb bei jedem
+// Knopf mit Rückfrage nichts — etwa bei "Papierkorb leeren".
+
+- (void)webView:(WKWebView *)webView
+        runJavaScriptAlertPanelWithMessage:(NSString *)message
+        initiatedByFrame:(WKFrameInfo *)frame
+        completionHandler:(void (^)(void))completionHandler {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Dateien_Aktionen";
+    alert.informativeText = message ?: @"";
+    [alert addButtonWithTitle:@"OK"];
+    if (self.window) {
+        [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse r) {
+            completionHandler();
+        }];
+    } else {
+        [alert runModal];
+        completionHandler();
+    }
+}
+
+- (void)webView:(WKWebView *)webView
+        runJavaScriptConfirmPanelWithMessage:(NSString *)message
+        initiatedByFrame:(WKFrameInfo *)frame
+        completionHandler:(void (^)(BOOL result))completionHandler {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Dateien_Aktionen";
+    alert.informativeText = message ?: @"";
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Abbrechen"];
+    if (self.window) {
+        [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse r) {
+            completionHandler(r == NSAlertFirstButtonReturn);
+        }];
+    } else {
+        completionHandler([alert runModal] == NSAlertFirstButtonReturn);
+    }
+}
+
+- (void)webView:(WKWebView *)webView
+        runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt
+        defaultText:(NSString *)defaultText
+        initiatedByFrame:(WKFrameInfo *)frame
+        completionHandler:(void (^)(NSString *result))completionHandler {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Dateien_Aktionen";
+    alert.informativeText = prompt ?: @"";
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Abbrechen"];
+    NSTextField *feld = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 320, 24)];
+    feld.stringValue = defaultText ?: @"";
+    alert.accessoryView = feld;
+    if (self.window) {
+        [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse r) {
+            completionHandler(r == NSAlertFirstButtonReturn ? feld.stringValue : nil);
+        }];
+    } else {
+        NSModalResponse r = [alert runModal];
+        completionHandler(r == NSAlertFirstButtonReturn ? feld.stringValue : nil);
+    }
+}
+
 - (void)setupMenus {
     NSMenu *mainMenu = [[NSMenu alloc] init];
     
