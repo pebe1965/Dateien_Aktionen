@@ -845,6 +845,18 @@
             <!-- Papierkorb -->
             <div id="sp-papierkorb" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-200"></div>
 
+            <!-- Installationsdateien -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <h5 class="font-bold text-slate-800 text-sm">📦 Installationsdateien, deren Programm schon installiert ist</h5>
+                        <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">Eine DMG- oder PKG-Datei brauchst du nur zum Installieren. Ist das Programm installiert, kann sie weg – das Programm bleibt. Durchsucht werden „Downloads“ und der Schreibtisch.</p>
+                    </div>
+                    <button id="sp-installer-knopf" onclick="spSucheInstaller()" class="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 whitespace-nowrap">Jetzt suchen</button>
+                </div>
+                <div id="sp-installer-liste" class="mt-3"></div>
+            </div>
+
             <!-- Ergebnis -->
             <div id="sp-ergebnis" class="hidden space-y-4"></div>
 
@@ -3634,6 +3646,7 @@
         function spAuswahlLeeren() {
             spAuswahl.clear();
             spZeichneErgebnis();
+            spZeichneInstaller();
         }
 
         function spZeichneLeiste() {
@@ -3654,6 +3667,71 @@
             document.getElementById('sp-leiste-info').innerText = eigene
                 ? `${eigene} davon sind eigene Dateien – bitte vorher im Finder ansehen.`
                 : 'Alle ausgewählten Einträge sind bekannte Zwischenspeicher.';
+        }
+
+        let spInstaller = null;     // Ergebnis der Suche nach Installationsdateien
+
+        async function spSucheInstaller() {
+            const knopf = document.getElementById('sp-installer-knopf');
+            const liste = document.getElementById('sp-installer-liste');
+            knopf.disabled = true;
+            liste.innerHTML = '<p class="text-xs text-slate-400">Vergleicht die Dateien mit den installierten Programmen …</p>';
+            try {
+                const res = await fetch('/api/speicher/installer', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                spInstaller = data;
+                spZeichneInstaller();
+            } catch (e) {
+                liste.innerHTML = `<p class="text-xs text-rose-600">Fehler: ${escHtml(e.message)}</p>`;
+            } finally {
+                knopf.disabled = false;
+            }
+        }
+
+        function spZeichneInstaller() {
+            const liste = document.getElementById('sp-installer-liste');
+            if (!spInstaller) return;
+            const offen = spInstaller.eintraege.filter(e => !spWeg.has(e.pfad));
+            const fuss = `<p class="text-[11px] text-slate-400 mt-2">Durchsucht: ${spInstaller.durchsucht.map(escHtml).join(', ')} · ${spInstaller.programme} installierte Programme verglichen${spInstaller.ohne_programm ? ` · ${spInstaller.ohne_programm} weitere Installationsdateien gehören zu keinem installierten Programm und bleiben unangetastet` : ''}.</p>`;
+
+            if (!offen.length) {
+                liste.innerHTML = `<p class="text-xs text-slate-500">Keine Installationsdatei gefunden, deren Programm schon installiert ist.</p>${fuss}`;
+                return;
+            }
+            const summe = offen.filter(e => e.empfehlung === 'weg').reduce((s, e) => s + e.bytes, 0);
+            liste.innerHTML = `
+                <div class="text-xs text-slate-600 mb-2"><b>${formatBytes(summe)}</b> in ${offen.length === 1 ? '1 Datei' : offen.length + ' Dateien'} – ankreuzen und unten freigeben.</div>
+                ${offen.map((e, i) => `
+                    <div class="flex items-start gap-2 py-2 px-2 rounded-lg hover:bg-slate-50 border-b border-slate-100">
+                        <input type="checkbox" class="mt-1" ${spAuswahl.has(e.pfad) ? 'checked' : ''} onchange="spWaehleInstaller(${i}, this.checked)">
+                        <span>📦</span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="text-sm font-medium text-slate-800 truncate">${escHtml(e.name)}</span>
+                                ${e.empfehlung === 'pruefen'
+                                    ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Bitte prüfen</span>'
+                                    : `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">${escHtml(e.programm)} ist installiert</span>`}
+                                <span class="text-[10px] text-slate-400">${e.geaendert ? 'geladen ' + escHtml(e.geaendert) : ''}</span>
+                            </div>
+                            ${e.erklaerung ? `<div class="text-[11px] text-slate-500 mt-0.5">${escHtml(e.erklaerung)}</div>` : ''}
+                            <div class="text-[11px] text-slate-400 font-mono truncate" title="${escHtml(e.ordner)}">${escHtml(e.ordner)}</div>
+                        </div>
+                        <span class="text-xs font-mono text-slate-600 w-20 text-right mt-1">${formatBytes(e.bytes)}</span>
+                        <button onclick="revealInFinder('${encodeURIComponent(e.pfad)}')" class="text-[11px] text-blue-600 hover:underline whitespace-nowrap mt-1">Im Finder</button>
+                    </div>`).join('')}
+                ${fuss}`;
+        }
+
+        function spWaehleInstaller(nummer, an) {
+            const offen = spInstaller.eintraege.filter(e => !spWeg.has(e.pfad));
+            const eintrag = offen[nummer];
+            if (!eintrag) return;
+            if (an) spAuswahl.set(eintrag.pfad, { bytes: eintrag.bytes, stufe: eintrag.stufe, name: eintrag.name });
+            else spAuswahl.delete(eintrag.pfad);
+            spZeichneLeiste();
         }
 
         async function spVorschau() {
@@ -3744,6 +3822,7 @@
                 spAuswahl.clear();
                 spSchliesseVorschau();
                 spZeichneErgebnis();
+                spZeichneInstaller();
                 await ladeSpeicherBasis();
 
                 let text = `✓ ${data.lesbar} freigegeben (${data.erledigt === 1 ? '1 Eintrag' : data.erledigt + ' Einträge'}).\n\n${data.hinweis}`;

@@ -550,6 +550,19 @@ Jeder Fund bekommt eine Stufe, damit du nicht raten musst:
 
 Ein Ordner gilt nur dann als gefahrlos, wenn **keine eigenen Dateien** darin liegen. Heißt ein Ordner „Cache“, enthält aber deine Videos, steht er als **Ihre Entscheidung** in der Liste – mit dem Hinweis, was darin gefunden wurde. Bei „Nicht anfassen“ steht dabei, wo du stattdessen aufräumst, zum Beispiel iOS-Simulatoren in Xcode.
 
+### Installationsdateien, die nicht mehr gebraucht werden
+
+Eine DMG- oder PKG-Datei brauchst du nur zum Installieren. Ist das Programm erst einmal installiert, liegt die Datei oft jahrelang in „Downloads“ und belegt mehrere hundert Megabyte.
+
+1. Klicke in der Karte **Installationsdateien, deren Programm schon installiert ist** auf **Jetzt suchen**.
+2. Das Programm durchsucht „Downloads“ und den Schreibtisch und vergleicht jede gefundene Datei mit deinen installierten Programmen.
+3. Gefunden wird nur, was eindeutig zu einem installierten Programm gehört. Zu jedem Fund steht, welches Programm es ist und welche Version installiert ist.
+4. Hake an, was weg soll, und gib es unten wie gewohnt frei.
+
+> Hinweis: Enthält die Datei eine **neuere** Version als das installierte Programm, steht „Bitte prüfen“ daneben – vielleicht hast du das Update noch nicht eingespielt.
+
+Installationsdateien von Programmen, die du gar nicht installiert hast, bleiben unangetastet; am Fuß der Liste steht, wie viele das waren. Das Programm selbst wird nie angerührt, nur die Installationsdatei.
+
 ### Platz frei machen
 
 1. Setze bei den Einträgen, die weg sollen, einen Haken. Unten erscheint eine Leiste mit der Summe „X werden frei“.

@@ -1357,6 +1357,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(antwort).encode("utf-8"))
             return
 
+        if url.path == "/api/speicher/installer":
+            try:
+                antwort = speicher.finde_installationsdateien(params.get("ordner") or None)
+            except speicher.SpeicherFehler as exc:
+                self.send_error_response(str(exc))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(antwort).encode("utf-8"))
+            return
+
         if url.path == "/api/speicher/papierkorb_leeren":
             try:
                 antwort = speicher.papierkorb_leeren()

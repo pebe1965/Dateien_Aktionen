@@ -25,7 +25,7 @@
     },
     {
       "module": "Speicherplatz",
-      "description": "Zeigt, was die Platte füllt: größte Ordner und Dateien, versteckte Zwischenspeicher inbegriffen. Jeder Fund ist als gefahrlos, eigene Entscheidung oder nicht anfassen eingeordnet und geht nach einer Vorschau in den Papierkorb."
+      "description": "Zeigt, was die Platte füllt: größte Ordner und Dateien, versteckte Zwischenspeicher inbegriffen, dazu Installationsdateien längst installierter Programme. Jeder Fund ist eingeordnet und geht nach einer Vorschau in den Papierkorb."
     },
     {
       "module": "Sicherung",

@@ -68,6 +68,7 @@ Der Reiter „Speicherplatz“ beantwortet die Frage, warum die Platte voll ist 
 * **Messen:** `os.scandir` rekursiv mit `st_blocks * 512` (belegter Platz, deckt sich mit `du -sk`), Hardlinks nur einmal, keine Symlinks, keine Volume-Grenze. Pakete (`.app`, `.photoslibrary` …) zählen als eine Einheit. Der Scan läuft im Hintergrund, meldet Fortschritt und lässt sich abbrechen; nicht lesbare Ordner werden am Ende genannt.
 * **Einordnen:** drei Stufen aus den Listen in `config.py` (`GEFAHRLOS_NAMEN`, `GEFAHRLOS_PFADE`, `NICHT_ANFASSEN_PFADE`), nach Name **und** Lage – die längste passende Regel gewinnt. Ein Zwischenspeicher mit eigenen Fotos, Videos oder Dokumenten darin wird zu „Ihre Entscheidung“.
 * **Freigeben:** Vorschau (Dry-Run), dann Papierkorb über den Finder – deshalb funktioniert „Zurücklegen“ und „Rückgängig“ aus dem Protokoll. Endgültiges Löschen eigener Dateien nur nach zweiter Bestätigung. Gelöscht wird ausschließlich im Benutzerordner, nie mit Administratorrechten.
+* **Installationsdateien:** `.dmg`/`.pkg` in Downloads und auf dem Schreibtisch werden gegen die installierten Programme in `/Applications` und `~/Applications` abgeglichen (Namenskern ohne Version und Füllwörter, Versionsvergleich über die `Info.plist`). Nur eindeutige Treffer werden angeboten; eine neuere Version in der Datei wird als „Bitte prüfen“ markiert.
 * **Ohne „Festplattenvollzugriff“** bleiben Teile unsichtbar; das Programm erkennt das und erklärt es.
 
 ---

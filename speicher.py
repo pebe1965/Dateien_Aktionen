@@ -1120,3 +1120,247 @@ def freigeben(pfade, modus: str = "papierkorb", bestaetigt: bool = False) -> dic
         "fehlgeschlagen": fehlgeschlagen,
         "hinweis": plan["papierkorb_hinweis"],
     }
+
+
+# --------------------------------------------------------------------------
+# Installationsdateien, deren Programm schon installiert ist
+# --------------------------------------------------------------------------
+# Eine `.dmg` oder `.pkg` wird nur zum Installieren gebraucht. Ist das Programm
+# installiert, liegt die Datei meist jahrelang in „Downloads“ und belegt dort
+# ein paar hundert Megabyte. Erkannt wird sie am Namen — auch dann, wenn dieses
+# Programm sie schon umbenannt hat (2026-10-17_Absender_Dokument_Name.dmg).
+
+INSTALLER_ENDUNGEN = {".dmg", ".pkg", ".mpkg"}
+
+# Wörter, die im Dateinamen stehen, aber nichts über das Programm sagen
+_INSTALLER_RAUSCHEN = {
+    "mac", "macos", "osx", "installer", "install", "setup", "universal",
+    "arm64", "x86", "x8664", "intel", "apple", "silicon", "final", "full",
+    "latest", "version", "release", "signed", "notarized", "de", "en",
+    "deutsch", "english", "download", "kopie", "copy",
+}
+
+
+def _wortteile(text: str) -> list:
+    """Zerlegt einen Namen in Wörter: „LosslessCut-mac-arm64“ → [lossless, cut, mac, arm64]."""
+    teile = []
+    wort = ""
+    for zeichen in text:
+        if zeichen.isalnum():
+            wort += zeichen
+        elif wort:
+            teile.append(wort.lower())
+            wort = ""
+    if wort:
+        teile.append(wort.lower())
+    return teile
+
+
+def _kern(text: str) -> str:
+    """Der Kern eines Namens: ohne Versionsnummern, Datum und Füllwörter."""
+    teile = []
+    for wort in _wortteile(text):
+        if wort.isdigit():
+            continue
+        if wort in _INSTALLER_RAUSCHEN:
+            continue
+        teile.append(wort)
+    return "".join(teile)
+
+
+def _version_aus_name(text: str):
+    """Die erste Versionsnummer im Namen, etwa „3.4.0“ aus „Vorssaint-3.4.0.dmg“."""
+    zeichen = list(text)
+    stellen = []
+    aktuell = ""
+    for z in zeichen:
+        if z.isdigit() or (z == "." and aktuell and not aktuell.endswith(".")):
+            aktuell += z
+        else:
+            if "." in aktuell:
+                stellen.append(aktuell.strip("."))
+            aktuell = ""
+    if "." in aktuell:
+        stellen.append(aktuell.strip("."))
+    for stelle in stellen:
+        if stelle.count(".") >= 1 and stelle[0].isdigit():
+            # Ein Datum wie 2026.10.17 ist keine Programmversion
+            erste = stelle.split(".")[0]
+            if len(erste) == 4 and erste.startswith("20"):
+                continue
+            return stelle
+    return None
+
+
+def _version_vergleich(eine: str, andere: str) -> int:
+    """-1, 0 oder 1 — wie zwei Versionsnummern zueinander stehen."""
+    def teile(v):
+        return [int(t) if t.isdigit() else 0 for t in str(v).split(".")]
+    a, b = teile(eine), teile(andere)
+    laenge = max(len(a), len(b))
+    a += [0] * (laenge - len(a))
+    b += [0] * (laenge - len(b))
+    return (a > b) - (a < b)
+
+
+def installierte_programme() -> list:
+    """Alle Programme in „Programme“ und im eigenen Programme-Ordner.
+
+    Eine Ebene tiefer wird mitgenommen, weil viele Hersteller einen eigenen
+    Ordner anlegen (etwa „Programme/Canon Utilities/…“).
+    """
+    import plistlib
+
+    gefunden = []
+    for ort in (Path("/Applications"), HOME / "Applications"):
+        if not ort.is_dir():
+            continue
+        try:
+            eintraege = list(os.scandir(ort))
+        except OSError:
+            continue
+        for eintrag in eintraege:
+            kandidaten = []
+            if eintrag.name.lower().endswith(".app"):
+                kandidaten.append(Path(eintrag.path))
+            elif eintrag.is_dir(follow_symlinks=False):
+                try:
+                    with os.scandir(eintrag.path) as tiefer:
+                        kandidaten.extend(
+                            Path(t.path) for t in tiefer if t.name.lower().endswith(".app")
+                        )
+                except OSError:
+                    continue
+            for programm in kandidaten:
+                version = ""
+                try:
+                    with open(programm / "Contents" / "Info.plist", "rb") as f:
+                        angaben = plistlib.load(f)
+                    version = str(angaben.get("CFBundleShortVersionString", "") or "")
+                except Exception:
+                    pass
+                gefunden.append({
+                    "name": programm.stem,
+                    "pfad": str(programm),
+                    "version": version,
+                    "kern": _kern(programm.stem),
+                })
+    return gefunden
+
+
+def _passendes_programm(dateiname: str, programme: list):
+    """Das Programm, zu dem eine Installationsdatei gehört — oder None.
+
+    Verglichen werden die Kerne beider Namen. Kurze Programmnamen müssen genau
+    passen, sonst hielte „Blip“ jede Datei mit „blip“ darin für seine eigene.
+    """
+    kern_datei = _kern(Path(dateiname).stem)
+    if len(kern_datei) < 3:
+        return None
+    treffer = None
+    for programm in programme:
+        kern = programm["kern"]
+        if not kern:
+            continue
+        if len(kern) >= 5:
+            passt = kern in kern_datei
+        else:
+            passt = kern == kern_datei
+        if passt and (treffer is None or len(kern) > len(treffer["kern"])):
+            treffer = programm  # der längste Treffer ist der genaueste
+    return treffer
+
+
+def finde_installationsdateien(ordner=None, tiefe: int = 4) -> dict:
+    """Sucht `.dmg`- und `.pkg`-Dateien, deren Programm schon installiert ist.
+
+    Ohne Angabe werden „Downloads“ und der Schreibtisch durchsucht.
+    """
+    orte = []
+    for eintrag in (ordner or [HOME / "Downloads", HOME / "Desktop"]):
+        pfad = Path(str(eintrag)).expanduser()
+        if pfad.is_dir():
+            orte.append(pfad)
+    if not orte:
+        raise SpeicherFehler("Kein Ordner zum Durchsuchen gefunden.")
+
+    programme = installierte_programme()
+    ausgelassen = [o for o, _h in _NICHT_DURCHSUCHEN]
+    eintraege = []
+    ohne_programm = 0
+
+    for ort in orte:
+        wurzel_tiefe = len(ort.parts)
+        for wurzel, unterordner, dateien in os.walk(ort, followlinks=False):
+            if len(Path(wurzel).parts) - wurzel_tiefe >= tiefe:
+                unterordner[:] = []
+            unterordner[:] = [
+                u for u in unterordner
+                if not os.path.islink(os.path.join(wurzel, u))
+                and Path(wurzel, u) not in ausgelassen
+            ]
+            for name in dateien:
+                if Path(name).suffix.lower() not in INSTALLER_ENDUNGEN:
+                    continue
+                datei = Path(wurzel, name)
+                try:
+                    st = datei.lstat()
+                except OSError:
+                    continue
+                if stat_modul.S_ISLNK(st.st_mode):
+                    continue
+
+                programm = _passendes_programm(name, programme)
+                if not programm:
+                    ohne_programm += 1
+                    continue
+
+                version_datei = _version_aus_name(name)
+                version_programm = programm["version"]
+                empfehlung, erklaerung = "weg", ""
+                if version_datei and version_programm:
+                    stand = _version_vergleich(version_datei, version_programm)
+                    if stand > 0:
+                        empfehlung = "pruefen"
+                        erklaerung = (
+                            f"Die Datei enthält Version {version_datei}, installiert ist "
+                            f"{version_programm} — vielleicht ist sie noch nicht eingespielt."
+                        )
+                    elif stand < 0:
+                        erklaerung = (
+                            f"Die Datei enthält die ältere Version {version_datei}, "
+                            f"installiert ist {version_programm}."
+                        )
+                    else:
+                        erklaerung = f"Die Datei enthält dieselbe Version {version_datei}."
+                elif version_programm:
+                    erklaerung = f"Installiert ist Version {version_programm}."
+
+                stufe, hinweis = stufe_fuer_datei(datei, st.st_size)
+                eintraege.append({
+                    "pfad": str(datei),
+                    "name": name,
+                    "ordner": str(datei.parent),
+                    "bytes": st.st_blocks * 512,
+                    "geaendert": _zeit(st.st_mtime),
+                    "art": "Installationsdatei",
+                    "programm": programm["name"],
+                    "programm_pfad": programm["pfad"],
+                    "programm_version": version_programm,
+                    "datei_version": version_datei or "",
+                    "empfehlung": empfehlung,
+                    "erklaerung": erklaerung,
+                    "stufe": stufe,
+                    "hinweis": hinweis,
+                    "versteckt": name.startswith("."),
+                    "paket": False,
+                })
+
+    eintraege.sort(key=lambda e: e["bytes"], reverse=True)
+    return {
+        "eintraege": eintraege,
+        "durchsucht": [str(o) for o in orte],
+        "programme": len(programme),
+        "ohne_programm": ohne_programm,
+        "gesamt_bytes": sum(e["bytes"] for e in eintraege if e["empfehlung"] == "weg"),
+    }
