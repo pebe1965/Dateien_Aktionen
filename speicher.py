@@ -301,6 +301,24 @@ def _papierkorb_merken(wert: dict) -> dict:
     return wert
 
 
+def papierkorb_leeren(bestaetigt):
+    if bestaetigt is not True:
+        raise SpeicherFehler("Bitte bestätige das endgültige Leeren des gesamten Mac-Papierkorbs.")
+    try:
+        res = subprocess.run(["/usr/bin/osascript", "-e", 'tell application "Finder" to empty trash'],
+                             capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired as exc:
+        raise SpeicherFehler("Der Finder hat noch nicht geantwortet. Prüfe den Papierkorb im Finder.") from exc
+    finally:
+        _PAPIERKORB_GEMERKT["wert"] = None
+    if res.returncode:
+        grund = res.stderr.strip() or f"Fehler {res.returncode}"
+        if "-1743" in grund:
+            grund = "Der Zugriff auf den Finder fehlt. Prüfe Systemeinstellungen → Datenschutz & Sicherheit → Automation."
+        raise SpeicherFehler(f"Leeren des Papierkorbs nicht bestätigt. {grund}")
+    return {"meldung": "Der Finder hat den Papierkorb geleert."}
+
+
 def in_papierkorb(pfad: Path):
     """macOS wählt einen freien Papierkorb-Pfad und liefert genau dieses Ziel zurück."""
     import ctypes
@@ -313,14 +331,23 @@ def in_papierkorb(pfad: Path):
         freigeben = ctypes.CDLL(None).free
         freigeben.argtypes = [ctypes.c_void_p]
         freigeben.restype = None
-    except (AttributeError, OSError):
-        return None
+    except (AttributeError, OSError) as exc:
+        raise SpeicherFehler("Die Papierkorb-Funktion von macOS ist nicht verfügbar.") from exc
     ziel = ctypes.c_void_p()
     try:
         status = verschiebe(os.fsencode(pfad), ctypes.byref(ziel), 0)
         if status == 0 and ziel.value:
             return os.fsdecode(ctypes.string_at(ziel))
-        return None
+        gruende = {
+            -54: "macOS verweigert den Zugriff. Prüfe die Zugriffsrechte im Finder.",
+            -5000: "Die Berechtigung fehlt. Bei einer verwalteten App kann die IT-Verwaltung helfen.",
+            -45: "Die Datei ist geschützt. Prüfe „Geschützt“ unter „Informationen“ im Finder.",
+            -46: "Das Volume ist schreibgeschützt.",
+            -47: "Die Datei wird verwendet. Beende das Programm und seine Hilfsprogramme.",
+            -43: "Der Eintrag ist am angegebenen Ort nicht mehr vorhanden.",
+        }
+        grund = gruende.get(status, "macOS hat keinen näheren Grund geliefert. Prüfe den Eintrag im Finder.")
+        raise SpeicherFehler(f"{grund} (macOS-Code {status})")
     finally:
         if ziel.value:
             freigeben(ziel)
@@ -923,9 +950,12 @@ def plan_in_papierkorb(eintraege, beschreibung, pruefe_eintrag=None):
             except (OSError, SpeicherFehler) as exc:
                 fehler.append({"pfad": str(ziel), "grund": str(exc)})
                 break
-        im_papierkorb = in_papierkorb(ziel)
-        if not im_papierkorb:
-            fehler.append({"pfad": str(ziel), "grund": "Der Papierkorb hat es nicht angenommen."})
+        try:
+            im_papierkorb = in_papierkorb(ziel)
+            if not im_papierkorb:
+                raise SpeicherFehler("macOS hat keinen Papierkorb-Pfad zurückgegeben.")
+        except (OSError, SpeicherFehler) as exc:
+            fehler.append({"pfad": str(ziel), "grund": str(exc)})
             if pruefe_eintrag:
                 break
             continue

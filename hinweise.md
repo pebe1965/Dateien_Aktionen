@@ -1,7 +1,7 @@
-## Neu in 1.11.0
+## Neu in 1.12.0
 
-- **Sicher aufräumen:** Im Reiter „Speicherplatz“ findest du bekannte Netzwerk- und Browser-Grafikzwischenspeicher. Die Vorschau zeigt dir Programm, Speicherort und Größe. Laufende Programme werden ausgelassen.
-- **App deinstallieren:** Wähle ein Programm und entscheide einzeln, ob auch Einstellungen, Protokolle oder lokale Programmdaten in den Papierkorb sollen. Erkennt die App einen Deinstallierer des Herstellers, zeigt sie dir seinen Speicherort.
-- **Rückgängig:** Die Speicherbereinigung verschiebt deine Auswahl in den Papierkorb. Über „Protokoll & Rückgängig“ kannst du sie zurückholen, solange sie noch dort liegt und der ursprüngliche Platz frei ist. Den Papierkorb leerst du im Finder.
+- **Speicherplatz auf einen Blick:** Ein Ring zeigt die Belegung deiner Festplatte. Über drei Kacheln erreichst du Systemreinigung, Deinstallation und Papierkorb.
+- **Papierkorb leeren:** Du kannst den gesamten Mac-Papierkorb direkt im Reiter „Speicherplatz“ leeren. Erst „Endgültig leeren“ bestätigt den Vorgang.
+- **Apps finden und entfernen:** Durchsuche die Programmkacheln nach Namen. Nach dem Entfernen siehst du das Ergebnis sofort. Bei einem Fehler zeigt die App den betroffenen Pfad und, soweit verfügbar, den Grund von macOS an.
 
 Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.

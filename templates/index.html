@@ -12,6 +12,28 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .wartung-panel { background:white; border:1px solid #dce4e9; border-radius:18px; padding:18px }
+        .wartung-werkzeuge { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,185px),1fr)); gap:12px }
+        .wartung-werkzeuge button { border:1px solid #c4dfd9; background:#edf7f4; border-radius:14px; padding:16px; text-align:left; display:grid; gap:4px; color:#134c43 }
+        .wartung-werkzeuge button:nth-child(2) { background:#eef2fc; border-color:#ced8ef; color:#334b87 }
+        .wartung-werkzeuge button:nth-child(3) { background:#fcf3e9; border-color:#ebd7be; color:#79461f }
+        .wartung-werkzeuge button:hover,.wartung-programme button:hover { box-shadow:0 2px 8px #253e5226 }
+        .wartung-symbol { font-size:1.75rem; line-height:1.15 }
+        .wartung-werkzeuge small { font-size:.75rem }
+        .wartung-platte { display:flex; align-items:center; gap:20px; padding:15px; border-radius:14px; background:#173b43; color:white }
+        .wartung-platte strong { font-size:1.5rem } .wartung-platte p { color:#c7dce0 }
+        .wartung-ring { flex:none; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(#68d5c4 var(--belegt),#45646b 0) }
+        .wartung-ring b { display:grid; place-items:center; background:#173b43; width:62px; height:62px; border-radius:50% }
+        #wartung-ausgabe:not(:empty) { padding-top:16px }
+        .wartung-suche { display:grid; gap:4px; font-weight:600 }
+        .wartung-suche input { padding:9px; border:1px solid #b5c4d1; border-radius:8px }
+        .wartung-programme { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,175px),1fr)); gap:7px; max-height:300px; overflow:auto; padding:3px }
+        .wartung-programme button { display:flex; align-items:center; gap:8px; padding:8px; text-align:left; border-radius:8px; border:1px solid #dce4e9; font-size:.8rem; overflow-wrap:anywhere }
+        .wartung-programme span { border-radius:7px; padding:4px 8px; color:#334b87; background:#eef2fc }
+        .wartung-meldung { background:#e8f5ef; padding:12px; border-radius:10px; white-space:pre-line; overflow-wrap:anywhere }
+        .wartung-meldung.problem { background:#fff1e9; color:#823519 }
+        .wartung-gefahr,.wartung-abbrechen { padding:7px 11px; margin-top:8px; border-radius:8px; border:1px solid #abb9bb; background:white }
+        .wartung-gefahr { background:#923e22; color:white; border-color:#923e22 }
         .truncate-text {
             overflow: hidden;
             text-overflow: ellipsis;
@@ -812,14 +834,13 @@
                 <div id="sp-vollzugriff" class="hidden mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
             </div>
 
-            <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                <h5 class="font-bold text-slate-800">Systemreinigung und Deinstallation</h5>
-                <p class="text-xs text-slate-600">Suche nach wiederaufbaubaren Netzwerk- und Browser-Grafikcaches oder wähle eine App samt zugehörigen Daten aus.</p>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="wartungStart('cache')" class="px-3 py-2 rounded-xl text-sm bg-blue-600 text-white">Sicher aufräumen</button>
-                    <button onclick="wartungStart('programme')" class="px-3 py-2 rounded-xl text-sm border">App deinstallieren</button>
+            <section class="wartung-panel" aria-label="Systemreinigung und Deinstallation">
+                <div class="wartung-werkzeuge">
+                    <button onclick="wartungStart('cache')"><span class="wartung-symbol" aria-hidden="true">✦</span><strong>Sicher aufräumen</strong><small>Zwischenspeicher prüfen</small></button>
+                    <button onclick="wartungStart('programme')"><span class="wartung-symbol" aria-hidden="true">▦</span><strong>App deinstallieren</strong><small>Programme und zugehörige Daten</small></button>
+                    <button onclick="wartungPapierkorb()"><span class="wartung-symbol" aria-hidden="true">🗑</span><strong>Papierkorb leeren</strong><small id="sp-papierkorb">Gesamter Mac-Papierkorb</small></button>
                 </div>
-                <div id="wartung-ausgabe" aria-live="polite" class="space-y-2 text-sm"></div>
+                <div id="wartung-ausgabe" aria-live="polite" tabindex="-1" class="space-y-2 text-sm"></div>
             </section>
 
             <!-- Ordner wählen und messen -->
@@ -852,8 +873,7 @@
                 </div>
             </div>
 
-            <!-- Papierkorb -->
-            <div id="sp-papierkorb" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-200"></div>
+
 
             <!-- Installationsdateien -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -3306,13 +3326,14 @@
 
         async function ladeSpeicherBasis() {
             try {
-                const res = await fetch('/api/speicher/basis');
+                const res = await fetch('/api/speicher/basis?kurz=1');
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
                 spBasis = data;
 
                 spZeichnePlatte(data.platte);
-                spZeichnePapierkorb(data.papierkorb);
+                fetch('/api/speicher/papierkorb').then(r => r.json())
+                    .then(spZeichnePapierkorb).catch(() => spZeichnePapierkorb(null));
 
                 const warnung = document.getElementById('sp-vollzugriff');
                 if (data.vollzugriff && data.vollzugriff.ok === false) {
@@ -3349,35 +3370,40 @@
 
         function spZeichnePlatte(pl) {
             if (!pl) return;
-            const prozent = pl.gesamt ? Math.min(100, Math.round(pl.belegt / pl.gesamt * 100)) : 0;
-            const farbe = prozent > 90 ? 'bg-rose-500' : (prozent > 75 ? 'bg-amber-500' : 'bg-emerald-500');
+            const prozent = pl.gesamt ? Math.max(0, Math.min(100, Math.round(pl.belegt / pl.gesamt * 100))) : 0;
             document.getElementById('sp-platte').innerHTML = `
-                <div class="flex items-end justify-between gap-4 flex-wrap mb-2">
-                    <div class="text-slate-800"><span class="text-2xl font-bold">${formatBytes(pl.frei)}</span> <span class="text-xs text-slate-500">frei</span></div>
-                    <div class="text-xs text-slate-500">${formatBytes(pl.belegt)} von ${formatBytes(pl.gesamt)} belegt (${prozent} %)</div>
-                </div>
-                <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden"><div class="h-3 ${farbe}" style="width:${prozent}%"></div></div>`;
+                <div class="wartung-platte"><div class="wartung-ring" style="--belegt:${escHtml(prozent)}%"><b>${escHtml(prozent)}%</b></div>
+                <div><strong>${escHtml(formatBytes(pl.frei))} frei</strong><p>${escHtml(formatBytes(pl.belegt))} von ${escHtml(formatBytes(pl.gesamt))} belegt</p></div></div>`;
         }
 
         function spZeichnePapierkorb(pk) {
-            const karte = document.getElementById('sp-papierkorb');
-            if (!pk || !pk.gelesen) { karte.classList.add('hidden'); return; }
-            karte.classList.remove('hidden');
-            const titel = pk.anzahl === 0
-                ? '🗑️ Der Papierkorb ist leer'
-                : `🗑️ Der Papierkorb belegt ${escHtml(formatBytes(pk.bytes))}${pk.ungefaehr ? ' (mindestens)' : ''}`;
-            const unter = pk.anzahl === 0
-                ? 'Hier steht künftig, wie viel Platz der Papierkorb belegt.'
-                : `${pk.anzahl === 1 ? '1 Objekt' : pk.anzahl + ' Objekte'}. Dieser Platz wird erst frei, wenn der Papierkorb geleert ist – danach ist nichts davon wiederherstellbar.`
-                  + (pk.ungefaehr ? ' Die Größe stammt vom Finder; versteckte Einträge sind darin nicht enthalten.' : '');
-            karte.innerHTML = `
-                <div class="flex items-center justify-between gap-4 flex-wrap">
-                    <div>
-                        <div class="font-bold text-slate-800 text-sm">${titel}</div>
-                        <div class="text-xs text-slate-500 mt-0.5">${unter}</div>
-                    </div>
+            document.getElementById('sp-papierkorb').textContent = pk && pk.gelesen
+                ? `Gemessen: ${pk.anzahl} Objekte · ${pk.ungefaehr ? 'ca. ' : ''}${formatBytes(pk.bytes)}`
+                : 'Größe nicht verfügbar';
+        }
 
-                </div>`;
+        function wartungMeldung(text, fehler = false) {
+            const feld = document.getElementById('wartung-ausgabe');
+            feld.innerHTML = `<div class="wartung-meldung ${fehler ? 'problem' : ''}" role="${fehler ? 'alert' : 'status'}">${escHtml(text)}</div>`;
+            feld.focus();
+        }
+
+        function wartungPapierkorb() {
+            const feld = document.getElementById('wartung-ausgabe');
+            feld.innerHTML = '<div class="wartung-meldung problem"><b>Gesamten Mac-Papierkorb endgültig leeren?</b><p>Das betrifft auch Dateien anderer Programme und eingebundener Laufwerke. Danach ist Rückgängig nicht mehr möglich.</p><button class="wartung-gefahr">Endgültig leeren</button> <button class="wartung-abbrechen">Abbrechen</button></div>';
+            const [leeren, abbrechen] = feld.querySelectorAll('button');
+            abbrechen.focus();
+            abbrechen.onclick = () => wartungMeldung('Leeren abgebrochen.');
+            leeren.onclick = async () => {
+                leeren.disabled = abbrechen.disabled = true;
+                showLoading('Papierkorb leeren', 'Warte auf den Finder …');
+                try {
+                    const data = await wartungApi({bestaetigt: true}, '/api/speicher/papierkorb_leeren');
+                    wartungMeldung(data.meldung);
+                } catch (e) { wartungMeldung(e.message, true); }
+                finally { hideLoading(); }
+                ladeSpeicherBasis();
+            };
         }
 
         function spSetzePfad(kodiert) {
@@ -3714,8 +3740,8 @@
             spZeichneLeiste();
         }
 
-        async function wartungApi(params) {
-            const res = await fetch('/api/speicher/wartung', {
+        async function wartungApi(params, url = '/api/speicher/wartung') {
+            const res = await fetch(url, {
                 method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(params)
             });
             const data = await res.json();
@@ -3735,9 +3761,19 @@
                         feld.textContent = 'Keine passenden Programme gefunden.';
                         return;
                     }
-                    feld.innerHTML = '<label>Programm <select class="border rounded p-1"><option value="">Bitte wählen …</option>' +
-                        plan.programme.map(p => `<option value="${escHtml(p.id)}">${escHtml(p.name)} (${escHtml(p.id)})</option>`).join('') + '</select></label>';
-                    feld.querySelector('select').onchange = e => { if (e.target.value) wartungStart('app', e.target.value); };
+                    feld.innerHTML = '<label class="wartung-suche">Programme suchen<input type="search" placeholder="Name oder App-Kennung"></label><div class="wartung-programme"></div>';
+                    const suche = feld.querySelector('input');
+                    const liste = feld.querySelector('.wartung-programme');
+                    function filtern() {
+                        const wort = suche.value.trim().toLowerCase();
+                        const treffer = plan.programme.filter(p => (p.name + ' ' + p.id).toLowerCase().includes(wort));
+                        liste.innerHTML = treffer.map(p => `<button type="button" data-app="${escHtml(p.id)}"><span aria-hidden="true">${escHtml(p.name.slice(0, 1))}</span><b>${escHtml(p.name)}</b></button>`).join('') ||
+                            '<p>Kein passendes Programm gefunden. Die Suche umfasst eindeutig zugeordnete Mac-Apps in den beiden Programme-Ordnern.</p>';
+                    }
+                    suche.oninput = filtern;
+                    liste.onclick = e => { const knopf = e.target.closest('button[data-app]'); if (knopf) wartungStart('app', knopf.dataset.app); };
+                    filtern();
+                    suche.focus();
                     return;
                 }
                 feld.innerHTML = plan.hinweise.map(h => `<p>${escHtml(h)}</p>`).join('');
@@ -3761,19 +3797,40 @@
                 feld.append(knopf);
                 knopf.onclick = async () => {
                     const ids = auswahl();
-                    if (!confirm(plan.eintraege.filter(z => ids.includes(z.id)).map(z => z.pfad).join('\n') + '\n\nIn den Papierkorb legen?')) return;
-                    knopf.disabled = true;
+                    const gewaehlt = plan.eintraege.filter(z => ids.includes(z.id));
+                    const groesse = gewaehlt.reduce((summe, z) => summe + z.bytes, 0);
+                    const frage = document.createElement('div');
+                    frage.className = 'wartung-meldung';
+                    frage.innerHTML = `<b>${escHtml(formatBytes(groesse))} in den Papierkorb legen?</b>
+                        <ul>${gewaehlt.map(z => `<li>${escHtml(z.pfad)}</li>`).join('')}</ul>
+                        <button class="wartung-gefahr">In den Papierkorb legen</button> <button class="wartung-abbrechen">Abbrechen</button>`;
+                    const vorschau = Array.from(feld.children);
+                    feld.replaceChildren(frage);
+                    const [weiter, zurueck] = frage.querySelectorAll('button');
+                    zurueck.focus();
+                    zurueck.onclick = () => { feld.replaceChildren(...vorschau); knopf.focus(); };
+                    weiter.onclick = () => { weiter.disabled = zurueck.disabled = true; verschieben(ids); };
+                };
+                async function verschieben(ids) {
                     showLoading('In den Papierkorb legen', 'Die Auswahl wird erneut geprüft …');
                     try {
                         const data = await wartungApi({modus, app, auswahl: ids});
-                        feld.textContent = `${data.erledigt} von ${ids.length} Einträgen im Papierkorb (${data.lesbar}). ` +
-                            data.fehlgeschlagen.map(f => f.pfad + ' – ' + f.grund).join(' ');
-                        if (data.erledigt) feld.append(' Zurückholen unter „Protokoll & Rückgängig“.');
-                        await ladeSpeicherBasis();
-                    } catch (e) { feld.textContent = e.message; }
+                        const fehler = data.fehlgeschlagen || [];
+                        const titel = fehler.length && !data.erledigt ? 'Verschieben fehlgeschlagen.' : `${data.erledigt} von ${ids.length} Einträgen im Papierkorb (${data.lesbar}).`;
+                        wartungMeldung([titel, ...fehler.map(f => f.pfad + ' – ' + f.grund),
+                            data.erledigt ? 'Zurückholen unter „Protokoll & Rückgängig“.' : ''].filter(Boolean).join('\n'), !!fehler.length);
+                        if (fehler.length) {
+                            const finder = document.createElement('button');
+                            finder.className = 'wartung-abbrechen';
+                            finder.textContent = 'Im Finder anzeigen';
+                            finder.onclick = () => revealInFinder(encodeURIComponent(fehler[0].pfad));
+                            feld.append(finder);
+                        }
+                    } catch (e) { wartungMeldung(e.message, true); }
                     finally { hideLoading(); }
-                };
-            } catch (e) { feld.textContent = e.message; }
+                    ladeSpeicherBasis();
+                }
+            } catch (e) { wartungMeldung(e.message, true); }
             finally { hideLoading(); }
         }
 

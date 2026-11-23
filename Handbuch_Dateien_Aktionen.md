@@ -547,7 +547,7 @@ Mit **Im Finder** an jedem Eintrag schaust du hinein, bevor du etwas löschst.
 Die Suche erkennt die Netzwerk-Zwischenspeicher einzelner Programme anhand ihrer Datenbankstruktur. Bei Chrome, Edge, Brave und Chromium prüft sie außerdem die Grafik-Zwischenspeicher in den Standardprofilen. Der Browser baut diese Grafikdaten bei Bedarf neu auf. Netzwerkdaten müssen gegebenenfalls erneut geladen werden.
 
 1. Beende die Programme, die du bereinigen möchtest.
-2. Klicke unter **Systemreinigung und Deinstallation** auf **Sicher aufräumen**.
+2. Klicke auf **Sicher aufräumen**.
 3. Prüfe zu jedem Fund Programm, Pfad, Größe und Erklärung.
 4. Setze einen Haken bei den gewünschten Einträgen.
 5. Klicke auf **Auswahl in den Papierkorb legen**.
@@ -559,11 +559,12 @@ Du kannst ein Programm aus „Programme“ oder deinem persönlichen Programme-O
 
 1. Beende das Programm.
 2. Klicke auf **App deinstallieren**.
-3. Wähle das Programm unter **Programm** aus.
-4. Prüfe die zusätzlichen Einträge. Einstellungen, private App-Ordner und Programmdaten können Konten, Dokumente oder Projekte enthalten.
-5. Hake nur die Daten an, die du zusammen mit dem Programm entfernen möchtest.
-6. Klicke auf **Auswahl in den Papierkorb legen**.
-7. Bestätige die angezeigten Pfade.
+3. Gib den Namen unter **Programme suchen** ein.
+4. Klicke auf die Kachel des gewünschten Programms.
+5. Prüfe die zusätzlichen Einträge. Einstellungen, private App-Ordner und Programmdaten können Konten, Dokumente oder Projekte enthalten.
+6. Hake nur die Daten an, die du zusammen mit dem Programm entfernen möchtest.
+7. Klicke auf **Auswahl in den Papierkorb legen**.
+8. Klicke nach Prüfung der Pfade auf **In den Papierkorb legen**.
 
 > Hinweis: Findet die App einen passenden Deinstallierer, zeigt sie seinen Ort an. Öffne ihn im Finder. Programme von Apple, Dateien_Aktionen und mehrfach gefundene Programme mit derselben Kennung stehen nicht zur Auswahl.
 
@@ -587,7 +588,14 @@ Installationsdateien von Programmen, die du gar nicht installiert hast, bleiben 
 3. Prüfe die angezeigten Pfade und Größen.
 4. Klicke auf **In den Papierkorb legen**.
 
-> Wichtig: Speicherplatz wird erst frei, wenn du den Papierkorb im Finder leerst.
+### Papierkorb leeren
+
+Die Kachel **Papierkorb leeren** öffnet die Bestätigung für den gesamten Mac-Papierkorb. Der Ring oben zeigt den belegten Anteil des Laufwerks.
+
+1. Klicke auf **Papierkorb leeren**.
+2. Klicke auf **Endgültig leeren**, wenn du den gesamten Inhalt entfernen möchtest.
+
+> Achtung: Das betrifft auch Dateien anderer Programme und eingebundener Laufwerke. Nach dem Leeren kannst du diese Dateien nicht zurückholen.
 
 ### Alles zurückholen
 
@@ -674,7 +682,7 @@ Einstellungen, Zugangscode, Verlauf und Sicherungsaufträge liegen in deinem Ben
 
 - Dateien ohne Bestätigung umbenennen oder verschieben, außer im eingeschalteten Autopiloten.
 - Vorhandene Dateien überschreiben.
-- Endgültig löschen. Gelöschtes liegt im Papierkorb. Einzige Ausnahme ist das Aufräumen alter Stände im eigenen Sicherungsordner.
+- Der Autopilot leert den Papierkorb nicht. Du kannst ihn im Reiter **Speicherplatz** selbst leeren.
 
 ## 16. Updates
 
@@ -714,6 +722,10 @@ Das Programm zeigt in diesem Fall einen gelben Hinweis mit der Zahl der nicht du
 2. Erneut „1. Katalogisieren“ klicken.
 
 Der Haken wird gemerkt und gilt auch beim nächsten Start. Versteckte Dateien und Systemdateien wie `.DS_Store` zählen nie mit. Programme (`.app`) erscheinen im Katalog, in der KI-Vorschau aber nicht – sie werden nie umbenannt.
+
+### Eine App lässt sich nicht entfernen
+
+Lies den Grund unter den drei Kacheln. Bei einer laufenden App beende sie und starte die Suche erneut. Verweigert macOS den Zugriff, kannst du den betroffenen Eintrag über **Im Finder anzeigen** prüfen. Bei einem verwalteten Firmen-Mac kann dir deine IT-Verwaltung helfen.
 
 ### Die Systemreinigung findet nichts
 

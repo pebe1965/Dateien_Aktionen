@@ -25,7 +25,7 @@
     },
     {
       "module": "Speicherplatz",
-      "description": "Findet große Dateien, alte Installationsdateien und geprüfte Netzwerk- und Grafik-Zwischenspeicher. Entfernt Programme mit einzeln wählbaren zugehörigen Daten über den Papierkorb."
+      "description": "Findet große Dateien, alte Installationsdateien und geprüfte Netzwerk- und Grafik-Zwischenspeicher. Zeigt die Speicherbelegung grafisch, entfernt Apps mit ausgewählten Daten und leert den Mac-Papierkorb nach Bestätigung."
     },
     {
       "module": "Sicherung",
@@ -33,7 +33,7 @@
     },
     {
       "module": "Sicher & erklärt",
-      "description": "Erst Vorschau, dann ausführen – jede Aktion lässt sich rückgängig machen, gelöscht wird nur in den Papierkorb. Ein Handbuch erklärt alles Schritt für Schritt, Updates installiert das Programm auf Knopfdruck selbst."
+      "description": "Verschobene Dateien lassen sich über den Verlauf zurückholen, solange sie noch im Papierkorb liegen. Ein Handbuch erklärt alles Schritt für Schritt, Updates installiert das Programm auf Knopfdruck selbst."
     }
   ],
   "requirements": [

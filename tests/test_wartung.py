@@ -115,6 +115,33 @@ class WartungTest(unittest.TestCase):
         self.assertEqual(plan["eintraege"], [])
         self.assertIn(str(helfer), plan["hinweise"][0])
 
+    def test_papierkorb_leeren_braucht_bestaetigung(self):
+        with patch.object(speicher.subprocess, "run") as finder:
+            for wert in (None, False, 1, "true"):
+                with self.assertRaises(speicher.SpeicherFehler):
+                    speicher.papierkorb_leeren(wert)
+            finder.assert_not_called()
+            finder.return_value.returncode = 0
+            self.assertIn("geleert", speicher.papierkorb_leeren(True)["meldung"])
+            finder.assert_called_once()
+
+    def test_finder_verweigert_leeren(self):
+        with patch.object(speicher.subprocess, "run") as finder:
+            finder.return_value.returncode = 1
+            finder.return_value.stderr = "Apple events not permitted (-1743)"
+            with self.assertRaisesRegex(speicher.SpeicherFehler, "Automation"):
+                speicher.papierkorb_leeren(True)
+
+    def test_deinstallation_meldet_grund_und_stoppt(self):
+        params = {"modus": "app", "app": self.kennung.lower()}
+        zeilen = wartung.bearbeite(params)["eintraege"]
+        params["auswahl"] = [z["id"] for z in zeilen]
+        with patch.object(speicher, "in_papierkorb", side_effect=speicher.SpeicherFehler("Zugriff verweigert (-54)")) as bewegen:
+            res = wartung.bearbeite(params)
+        bewegen.assert_called_once_with(self.app)
+        self.assertEqual(res["erledigt"], 0)
+        self.assertEqual(res["fehlgeschlagen"], [{"pfad": str(self.app), "grund": "Zugriff verweigert (-54)"}])
+
     def test_gesperrte_auswahl(self):
         with self.assertRaises(speicher.SpeicherFehler):
             wartung.bearbeite({"modus": "cache", "auswahl": [str(self.heim)]})

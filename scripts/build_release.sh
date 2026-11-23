@@ -57,6 +57,9 @@ if find "$APP_BUNDLE" -name ".env" | grep -q .; then
     exit 1
 fi
 
+# macOS erläutert damit die Freigabe für Finder-Aktionen wie „Papierkorb leeren“.
+plutil -replace NSAppleEventsUsageDescription -string "Dateien_Aktionen fragt den Finder nach dem Papierkorb und leert ihn auf deine Bestätigung." "$APP_BUNDLE/Contents/Info.plist"
+
 # Nativer App-Launcher (Cocoa + WebKit) kompilieren & Bundle ad-hoc signieren
 echo "🔨 Kompiliere nativen App-Launcher (Cocoa + WebKit Universal 2)..."
 clang -fobjc-arc -framework Cocoa -framework WebKit -mmacosx-version-min=12.0 -arch arm64 -arch x86_64 -O2 \

@@ -292,12 +292,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({k: v for k, v in backup.STATUS.items() if k != "abbrechen"}).encode("utf-8"))
             return
 
+        if url.path == "/api/speicher/papierkorb":
+            try:
+                daten = speicher.papierkorb_info()
+            except (OSError, speicher.SpeicherFehler) as exc:
+                self.send_error_response(str(exc))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(daten).encode("utf-8"))
+            return
+
         if url.path == "/api/speicher/basis":
             # Zustand des Reiters, ohne zu scannen: Platte, Papierkorb, Vorschläge
             try:
                 daten = {
                     "platte": speicher.platte(),
-                    "papierkorb": speicher.papierkorb_info(),
+                    "papierkorb": None if parse_qs(url.query).get("kurz") == ["1"] else speicher.papierkorb_info(),
                     "vollzugriff": speicher.hat_vollzugriff(),
                     "mindestgroesse_mb": config.SPEICHER_MINDESTGROESSE_MB,
                     "vorschlaege": _speicher_vorschlaege(),
@@ -1179,44 +1191,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 failed = []
                 freed_bytes = 0
 
-                # 1. Dateigrößen vorab erfassen
-                file_sizes = {}
-                for p_str in paths:
+                for p_str in dict.fromkeys(paths):
+                    p = Path(p_str)
                     try:
-                        p = Path(p_str).resolve()
-                        if p.exists():
-                            if p.is_file():
-                                file_sizes[p] = p.stat().st_size
-                            else:
-                                file_sizes[p] = sum(f.stat().st_size for f in p.glob("**/*") if f.is_file())
-                    except Exception:
-                        pass
-
-                # 2. Schneller Batch-Lauf über /usr/bin/trash (Apple-eigenes Tool, falls vorhanden)
-                existing_candidates = list(file_sizes.keys())
-                if existing_candidates and Path("/usr/bin/trash").is_file():
-                    try:
-                        cmd = ["/usr/bin/trash"] + [str(p) for p in existing_candidates]
-                        subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
-                    except Exception:
-                        pass
-
-                # 3. Status für alle Dateien prüfen bzw. per AppleScript / Fallback nachverschieben
-                for p, size in file_sizes.items():
-                    if not p.exists():
+                        if not p.is_absolute() or not os.path.lexists(p):
+                            raise speicher.SpeicherFehler("Am angegebenen Ort nicht gefunden.")
+                        size = speicher.messe(p)["bytes"]
+                        speicher.in_papierkorb(p)
                         trashed.append(str(p))
                         freed_bytes += size
-                    elif move_to_macos_trash(p):
-                        trashed.append(str(p))
-                        freed_bytes += size
-                    else:
-                        failed.append(str(p))
-
-                # Dateien, die schon vorab nicht mehr existierten, als trashed verbuchen
-                for p_str in paths:
-                    p = Path(p_str).resolve()
-                    if p not in file_sizes and not p.exists():
-                        trashed.append(str(p))
+                    except (OSError, speicher.SpeicherFehler) as exc:
+                        failed.append(f"{p} – {exc}")
 
                 # Protokoll im Benutzerordner speichern
                 log_name = None
@@ -1370,11 +1355,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(antwort).encode("utf-8"))
             return
 
-        if url.path == "/api/speicher/wartung":
+        if url.path in ("/api/speicher/wartung", "/api/speicher/papierkorb_leeren"):
             try:
                 if not isinstance(params, dict):
                     raise speicher.SpeicherFehler("Ungültige Auswahl.")
-                antwort = wartung.bearbeite(params)
+                if url.path.endswith("/papierkorb_leeren"):
+                    antwort = speicher.papierkorb_leeren(params.get("bestaetigt"))
+                else:
+                    antwort = wartung.bearbeite(params)
             except (speicher.SpeicherFehler, OSError, RuntimeError) as exc:
                 self.send_error_response(str(exc))
                 return
