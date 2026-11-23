@@ -481,7 +481,7 @@ Das Hochladen übernimmt das Programm des Dienstes. Eine Sicherung ist erst wirk
 
 ### Während einer Sicherung
 
-Oben im Reiter erscheint ein Balken mit dem Fortschritt. „Abbrechen“ beendet den Lauf; bereits Gesichertes bleibt. Es läuft immer nur eine Sicherung zur selben Zeit.
+Oben im Reiter zeigt der Balken den Fortschritt der aktuellen Phase. Beim Packen eines ZIP-Archivs zählt die App Dateien. Beim Hochladen in die Nextcloud zeigt sie die gesendete Datenmenge. Danach wartet sie auf die Bestätigung der Nextcloud. Das Ergebnis des abgeschlossenen Auftrags steht unter **Letzte Läufe**. „Abbrechen“ beendet den Lauf; bereits Gesichertes bleibt. Es läuft immer nur eine Sicherung zur selben Zeit.
 
 ### Wiederherstellen
 

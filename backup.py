@@ -671,9 +671,21 @@ class WebdavZiel:
 
     def lade_zip_hoch(self, lokal: Path, name: str) -> None:
         try:
+            groesse = lokal.stat().st_size
+            STATUS.update(phase="Lade ZIP in die Nextcloud", aktuell=0, gesamt=groesse, datei=name)
+
+            def datenbloecke(datei):
+                gesendet = 0
+                while block := datei.read(1024 * 1024):
+                    yield block
+                    # urllib fordert den nächsten Block erst nach dem Senden an.
+                    gesendet += len(block)
+                    STATUS["aktuell"] = gesendet
+                STATUS.update(phase="Warte auf Bestätigung der Nextcloud", aktuell=0, gesamt=0)
+
             with open(lokal, "rb") as f:
-                self._anfrage("PUT", self.wurzel_teile + [name], daten=f, kopf={
-                    "Content-Length": str(lokal.stat().st_size), "Content-Type": "application/zip"
+                self._anfrage("PUT", self.wurzel_teile + [name], daten=datenbloecke(f), kopf={
+                    "Content-Length": str(groesse), "Content-Type": "application/zip"
                 })
         finally:
             try:
@@ -832,14 +844,15 @@ def _sichere_zip(job: Dict[str, Any], ziel: Any) -> Dict[str, Any]:
                 STATUS["aktuell"] += 1
             archiv.writestr(TAGS_DATEI, json.dumps(tags, ensure_ascii=False))
         if job.get("pruefsumme"):
-            STATUS.update(phase="Prüfe ZIP-Archiv", datei="")
+            STATUS.update(phase="Prüfe ZIP-Archiv", datei=name, aktuell=0, gesamt=0)
             with zipfile.ZipFile(teil) as archiv:
                 defekt = archiv.testzip()
                 if defekt:
                     raise SicherungsFehler(f"Das Archiv ist beschädigt (ab Datei {defekt}).")
         groesse = teil.stat().st_size
-        STATUS.update(phase="Übertrage Archiv", datei=name)
+        STATUS.update(phase="Lege Archiv im Ziel ab", datei=name, aktuell=0, gesamt=0)
         ziel.lade_zip_hoch(teil, name)
+        STATUS.update(phase="Schließe Sicherung ab", aktuell=0, gesamt=0, datei=name)
     finally:
         if teil.exists():
             try:

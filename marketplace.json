@@ -29,7 +29,7 @@
     },
     {
       "module": "Sicherung",
-      "description": "Sichert Ordner auf externe Festplatte, NAS oder in die Cloud, auch direkt in die eigene Nextcloud – als Spiegel mit früheren Versionen oder als ZIP-Archiv, von Hand oder nach Zeitplan, mit Wiederherstellen."
+      "description": "Sichert Dateien auf Festplatte, NAS oder in die Nextcloud, von Hand oder nach Zeitplan. Als Spiegel mit früheren Versionen oder als ZIP-Archiv. Beim ZIP-Upload zeigt die App die gesendete Datenmenge an."
     },
     {
       "module": "Sicher & erklärt",

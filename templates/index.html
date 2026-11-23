@@ -700,7 +700,7 @@
                     </div>
                     <button onclick="brichSicherungAb()" class="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 text-xs font-semibold rounded-lg border border-rose-200 flex-shrink-0">Abbrechen</button>
                 </div>
-                <div class="w-full bg-emerald-100 rounded-full h-1.5 mt-3"><div id="si-laeuft-balken" class="bg-emerald-600 h-1.5 rounded-full" style="width: 0%"></div></div>
+                <progress id="si-laeuft-balken" aria-labelledby="si-laeuft-titel" class="w-full h-2 mt-3 accent-emerald-600"></progress>
             </div>
 
             <!-- Aufträge -->
@@ -4128,8 +4128,18 @@
             box.classList.toggle('hidden', !st.laeuft);
             if (!st.laeuft) return;
             document.getElementById('si-laeuft-titel').innerText = `${st.auftrag}: ${st.phase}…`;
-            document.getElementById('si-laeuft-detail').innerText = st.gesamt ? `${st.aktuell} von ${st.gesamt} · ${st.datei || ''}` : (st.datei || '');
-            document.getElementById('si-laeuft-balken').style.width = (st.gesamt ? Math.round(100 * st.aktuell / st.gesamt) : 5) + '%';
+            const upload = st.phase === 'Lade ZIP in die Nextcloud';
+            const menge = upload ? formatBytes(st.aktuell) + ' von ' + formatBytes(st.gesamt) + ' gesendet'
+                : st.aktuell + ' von ' + st.gesamt;
+            document.getElementById('si-laeuft-detail').innerText =
+                [st.gesamt ? menge : '', st.datei].filter(Boolean).join(' · ');
+            const balken = document.getElementById('si-laeuft-balken');
+            if (st.gesamt > 0) {
+                balken.max = st.gesamt;
+                balken.value = st.aktuell;
+            } else {
+                balken.removeAttribute('value');
+            }
         }
 
         function siStarteTakt() {
