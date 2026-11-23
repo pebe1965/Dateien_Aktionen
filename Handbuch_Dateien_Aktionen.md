@@ -729,7 +729,7 @@ Lies den Grund unter den drei Kacheln. Bei einer laufenden App beende sie und st
 
 ### Die Systemreinigung findet nichts
 
-Unter **Ausgelassene laufende Programme** siehst du bei Bedarf, welche Programme bei dieser Suche übersprungen wurden. Für eine erneute Prüfung kannst du diese Programme beenden und **Sicher aufräumen** erneut anklicken. Unbekannte Cache-Formate, Verknüpfungen und Datenbanken mit Begleitdateien werden ausgelassen. Der allgemeine Ordnerscan zeigt dir weitere Speicherbelegung.
+Ist ein Ordner gesperrt, prüft die Suche die übrigen Speicherorte weiter. Unter **Nicht vollständig prüfbare Speicherorte** kannst du die ausgelassenen Pfade ansehen. Unter **Ausgelassene laufende Programme** siehst du bei Bedarf, welche Programme bei dieser Suche übersprungen wurden. Für eine erneute Prüfung kannst du diese Programme beenden und **Sicher aufräumen** erneut anklicken. Unbekannte Cache-Formate, Verknüpfungen und Datenbanken mit Begleitdateien werden ausgelassen. Der allgemeine Ordnerscan zeigt dir weitere Speicherbelegung.
 
 ### Der Speicherplatz zeigt weniger an, als die Festplatte belegt
 

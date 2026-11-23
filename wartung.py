@@ -1,4 +1,5 @@
 """Gezielte Bereinigung und Deinstallation auf dem Mac."""
+from contextlib import contextmanager
 import hashlib
 import hmac
 import json
@@ -181,6 +182,17 @@ def _deinstallierer(app):
     return None
 
 
+@contextmanager
+def _cache_pruefung(pfad, unlesbar):
+    """Ein unzugänglicher Kandidat darf die übrige Suche nicht abbrechen."""
+    try:
+        yield
+    except FileNotFoundError:
+        pass  # Ein Cache kann während der Suche verschwinden.
+    except (OSError, speicher.SpeicherFehler):
+        unlesbar.add(str(pfad))
+
+
 def _vorschau(modus, app_id):
     apps = _programme()
     if modus == "programme":
@@ -191,15 +203,17 @@ def _vorschau(modus, app_id):
     zeilen, hinweise = [], []
     if modus == "cache":
         ausgelassen = set()
+        unlesbar = set()
         for key, (kennung, app) in apps.items():
             datei = library / "Caches" / kennung / "Cache.db"
-            if not datei.is_file():
-                continue
-            if _aktiv(key, app, laufende):
-                ausgelassen.add(app.stem)
-            elif _netzwerkcache(datei):
-                zeilen.append(_eintrag(datei, app.stem, "Netzwerk-Zwischenspeicher. "
-                                       "Die App kann die Inhalte erneut abrufen.", ["cache", key], app))
+            with _cache_pruefung(datei, unlesbar):
+                if not datei.is_file():
+                    continue
+                if _aktiv(key, app, laufende):
+                    ausgelassen.add(app.stem)
+                elif _netzwerkcache(datei):
+                    zeilen.append(_eintrag(datei, app.stem, "Netzwerk-Zwischenspeicher. "
+                                           "Die App kann die Inhalte erneut abrufen.", ["cache", key], app))
         for kennung, relativ in _BROWSER.items():
             key = kennung.lower()
             if key not in apps:
@@ -207,22 +221,27 @@ def _vorschau(modus, app_id):
             app = apps[key][1]
             name = app.stem
             basis = library / "Application Support" / relativ
-            if not _direkt(basis) or not basis.is_dir():
-                continue
-            for profil in basis.iterdir():
+            profile = []
+            with _cache_pruefung(basis, unlesbar):
+                if not _direkt(basis) or not basis.is_dir():
+                    continue
+                profile = list(basis.iterdir())
+            for profil in profile:
                 if not re.fullmatch(r"Default|Profile [0-9]+", profil.name):
                     continue
                 pfad = profil / "GPUCache"
-                if _aktiv(key, app, laufende):
-                    if _direkt(pfad) and pfad.is_dir():
-                        ausgelassen.add(name)
-                    continue
-                teile = _grafikcache(pfad)
-                if teile:
-                    zeilen.append(_eintrag(pfad, name + " · " + profil.name,
-                                          "Grafik-Zwischenspeicher. Der Browser baut ihn neu auf.",
-                                          ["cache", key], app, teile))
-        return {"eintraege": zeilen, "hinweise": [], "laufende_programme": sorted(ausgelassen)}
+                with _cache_pruefung(pfad, unlesbar):
+                    if _aktiv(key, app, laufende):
+                        if _direkt(pfad) and pfad.is_dir():
+                            ausgelassen.add(name)
+                        continue
+                    teile = _grafikcache(pfad)
+                    if teile:
+                        zeilen.append(_eintrag(pfad, name + " · " + profil.name,
+                                              "Grafik-Zwischenspeicher. Der Browser baut ihn neu auf.",
+                                              ["cache", key], app, teile))
+        return {"eintraege": zeilen, "hinweise": [], "laufende_programme": sorted(ausgelassen),
+                "unlesbare_pfade": sorted(unlesbar)}
     elif modus == "app" and isinstance(app_id, str) and app_id in apps:
         kennung, app = apps[app_id]
         if _aktiv(app_id, app, laufende):

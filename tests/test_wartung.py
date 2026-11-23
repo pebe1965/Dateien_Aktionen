@@ -165,6 +165,24 @@ class WartungTest(unittest.TestCase):
         self.db.rename(self.db.with_name("andere-Datei"))
         self.assertEqual(wartung.bearbeite({"modus": "cache"})["laufende_programme"], [])
 
+    def test_gesperrter_chrome_ordner_stoppt_netzwerkcache_nicht(self):
+        basis = self.cache.parent.parent
+        iterdir = Path.iterdir
+
+        def nur_chrome_sperren(pfad):
+            if pfad == basis:
+                raise PermissionError(1, "Operation not permitted", str(pfad))
+            return iterdir(pfad)
+
+        with patch.object(Path, "iterdir", nur_chrome_sperren):
+            plan = wartung.bearbeite({"modus": "cache"})
+            self.assertEqual(plan["unlesbare_pfade"], [str(basis)])
+            self.assertEqual([z["pfad"] for z in plan["eintraege"]], [str(self.db)])
+            token = plan["eintraege"][0]["id"]
+            res = wartung.bearbeite({"modus": "cache", "auswahl": [token]})
+        self.assertEqual(res["erledigt"], 1)
+        self.assertTrue(self.cache.is_dir())
+
     def test_gesperrte_auswahl(self):
         with self.assertRaises(speicher.SpeicherFehler):
             wartung.bearbeite({"modus": "cache", "auswahl": [str(self.heim)]})

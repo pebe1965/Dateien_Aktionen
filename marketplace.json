@@ -25,7 +25,7 @@
     },
     {
       "module": "Speicherplatz",
-      "description": "Findet große Dateien, alte Installationsdateien und geprüfte Netzwerk- und Grafik-Zwischenspeicher. Zeigt Speicherbelegung und geprüfte Leserechte, entfernt Apps mit ausgewählten Daten und leert den Mac-Papierkorb nach Bestätigung."
+      "description": "Findet große Dateien, alte Installationsdateien und geprüfte Zwischenspeicher. Überspringt gesperrte Orte. Zeigt Belegung und Leserechte, entfernt Apps mit ausgewählten Daten und leert den Mac-Papierkorb nach Bestätigung."
     },
     {
       "module": "Sicherung",

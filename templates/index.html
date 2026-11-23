@@ -3792,9 +3792,11 @@
                 feld.innerHTML = plan.hinweise.map(h => `<p>${escHtml(h)}</p>`).join('');
                 if (modus === 'cache') {
                     const laufend = plan.laufende_programme || [];
+                    const unlesbar = plan.unlesbare_pfade || [];
                     const summe = plan.eintraege.reduce((n, z) => n + z.bytes, 0);
-                    const text = plan.eintraege.length ? `${formatBytes(summe)} zur Auswahl · ${plan.eintraege.length} Funde` : 'Aktuell nichts zum sicheren Aufräumen gefunden.';
+                    const text = plan.eintraege.length ? `${formatBytes(summe)} zur Auswahl · ${plan.eintraege.length} Funde` : (unlesbar.length ? 'In den prüfbaren Bereichen wurde nichts zum Aufräumen gefunden.' : 'Aktuell nichts zum sicheren Aufräumen gefunden.');
                     feld.insertAdjacentHTML('beforeend', `<p class="font-semibold">${escHtml(text)}</p>`);
+                    if (unlesbar.length) feld.insertAdjacentHTML('beforeend', `<details class="text-xs text-slate-600"><summary class="cursor-pointer">Nicht vollständig prüfbare Speicherorte (${escHtml(unlesbar.length)})</summary>${unlesbar.map(p => `<p class="break-all">${escHtml(p)}</p>`).join('')}</details>`);
                     if (laufend.length) feld.insertAdjacentHTML('beforeend', `<details class="text-xs text-slate-600"><summary class="cursor-pointer">Ausgelassene laufende Programme (${escHtml(laufend.length)})</summary><p>${escHtml(laufend.join(', '))}</p><p>Für diese Programme kannst du die Suche nach dem Beenden wiederholen.</p></details>`);
                 }
                 if (!plan.eintraege.length) {
