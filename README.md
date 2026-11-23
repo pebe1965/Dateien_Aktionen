@@ -14,7 +14,7 @@ Entwickelt für Apple Silicon Macs (M-Serie) unter Ausnutzung der **Apple Neural
 * 🏷️ **Tiefe macOS-Integration:** Setzt beim Sortieren automatisch farbige **macOS Finder-Tags** (`_kMDItemUserTags`) und durchsuchbare **Spotlight-Kommentare** (`kMDItemFinderComment`) inkl. Direkt-Button „Im Finder zeigen“ (`📂`).
 * ⚡ **Autopilot / Ordner-Wächter (Watch-Folder):** Überwacht auf Wunsch Ordner wie `~/Downloads` oder `~/Desktop` im Hintergrund (auch als nativer **macOS LaunchAgent** beim Systemstart) inklusive macOS System-Mitteilungen.
 * 🚀 **Parallele Analyse & Lokaler KI-Cache:** 4-Worker-Multithreading mit Live-Fortschrittsbalken und lokalem Analyse-Cache (`~/Library/Application Support/Dateien_Aktionen/history/analysis_cache.json`), der bestehende Zielordner intelligent wiederverwendet.
-* 🗄️ **Speicherplatz:** Misst den belegten Platz eines Ordners wie `du` (`st_blocks`, Hardlinks einmal, keine Symlinks, keine Volume-Grenze), zeigt Baum und größte Dateien samt versteckter Ordner und ordnet jeden Fund in `gefahrlos` / `Ihre Entscheidung` / `nicht anfassen` ein – Zwischenspeicher mit eigenen Medien darin werden heruntergestuft.
+* 🗄️ **Speicherplatz:** Findet große Dateien, prüft bekannte Netzwerk- und Grafikcaches und entfernt Apps mit einzeln auswählbaren Programmdaten.
 * 🛡️ **100 % Sicherheit mit Dry-Run, Kollisionsschutz & Undo:**
   * Vor jedem Umbenennen/Verschieben gibt es eine interaktive Vorschau mit frei editierbaren Dateinamen und Zielordnern.
   * Jede Aktion (auch vom Autopiloten) wird in einem `manifest.json` protokolliert und lässt sich mit 1 Klick rückgängig machen.
@@ -66,8 +66,8 @@ Die Sicherung ist nicht verschlüsselt und ersetzt kein Time Machine.
 Der Reiter „Speicherplatz“ beantwortet die Frage, warum die Platte voll ist – ohne Terminal.
 
 * **Messen:** `os.scandir` rekursiv mit `st_blocks * 512` (belegter Platz, deckt sich mit `du -sk`), Hardlinks nur einmal, keine Symlinks, keine Volume-Grenze. Pakete (`.app`, `.photoslibrary` …) zählen als eine Einheit. Der Scan läuft im Hintergrund, meldet Fortschritt und lässt sich abbrechen; nicht lesbare Ordner werden am Ende genannt.
-* **Einordnen:** drei Stufen aus den Listen in `config.py` (`GEFAHRLOS_NAMEN`, `GEFAHRLOS_PFADE`, `NICHT_ANFASSEN_PFADE`), nach Name **und** Lage – die längste passende Regel gewinnt. Ein Zwischenspeicher mit eigenen Fotos, Videos oder Dokumenten darin wird zu „Ihre Entscheidung“.
-* **Freigeben:** Vorschau (Dry-Run), dann Papierkorb über den Finder – deshalb funktioniert „Zurücklegen“ und „Rückgängig“ aus dem Protokoll. Endgültiges Löschen eigener Dateien nur nach zweiter Bestätigung. Gelöscht wird ausschließlich im Benutzerordner, nie mit Administratorrechten.
+* **Einordnen:** Geschützte Ordner und Pakete haben Vorrang. Im allgemeinen Scan prüft der Nutzer alle übrigen Funde selbst.
+* **Freigeben:** Nach der Vorschau verschiebt macOS die Auswahl in den Papierkorb. Der tatsächliche Zielpfad wird für „Rückgängig“ protokolliert.
 * **Installationsdateien:** `.dmg`/`.pkg` in Downloads und auf dem Schreibtisch werden gegen die installierten Programme in `/Applications` und `~/Applications` abgeglichen (Namenskern ohne Version und Füllwörter, Versionsvergleich über die `Info.plist`). Nur eindeutige Treffer werden angeboten; eine neuere Version in der Datei wird als „Bitte prüfen“ markiert.
 * **Ohne „Festplattenvollzugriff“** bleiben Teile unsichtbar; das Programm erkennt das und erklärt es.
 

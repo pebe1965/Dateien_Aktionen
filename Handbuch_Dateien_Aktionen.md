@@ -82,7 +82,7 @@ Oben steht immer die **Ordnerauswahl** mit den beiden Knöpfen „1. Katalogisie
 | Projekte | Laufende Vorhaben |
 | Steuer | Belege mit Steuer-Tag |
 | Sicherung | Sicherungsaufträge und Wiederherstellen |
-| Speicherplatz | Was die Platte füllt – und wie du Platz frei machst |
+| Speicherplatz | Große Dateien finden, Zwischenspeicher bereinigen und Programme deinstallieren |
 | Handbuch | Dieses Handbuch |
 | Protokoll & Rückgängig | Frühere Aktionen zurücknehmen |
 | Einstellungen | KI, Ordnungssystem, Namensstil, Updates |
@@ -538,17 +538,34 @@ Das Programm misst den **belegten Platz** – also das, was wirklich frei wird, 
 
 Mit **Im Finder** an jedem Eintrag schaust du hinein, bevor du etwas löschst.
 
-### Die drei Stufen
+### Die Einordnung in der Ordneransicht
 
-Jeder Fund bekommt eine Stufe, damit du nicht raten musst:
+**Ihre Entscheidung** kennzeichnet Dateien und Ordner, deren Inhalt du selbst beurteilst. Das gilt auch für Ordner mit Namen wie „Cache“. **Nicht anfassen** kennzeichnet geschützte Orte wie die Library mit deinen Programmdaten, Programme und Fotomediatheken.
 
-| Stufe | Bedeutung |
-| --- | --- |
-| Gefahrlos | Bekannte Zwischenspeicher, die sich von selbst neu aufbauen – etwa `node_modules`, `.next`, `.turbo`, `__pycache__`, `DerivedData` oder die Ordner unter „Library/Caches“ |
-| Ihre Entscheidung | Deine eigenen Dateien: Videos, Fotos, Archive, Downloads, alte Installationsdateien |
-| Nicht anfassen | Systemordner, Programmdaten, Fotomediatheken und alles außerhalb des Benutzerordners. Wird angezeigt, aber nicht zum Löschen angeboten |
+### Sicher aufräumen
 
-Ein Ordner gilt nur dann als gefahrlos, wenn **keine eigenen Dateien** darin liegen. Heißt ein Ordner „Cache“, enthält aber deine Videos, steht er als **Ihre Entscheidung** in der Liste – mit dem Hinweis, was darin gefunden wurde. Bei „Nicht anfassen“ steht dabei, wo du stattdessen aufräumst, zum Beispiel iOS-Simulatoren in Xcode.
+Die Suche erkennt die Netzwerk-Zwischenspeicher einzelner Programme anhand ihrer Datenbankstruktur. Bei Chrome, Edge, Brave und Chromium prüft sie außerdem die Grafik-Zwischenspeicher in den Standardprofilen. Der Browser baut diese Grafikdaten bei Bedarf neu auf. Netzwerkdaten müssen gegebenenfalls erneut geladen werden.
+
+1. Beende die Programme, die du bereinigen möchtest.
+2. Klicke unter **Systemreinigung und Deinstallation** auf **Sicher aufräumen**.
+3. Prüfe zu jedem Fund Programm, Pfad, Größe und Erklärung.
+4. Setze einen Haken bei den gewünschten Einträgen.
+5. Klicke auf **Auswahl in den Papierkorb legen**.
+6. Bestätige die angezeigten Pfade.
+
+### Eine App deinstallieren
+
+Du kannst ein Programm aus „Programme“ oder deinem persönlichen Programme-Ordner entfernen. Bei eindeutig zugeordneten Daten entscheidest du einzeln, was ebenfalls in den Papierkorb soll. Gemeinsame Herstellerordner, Erweiterungen und Hintergrunddienste können zurückbleiben. Für solche Programme ist der Deinstallierer des Herstellers vorgesehen.
+
+1. Beende das Programm.
+2. Klicke auf **App deinstallieren**.
+3. Wähle das Programm unter **Programm** aus.
+4. Prüfe die zusätzlichen Einträge. Einstellungen, private App-Ordner und Programmdaten können Konten, Dokumente oder Projekte enthalten.
+5. Hake nur die Daten an, die du zusammen mit dem Programm entfernen möchtest.
+6. Klicke auf **Auswahl in den Papierkorb legen**.
+7. Bestätige die angezeigten Pfade.
+
+> Hinweis: Findet die App einen passenden Deinstallierer, zeigt sie seinen Ort an. Öffne ihn im Finder. Programme von Apple, Dateien_Aktionen und mehrfach gefundene Programme mit derselben Kennung stehen nicht zur Auswahl.
 
 ### Installationsdateien, die nicht mehr gebraucht werden
 
@@ -565,26 +582,23 @@ Installationsdateien von Programmen, die du gar nicht installiert hast, bleiben 
 
 ### Platz frei machen
 
-1. Setze bei den Einträgen, die weg sollen, einen Haken. Unten erscheint eine Leiste mit der Summe „X werden frei“.
-2. Wähle dort **In den Papierkorb** (empfohlen) oder **Endgültig löschen**.
-3. Klicke **Vorschau anzeigen**. Du siehst, was gelöscht wird, wie viel das ist und wohin es geht – noch passiert nichts.
-4. Klicke **In den Papierkorb legen** beziehungsweise **Endgültig löschen**.
+1. Setze bei den Einträgen, die weg sollen, einen Haken. Unten erscheint eine Leiste mit der Größe deiner Auswahl.
+2. Klicke auf **Vorschau anzeigen**.
+3. Prüfe die angezeigten Pfade und Größen.
+4. Klicke auf **In den Papierkorb legen**.
 
-> Achtung: Der Platz wird erst frei, wenn der Papierkorb geleert ist. Bis dahin kannst du alles zurückholen.
-
-Beim endgültigen Löschen eigener Dateien musst du zusätzlich bestätigen, dass du verstanden hast, wie viele Dateien und wie viel Platz es betrifft. Bei bekannten Zwischenspeichern entfällt diese zweite Frage.
+> Wichtig: Speicherplatz wird erst frei, wenn du den Papierkorb im Finder leerst.
 
 ### Alles zurückholen
 
-Jede Aktion steht im Reiter **Protokoll & Rückgängig**. Was du in den Papierkorb gelegt hast, holt **Rückgängig machen** an seinen alten Platz zurück. Endgültig Gelöschtes steht ebenfalls im Protokoll, aber mit dem Vermerk **nicht wiederherstellbar** – zurück geht es dann nicht mehr.
+1. Öffne **Protokoll & Rückgängig**.
+2. Suche den Eintrag zur Bereinigung oder Deinstallation.
+3. Klicke auf **Rückgängig machen**.
 
-### Den Papierkorb leeren
-
-Oben im Reiter steht, wie viel Platz der Papierkorb belegt. **Papierkorb leeren** gibt diesen Platz frei. Danach ist nichts davon mehr zurückzuholen, deshalb fragt das Programm vorher nach.
+Zum Zurückholen muss der Eintrag noch im Papierkorb und sein ursprünglicher Platz frei sein.
 
 ### Was der Reiter nicht tut
 
-- Er löscht nichts außerhalb deines Benutzerordners und fragt nie nach deinem Mac-Passwort.
 - Der Autopilot löscht nie von selbst etwas.
 - Doppelte Dateien sucht der Reiter **Duplikate-Manager**; dort findest du auch ähnliche Fotos.
 
@@ -701,6 +715,10 @@ Das Programm zeigt in diesem Fall einen gelben Hinweis mit der Zahl der nicht du
 
 Der Haken wird gemerkt und gilt auch beim nächsten Start. Versteckte Dateien und Systemdateien wie `.DS_Store` zählen nie mit. Programme (`.app`) erscheinen im Katalog, in der KI-Vorschau aber nicht – sie werden nie umbenannt.
 
+### Die Systemreinigung findet nichts
+
+Beende den Browser oder das betroffene Programm vollständig und starte **Sicher aufräumen** erneut. Unbekannte Cache-Formate, Verknüpfungen und Datenbanken mit Begleitdateien werden ausgelassen. Der allgemeine Ordnerscan zeigt dir weitere Speicherbelegung.
+
 ### Der Speicherplatz zeigt weniger an, als die Festplatte belegt
 
 Dann darf das Programm Teile deines Benutzerordners nicht lesen. Im Reiter steht in diesem Fall ein gelber Hinweis, und am Ende der Ergebnisse stehen die übersprungenen Ordner.
@@ -764,7 +782,7 @@ Das Programm vollständig beenden und neu starten.
 | --- | --- |
 | Ablage | Der Ordner „03 Ablage“ mit den dauerhaften Kategorien |
 | App-Passwort | Ein eigenes Passwort nur für ein Programm, in der Nextcloud erstellt und einzeln widerrufbar |
-| Cache | Gemerkte Ergebnisse früherer Analysen, damit dieselbe Datei nicht zweimal Credits kostet |
+| Cache | Zwischenspeicher. Programme merken sich beispielsweise geladene Inhalte oder Grafikdaten. Der KI-Cache speichert frühere Analyseergebnisse und spart Credits. |
 | Credits | Guthaben im NotionaryAtlas-Konto für KI-Anfragen |
 | Duplikat | Datei mit exakt gleichem Inhalt wie eine andere |
 | Eingang | Der Ordner „01 Eingang“ für alles Neue |

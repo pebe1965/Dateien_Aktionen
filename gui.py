@@ -33,6 +33,7 @@ from organizer import (
 )
 import backup
 import speicher
+import wartung
 from watcher import (
     GLOBAL_WATCHER, load_autopilot_config, save_autopilot_config,
     install_launch_agent, uninstall_launch_agent, is_launch_agent_installed
@@ -1369,14 +1370,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(antwort).encode("utf-8"))
             return
 
-        if url.path == "/api/speicher/papierkorb_leeren":
+        if url.path == "/api/speicher/wartung":
             try:
-                antwort = speicher.papierkorb_leeren()
-            except speicher.SpeicherFehler as exc:
+                if not isinstance(params, dict):
+                    raise speicher.SpeicherFehler("Ungültige Auswahl.")
+                antwort = wartung.bearbeite(params)
+            except (speicher.SpeicherFehler, OSError, RuntimeError) as exc:
                 self.send_error_response(str(exc))
                 return
-            antwort["papierkorb"] = speicher.papierkorb_info()
-            antwort["platte"] = speicher.platte()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()

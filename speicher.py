@@ -11,12 +11,9 @@ macht genau das, ohne Terminal und ohne Raten:
 * **Messen** wie `du`: `st_blocks * 512` (belegter Platz), Hardlinks nur
   einmal, symbolischen Verknüpfungen wird nicht gefolgt, die Grenze des
   Laufwerks wird nicht überschritten. Versteckte Ordner zählen mit.
-* **Einordnen** in drei Stufen (`gefahrlos`, `entscheidung`, `tabu`) nach den
-  Listen in `config.py` — Name *und* Lage. Ein Zwischenspeicher, in dem eigene
-  Fotos, Videos, Musik oder Dokumente liegen, wird zu „Ihre Entscheidung“.
-* **Freigeben** standardmäßig in den Papierkorb (über den Finder, damit
-  „Zurücklegen“ funktioniert), mit Vorschau und Manifest für „Rückgängig“.
-  Endgültig gelöscht wird nur nach ausdrücklicher Bestätigung.
+* **Einordnen** nach geschützten Orten und Paketen. Andere Einträge
+  prüft der Nutzer in der Vorschau.
+* **Freigeben** in den Papierkorb mit Manifest für „Rückgängig“.
 
 Gelöscht wird nie außerhalb des Benutzerordners und nie mit
 Administratorrechten.
@@ -29,6 +26,7 @@ import stat as stat_modul
 import subprocess
 import threading
 import time
+from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 
@@ -66,7 +64,6 @@ def _expandiere(muster: str) -> Path:
     return Path(muster).expanduser()
 
 
-_GEFAHRLOS_PFADE = [(_expandiere(p), h) for p, h in config.GEFAHRLOS_PFADE]
 _NICHT_DURCHSUCHEN = [(_expandiere(p), h) for p, h in config.SPEICHER_NICHT_DURCHSUCHEN]
 _NICHT_ANFASSEN_PFADE = [(_expandiere(p), h) for p, h in config.NICHT_ANFASSEN_PFADE]
 
@@ -148,103 +145,25 @@ def _geschuetzte_eigene_ordner() -> list:
 
 
 def regel_fuer(pfad: Path) -> tuple:
-    """Die Stufe nach Lage und Name — ohne Rücksicht auf den Inhalt.
-
-    Es gilt immer die längste (also genaueste) passende Regel: `~/Library`
-    ist „Nicht anfassen“, `~/Library/Caches` darin trotzdem „Gefahrlos“.
-
-    Rückgabe: (stufe, hinweis) mit stufe aus „gefahrlos“, „entscheidung“, „tabu“.
-    """
+    """Geschützte Orte haben Vorrang vor Hinweisen aus einem Ordnernamen."""
     pfad = Path(pfad)
-
-    # Außerhalb des Benutzerordners wird grundsätzlich nichts angeboten.
-    if not _ist_unter(pfad, HOME):
-        return "tabu", "Liegt außerhalb deines Benutzerordners. Dort räumt die App nichts auf."
-    if pfad == HOME:
-        return "tabu", "Dein Benutzerordner."
-
-    treffer_stufe, treffer_hinweis, treffer_laenge = "entscheidung", "", -1
-
-    for ordner, hinweis in _geschuetzte_eigene_ordner():
-        if _ist_unter(pfad, ordner) and len(str(ordner)) > treffer_laenge:
-            treffer_stufe, treffer_hinweis, treffer_laenge = "tabu", hinweis, len(str(ordner))
-
-    for ordner, hinweis in _NICHT_ANFASSEN_PFADE:
-        if _ist_unter(pfad, ordner) and len(str(ordner)) > treffer_laenge:
-            treffer_stufe, treffer_hinweis, treffer_laenge = "tabu", hinweis, len(str(ordner))
-
-    for ordner, hinweis in _GEFAHRLOS_PFADE:
-        if _ist_unter(pfad, ordner) and len(str(ordner)) > treffer_laenge:
-            treffer_stufe, treffer_hinweis, treffer_laenge = "gefahrlos", hinweis, len(str(ordner))
-
-    # Pakete (Fotomediathek, Programm …): der Pfad selbst oder ein Elternteil
-    for teil in [pfad, *pfad.parents]:
-        if not _ist_unter(teil, HOME) or teil == HOME:
+    if pfad == HOME or not _ist_unter(pfad, HOME):
+        return "tabu", "Hier räumt die Speicheranalyse nichts auf."
+    for ort, hinweis in (*_geschuetzte_eigene_ordner(), *_NICHT_ANFASSEN_PFADE):
+        if _ist_unter(pfad, ort):
+            return "tabu", hinweis
+    for teil in (pfad, *pfad.parents):
+        if teil == HOME:
             break
-        endung = teil.suffix.lower()
-        if endung in config.NICHT_ANFASSEN_PAKETE and len(str(teil)) > treffer_laenge:
-            treffer_stufe = "tabu"
-            treffer_hinweis = config.NICHT_ANFASSEN_PAKETE[endung]
-            treffer_laenge = len(str(teil))
-            break
-
-    # Bekannte Zwischenspeicher nach Ordnername (der nächstliegende gewinnt)
-    for teil in [pfad, *pfad.parents]:
-        if not _ist_unter(teil, HOME) or teil == HOME:
-            break
-        hinweis = config.GEFAHRLOS_NAMEN.get(teil.name.lower())
-        if hinweis:
-            if len(str(teil)) > treffer_laenge:
-                treffer_stufe, treffer_hinweis, treffer_laenge = "gefahrlos", hinweis, len(str(teil))
-            break
-
-    if treffer_stufe == "entscheidung" and not treffer_hinweis:
-        treffer_hinweis = "Deine eigenen Dateien. Die App entscheidet das nicht für dich."
-    return treffer_stufe, treffer_hinweis
-
-
-def stufe_fuer_ordner(pfad: Path, gesamt_bytes: int, eigene_bytes: int,
-                      eigene_beispiel: str = "", regel: tuple = None) -> tuple:
-    """Stufe eines Ordners — mit Blick auf den Inhalt.
-
-    Ein Ordner heißt „Cache“, enthält aber 38 GB eigene Videos: Dann ist er
-    keine gefahrlose Sache, sondern „Ihre Entscheidung“. Nie nach dem Namen
-    allein entscheiden.
-    """
-    stufe, hinweis = regel or regel_fuer(pfad)
-    if stufe != "gefahrlos":
-        return stufe, hinweis
-    anteil = (eigene_bytes / gesamt_bytes) if gesamt_bytes else 0
-    viel = eigene_bytes >= config.SPEICHER_EIGENE_SCHWELLE_BYTES
-    anteilig = anteil >= config.SPEICHER_EIGENE_SCHWELLE_ANTEIL and eigene_bytes > 0
-    if viel or anteilig:
-        beispiel = f" (z. B. {eigene_beispiel})" if eigene_beispiel else ""
-        return "entscheidung", (
-            f"Sieht nach Zwischenspeicher aus, enthält aber {lesbar(eigene_bytes)} "
-            f"eigene Fotos, Videos, Musik oder Dokumente{beispiel}. Bitte selbst ansehen."
-        )
-    return "gefahrlos", hinweis
+        if teil.suffix.lower() in config.NICHT_ANFASSEN_PAKETE:
+            return "tabu", config.NICHT_ANFASSEN_PAKETE[teil.suffix.lower()]
+    return "entscheidung", "Deine eigenen Dateien. Bitte selbst ansehen."
 
 
 def _paket_regel(pfad: Path):
     """Für Pakete (.app, .photoslibrary …) gilt die Regel des Pakets selbst."""
     hinweis = config.NICHT_ANFASSEN_PAKETE.get(pfad.suffix.lower())
     return ("tabu", hinweis) if hinweis else None
-
-
-def stufe_fuer_datei(pfad: Path, groesse: int, regel: tuple = None) -> tuple:
-    """Stufe einer einzelnen Datei. Eine eigene Datei bleibt eine eigene Datei,
-    auch wenn sie in einem Ordner namens „Cache“ liegt.
-
-    `regel` ist die schon bekannte Regel des Ordners, in dem die Datei liegt —
-    beim Scan spart das eine Prüfung je Datei.
-    """
-    stufe, hinweis = regel or regel_fuer(pfad)
-    if stufe == "gefahrlos" and _ist_eigene_datei(pfad.name, groesse):
-        return "entscheidung", (
-            "Liegt in einem Zwischenspeicher, ist aber eine eigene Datei. Bitte selbst ansehen."
-        )
-    return stufe, hinweis
 
 
 # --------------------------------------------------------------------------
@@ -383,74 +302,28 @@ def _papierkorb_merken(wert: dict) -> dict:
 
 
 def in_papierkorb(pfad: Path):
-    """Legt eine Datei oder einen Ordner in den Papierkorb.
+    """macOS wählt einen freien Papierkorb-Pfad und liefert genau dieses Ziel zurück."""
+    import ctypes
 
-    Rückgabe: der Pfad im Papierkorb (für „Rückgängig“) oder None.
-    Es wird nicht selbst nach `~/.Trash` verschoben — nur was der Finder bzw.
-    `/usr/bin/trash` dorthin legt, lässt sich später „Zurücklegen“.
-    """
-    pfad = Path(pfad)
     try:
-        if not pfad.exists() and not pfad.is_symlink():
-            return None
-    except OSError:
+        core = ctypes.CDLL("/System/Library/Frameworks/CoreServices.framework/CoreServices")
+        verschiebe = core.FSPathMoveObjectToTrashSync
+        verschiebe.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
+        verschiebe.restype = ctypes.c_int32
+        freigeben = ctypes.CDLL(None).free
+        freigeben.argtypes = [ctypes.c_void_p]
+        freigeben.restype = None
+    except (AttributeError, OSError):
         return None
-
-    # 1. /usr/bin/trash (ab macOS 15) — meldet mit -v, wohin es gelegt wurde
-    if Path("/usr/bin/trash").is_file():
-        try:
-            res = subprocess.run(
-                ["/usr/bin/trash", "-v", str(pfad)],
-                capture_output=True, text=True, timeout=120, check=False,
-            )
-            if res.returncode == 0 and not pfad.exists():
-                ziel = _trash_pfad_aus_meldung(res.stdout)
-                return ziel or str(HOME / ".Trash" / pfad.name)
-        except Exception:
-            pass
-
-    # 2. Finder (fragt beim ersten Mal nach Erlaubnis und nennt das Ziel)
+    ziel = ctypes.c_void_p()
     try:
-        maskiert = str(pfad).replace("\\", "\\\\").replace('"', '\\"')
-        res = subprocess.run(
-            ["osascript",
-             "-e", f'tell application "Finder" to set abgelegt to delete (POSIX file "{maskiert}")',
-             "-e", "POSIX path of (abgelegt as alias)"],
-            capture_output=True, text=True, timeout=180, check=False,
-        )
-        if res.returncode == 0 and not pfad.exists():
-            ziel = res.stdout.strip().splitlines()[-1].strip() if res.stdout.strip() else ""
-            return ziel.rstrip("/") or str(HOME / ".Trash" / pfad.name)
-    except Exception:
-        pass
-
-    # 3. Letzter Ausweg: selbst nach ~/.Trash verschieben. Das braucht weder
-    #    `trash` (erst ab macOS 15) noch die Erlaubnis, den Finder zu steuern.
-    #    „Zurücklegen“ im Finder funktioniert damit nicht — „Rückgängig“ im
-    #    Programm schon, denn der Zielpfad steht im Protokoll.
-    try:
-        papierkorb = HOME / ".Trash"
-        if papierkorb.is_dir():
-            ziel = papierkorb / pfad.name
-            if ziel.exists():
-                stempel = datetime.now().strftime("%H%M%S")
-                ziel = papierkorb / f"{pfad.stem}_{stempel}{pfad.suffix}"
-            shutil.move(str(pfad), str(ziel))
-            return str(ziel)
-    except Exception:
-        pass
-    return None
-
-
-def _trash_pfad_aus_meldung(ausgabe: str):
-    """Aus `# Moved "…" to "/Users/…/.Trash/…"` den Zielpfad ziehen."""
-    for zeile in reversed((ausgabe or "").strip().splitlines()):
-        if '" to "' in zeile:
-            try:
-                return zeile.rsplit('" to "', 1)[1].rstrip('"').rstrip("/")
-            except Exception:
-                return None
-    return None
+        status = verschiebe(os.fsencode(pfad), ctypes.byref(ziel), 0)
+        if status == 0 and ziel.value:
+            return os.fsdecode(ctypes.string_at(ziel))
+        return None
+    finally:
+        if ziel.value:
+            freigeben(ziel)
 
 
 def hole_aus_papierkorb(im_papierkorb: Path, zurueck_nach: Path) -> bool:
@@ -460,9 +333,23 @@ def hole_aus_papierkorb(im_papierkorb: Path, zurueck_nach: Path) -> bool:
     gesperrt ist — der Finder darf es immer.
     """
     im_papierkorb, zurueck_nach = Path(im_papierkorb), Path(zurueck_nach)
-    if zurueck_nach.exists():
+    if os.path.lexists(zurueck_nach):
         return False  # am Ursprungsort liegt schon wieder etwas — nichts überschreiben
     zurueck_nach.parent.mkdir(parents=True, exist_ok=True)
+    # Der native Verschiebevorgang verwendet den exakten ursprünglichen Namen
+    # und lehnt eine vorhandene Zieldatei auch bei gleichzeitigem Zugriff ab.
+    skript = """ObjC.import('Foundation'); function run(argv) {
+        if (!$.NSFileManager.defaultManager.moveItemAtPathToPathError(argv[0], argv[1], null))
+            throw Error('Verschieben fehlgeschlagen');
+    }"""
+    try:
+        subprocess.run(["/usr/bin/osascript", "-l", "JavaScript", "-e", skript,
+                        str(im_papierkorb), str(zurueck_nach)], capture_output=True,
+                       text=True, timeout=180, check=True)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        if os.path.lexists(zurueck_nach):
+            return False
     quelle = str(im_papierkorb).replace("\\", "\\\\").replace('"', '\\"')
     ordner = str(zurueck_nach.parent).replace("\\", "\\\\").replace('"', '\\"')
     try:
@@ -484,26 +371,6 @@ def hole_aus_papierkorb(im_papierkorb: Path, zurueck_nach: Path) -> bool:
         except OSError:
             return gelandet.exists()
     return zurueck_nach.exists() or gelandet.exists()
-
-
-def papierkorb_leeren() -> dict:
-    """Leert den Papierkorb über den Finder. Das ist nicht rückgängig zu machen."""
-    vorher = papierkorb_info()
-    _PAPIERKORB_GEMERKT["wert"] = None
-    try:
-        res = subprocess.run(
-            ["osascript", "-e", 'tell application "Finder" to empty trash'],
-            capture_output=True, text=True, timeout=600, check=False,
-        )
-    except Exception as exc:
-        raise SpeicherFehler(f"Der Papierkorb konnte nicht geleert werden: {exc}")
-    if res.returncode != 0:
-        meldung = (res.stderr or "").strip().splitlines()
-        raise SpeicherFehler(
-            "Der Papierkorb konnte nicht geleert werden: "
-            + (meldung[-1] if meldung else "Der Finder hat abgelehnt.")
-        )
-    return {"vorher_bytes": vorher.get("bytes", 0), "vorher_anzahl": vorher.get("anzahl", 0)}
 
 
 # --------------------------------------------------------------------------
@@ -662,7 +529,7 @@ class _Lauf:
                     self.dateien_gezaehlt += p_anzahl
                     self.bytes_gezaehlt += p_belegt
                     paket_regel = _paket_regel(kind) or regel
-                    stufe, hinweis = stufe_fuer_datei(kind, p_belegt, regel=paket_regel)
+                    stufe, hinweis = paket_regel
                     self._merke_grosse_datei(kind, p_belegt, st, paket=True, stufe=(stufe, hinweis))
                     datei_liste.append({
                         "name": kind.name, "pfad": str(kind), "bytes": p_belegt,
@@ -706,7 +573,7 @@ class _Lauf:
                     eigene_beispiel = eintrag.name
                     eigene_beispiel_bytes = groesse
 
-            stufe, hinweis = stufe_fuer_datei(kind, st.st_size, regel=regel)
+            stufe, hinweis = regel
             self._merke_grosse_datei(kind, groesse, st, stufe=(stufe, hinweis))
             datei_liste.append({
                 "name": eintrag.name, "pfad": str(kind), "bytes": groesse,
@@ -715,7 +582,7 @@ class _Lauf:
                 "stufe": stufe, "hinweis": hinweis,
             })
 
-        stufe, hinweis = stufe_fuer_ordner(pfad, belegt, eigene_bytes, eigene_beispiel, regel=regel)
+        stufe, hinweis = regel
 
         # Nur die größten Einträge in den Baum: alles andere wäre unlesbar und
         # würde bei einem großen Benutzerordner den Arbeitsspeicher füllen.
@@ -769,7 +636,7 @@ class _Lauf:
                             paket: bool = False, stufe: tuple = None) -> None:
         if groesse < self.mindest_bytes or len(self.grosse_dateien) >= 2000:
             return
-        stufe, hinweis = stufe or stufe_fuer_datei(pfad, groesse)
+        stufe, hinweis = stufe or regel_fuer(pfad)
         self.grosse_dateien.append({
             "pfad": str(pfad), "name": pfad.name, "bytes": groesse,
             "geaendert": _zeit(st.st_mtime),
@@ -885,7 +752,7 @@ def _zeit(zeitstempel: float) -> str:
 
 
 # --------------------------------------------------------------------------
-# Freigeben: Vorschau, Papierkorb, endgültig löschen
+# Freigeben: Vorschau und Papierkorb
 # --------------------------------------------------------------------------
 
 def messe(pfad: Path) -> dict:
@@ -960,9 +827,12 @@ def _geprueft(pfad_text: str) -> Path:
                 f"„{p}“ liegt nicht in deinem Benutzerordner. Dort löscht die App nichts."
             )
 
+    if ziel != echt:
+        raise SpeicherFehler("Verknüpfte oder mehrdeutige Pfade werden ausgelassen.")
+
     if _ist_unter(echt, HOME / ".Trash"):
         raise SpeicherFehler(
-            "Das liegt schon im Papierkorb. Oben im Reiter leerst du ihn mit „Papierkorb leeren“."
+            "Das liegt schon im Papierkorb. Du kannst ihn im Finder leeren."
         )
 
     # Nichts löschen, in dem die Daten der App oder das Ordnungssystem liegen
@@ -980,7 +850,7 @@ def vorschau(pfade, modus: str = "papierkorb") -> dict:
     Einträge, die schon in einem anderen ausgewählten Ordner stecken, werden
     einmal gezählt und als solche gemeldet.
     """
-    if modus not in ("papierkorb", "endgueltig"):
+    if modus != "papierkorb":
         raise SpeicherFehler("Unbekannte Art des Löschens.")
     if not pfade:
         raise SpeicherFehler("Es ist nichts ausgewählt.")
@@ -1001,16 +871,10 @@ def vorschau(pfade, modus: str = "papierkorb") -> dict:
     gesamt_bytes = gesamt_dateien = 0
     braucht_bestaetigung = False
     for ziel in einzeln:
-        gemessen = messe(ziel)
-        if ziel.is_dir() and not ist_paket(ziel):
-            stufe, hinweis = stufe_fuer_ordner(ziel, gemessen["bytes"],
-                                               gemessen["eigene_bytes"], gemessen["eigene_beispiel"])
-        else:
-            stufe, hinweis = stufe_fuer_datei(ziel, gemessen["bytes"])
+        stufe, hinweis = regel_fuer(ziel)
         if stufe == "tabu":
             raise SpeicherFehler(f"„{ziel.name}“ gehört zu „Nicht anfassen“: {hinweis}")
-        if modus == "endgueltig" and stufe != "gefahrlos":
-            braucht_bestaetigung = True
+        gemessen = messe(ziel)
         eintraege.append({
             "pfad": str(ziel),
             "name": ziel.name,
@@ -1021,7 +885,7 @@ def vorschau(pfade, modus: str = "papierkorb") -> dict:
             "stufe": stufe,
             "hinweis": hinweis,
             "art": art_der_datei(ziel),
-            "ziel": "Papierkorb" if modus == "papierkorb" else "endgültig gelöscht",
+            "ziel": "Papierkorb",
         })
         gesamt_bytes += gemessen["bytes"]
         gesamt_dateien += gemessen["dateien"]
@@ -1034,92 +898,57 @@ def vorschau(pfade, modus: str = "papierkorb") -> dict:
         "gesamt_dateien": gesamt_dateien,
         "gesamt_lesbar": lesbar(gesamt_bytes),
         "braucht_bestaetigung": braucht_bestaetigung,
-        "papierkorb_hinweis": (
-            "Der Platz wird erst frei, wenn der Papierkorb geleert ist."
-            if modus == "papierkorb" else
-            "Endgültig gelöscht: Das lässt sich nicht rückgängig machen."
-        ),
+        "papierkorb_hinweis": "Der Platz wird beim Leeren des Papierkorbs im Finder frei.",
     }
 
 
 def freigeben(pfade, modus: str = "papierkorb", bestaetigt: bool = False) -> dict:
-    """Legt die Auswahl in den Papierkorb oder löscht sie endgültig.
-
-    Jede Aktion kommt ins Protokoll (`manifest_*.json` im Verlauf). Was im
-    Papierkorb liegt, holt „Rückgängig“ zurück; endgültig Gelöschtes steht mit
-    dem Vermerk „nicht wiederherstellbar“ im Protokoll.
-    """
     plan = vorschau(pfade, modus)
-    if modus == "endgueltig" and plan["braucht_bestaetigung"] and not bestaetigt:
-        raise SpeicherFehler(
-            f"Endgültiges Löschen eigener Dateien braucht eine Bestätigung: "
-            f"{plan['gesamt_dateien']} Dateien, {plan['gesamt_lesbar']}."
-        )
+    return plan_in_papierkorb(plan["eintraege"], "Speicherplatz")
 
+
+def plan_in_papierkorb(eintraege, beschreibung, pruefe_eintrag=None):
+    """Nur geprüfte Vorschau-Einträge. Jeden abgeschlossenen Schritt protokollieren."""
     jetzt = datetime.now()
-    aktionen = []
-    freigegeben = 0
-    fehlgeschlagen = []
-
-    for eintrag in plan["eintraege"]:
+    datei = config.HISTORY_DIR / f"manifest_{jetzt:%Y%m%d_%H%M%S_%f}_{uuid4().hex}.json"
+    config.HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    temp = datei.with_suffix(".tmp")
+    aktionen, fehler = [], []
+    gesamt = 0
+    for eintrag in eintraege:
         ziel = Path(eintrag["pfad"])
-        if modus == "papierkorb":
-            im_papierkorb = in_papierkorb(ziel)
-            if not im_papierkorb:
-                fehlgeschlagen.append({"pfad": str(ziel),
-                                       "grund": "Der Papierkorb hat es nicht angenommen."})
-                continue
-            aktionen.append({
-                "source": str(ziel), "target": im_papierkorb, "copy_mode": False,
-                "aktion": "papierkorb", "bytes": eintrag["bytes"],
-                "dateien": eintrag["dateien"], "stufe": eintrag["stufe"],
-                "wiederherstellbar": True, "timestamp": datetime.now().isoformat(),
-            })
-        else:
+        if pruefe_eintrag:
             try:
-                if ziel.is_dir() and not ziel.is_symlink():
-                    shutil.rmtree(ziel)
-                else:
-                    ziel.unlink()
-            except OSError as exc:
-                fehlgeschlagen.append({"pfad": str(ziel), "grund": exc.strerror or str(exc)})
-                continue
-            aktionen.append({
-                "source": str(ziel), "target": "", "copy_mode": False,
-                "aktion": "endgueltig", "bytes": eintrag["bytes"],
-                "dateien": eintrag["dateien"], "stufe": eintrag["stufe"],
-                "wiederherstellbar": False, "timestamp": datetime.now().isoformat(),
-            })
-        freigegeben += eintrag["bytes"]
-
-    _PAPIERKORB_GEMERKT["wert"] = None  # der Papierkorb ist jetzt ein anderer
-
-    manifest_name = ""
-    if aktionen:
-        config.HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-        datei = config.HISTORY_DIR / f"manifest_{jetzt.strftime('%Y%m%d_%H%M%S')}.json"
-        wohin = "in den Papierkorb" if modus == "papierkorb" else "endgültig gelöscht"
-        stueck = "1 Eintrag" if len(aktionen) == 1 else f"{len(aktionen)} Einträge"
-        with open(datei, "w", encoding="utf-8") as f:
-            json.dump({
-                "created_at": jetzt.isoformat(),
-                "quelle": "speicherplatz",
-                "beschreibung": f"Speicherplatz: {lesbar(freigegeben)} {wohin} ({stueck})",
-                "total_actions": len(aktionen),
-                "rueckgaengig": modus == "papierkorb",
-                "actions": aktionen,
-            }, f, indent=2, ensure_ascii=False)
-        manifest_name = datei.name
-
-    return {
-        "modus": modus,
-        "erledigt": len(aktionen),
-        "bytes": freigegeben,
-        "lesbar": lesbar(freigegeben),
-        "manifest": manifest_name,
-        "fehlgeschlagen": fehlgeschlagen,
-        "hinweis": plan["papierkorb_hinweis"],
-    }
+                pruefe_eintrag(eintrag)
+            except (OSError, SpeicherFehler) as exc:
+                fehler.append({"pfad": str(ziel), "grund": str(exc)})
+                break
+        im_papierkorb = in_papierkorb(ziel)
+        if not im_papierkorb:
+            fehler.append({"pfad": str(ziel), "grund": "Der Papierkorb hat es nicht angenommen."})
+            if pruefe_eintrag:
+                break
+            continue
+        aktionen.append({"source": str(ziel), "target": str(im_papierkorb), "copy_mode": False,
+                         "aktion": "papierkorb", "wiederherstellbar": True,
+                         "bytes": eintrag["bytes"], "timestamp": datetime.now().isoformat()})
+        gesamt += eintrag["bytes"]
+        try:
+            temp.write_text(json.dumps({"created_at": jetzt.isoformat(), "quelle": "speicherplatz",
+                                        "beschreibung": beschreibung, "total_actions": len(aktionen),
+                                        "rueckgaengig": True, "actions": aktionen}, ensure_ascii=False),
+                            encoding="utf-8")
+            temp.replace(datei)
+        except OSError as exc:
+            if hole_aus_papierkorb(Path(im_papierkorb), ziel):
+                raise SpeicherFehler(f"Das Protokoll konnte nicht gespeichert werden. "
+                                     f"„{ziel.name}“ wurde zurückgelegt.") from exc
+            raise SpeicherFehler(f"Das Protokoll konnte nicht gespeichert werden. "
+                                 f"„{ziel}“ liegt im Papierkorb unter „{im_papierkorb}“.") from exc
+        _PAPIERKORB_GEMERKT["wert"] = None
+    return {"modus": "papierkorb", "erledigt": len(aktionen), "bytes": gesamt,
+            "lesbar": lesbar(gesamt), "manifest": datei.name if aktionen else "",
+            "fehlgeschlagen": fehler, "hinweis": "Der Platz wird beim Leeren des Papierkorbs frei."}
 
 
 # --------------------------------------------------------------------------
@@ -1336,7 +1165,7 @@ def finde_installationsdateien(ordner=None, tiefe: int = 4) -> dict:
                 elif version_programm:
                     erklaerung = f"Installiert ist Version {version_programm}."
 
-                stufe, hinweis = stufe_fuer_datei(datei, st.st_size)
+                stufe, hinweis = regel_fuer(datei)
                 eintraege.append({
                     "pfad": str(datei),
                     "name": name,

@@ -804,13 +804,23 @@
                 <div class="flex items-start justify-between gap-4 flex-wrap">
                     <div>
                         <h4 class="font-bold text-slate-800">Was belegt den Platz?</h4>
-                        <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">Durchsucht einen Ordner und zeigt, was darin den Platz belegt – versteckte Ordner zählen mit. Jeder Fund bekommt eine Stufe, damit du nicht raten musst, was gefahrlos wegkann. <a href="#" onclick="zeigeHandbuch('12. Speicherplatz'); return false;" class="text-blue-600 font-semibold hover:underline">Anleitung im Handbuch</a></p>
+                        <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">Durchsucht einen Ordner und zeigt, was darin den Platz belegt – versteckte Ordner zählen mit. Geschützte Orte sind als „Nicht anfassen“ gekennzeichnet. <a href="#" onclick="zeigeHandbuch('12. Speicherplatz'); return false;" class="text-blue-600 font-semibold hover:underline">Anleitung im Handbuch</a></p>
                     </div>
                     <button onclick="ladeSpeicherBasis()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200">Aktualisieren</button>
                 </div>
                 <div id="sp-platte" class="mt-4 text-sm text-slate-500">Lade …</div>
                 <div id="sp-vollzugriff" class="hidden mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
             </div>
+
+            <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h5 class="font-bold text-slate-800">Systemreinigung und Deinstallation</h5>
+                <p class="text-xs text-slate-600">Suche nach wiederaufbaubaren Netzwerk- und Browser-Grafikcaches oder wähle eine App samt zugehörigen Daten aus.</p>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="wartungStart('cache')" class="px-3 py-2 rounded-xl text-sm bg-blue-600 text-white">Sicher aufräumen</button>
+                    <button onclick="wartungStart('programme')" class="px-3 py-2 rounded-xl text-sm border">App deinstallieren</button>
+                </div>
+                <div id="wartung-ausgabe" aria-live="polite" class="space-y-2 text-sm"></div>
+            </section>
 
             <!-- Ordner wählen und messen -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -867,10 +877,6 @@
                     <div id="sp-leiste-info" class="text-[11px] text-slate-300 mt-0.5"></div>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <select id="sp-modus" class="px-3 py-2 rounded-xl text-xs text-slate-800">
-                        <option value="papierkorb" selected>In den Papierkorb</option>
-                        <option value="endgueltig">Endgültig löschen</option>
-                    </select>
                     <button onclick="spAuswahlLeeren()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-semibold">Auswahl aufheben</button>
                     <button onclick="spVorschau()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-900 rounded-xl text-xs font-bold">Vorschau anzeigen</button>
                 </div>
@@ -1319,15 +1325,11 @@
             </div>
             <div id="sp-vorschau-inhalt" class="p-5 overflow-y-auto space-y-2"></div>
             <div class="p-5 border-t border-slate-200 space-y-3">
-                <label id="sp-vorschau-bestaetigung-wrap" class="hidden flex items-start gap-2 text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 cursor-pointer">
-                    <input type="checkbox" id="sp-vorschau-bestaetigung" onchange="spPruefeBestaetigung()" class="mt-0.5">
-                    <span id="sp-vorschau-bestaetigung-text"></span>
-                </label>
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                     <div id="sp-vorschau-summe" class="text-sm font-bold text-slate-800"></div>
                     <div class="flex items-center gap-2">
                         <button onclick="spSchliesseVorschau()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200">Abbrechen</button>
-                        <button id="sp-vorschau-knopf" onclick="spFreigeben()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold">Jetzt freigeben</button>
+                        <button id="sp-vorschau-knopf" onclick="spFreigeben()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold">In den Papierkorb legen</button>
                     </div>
                 </div>
             </div>
@@ -3293,7 +3295,6 @@
         let spFreiBytes = 0;         // in diesem Scan schon freigegeben
 
         const SP_STUFEN = {
-            gefahrlos:    { text: 'Gefahrlos',        klasse: 'bg-emerald-100 text-emerald-800' },
             entscheidung: { text: 'Ihre Entscheidung', klasse: 'bg-amber-100 text-amber-800' },
             tabu:         { text: 'Nicht anfassen',   klasse: 'bg-slate-200 text-slate-600' }
         };
@@ -3375,27 +3376,8 @@
                         <div class="font-bold text-slate-800 text-sm">${titel}</div>
                         <div class="text-xs text-slate-500 mt-0.5">${unter}</div>
                     </div>
-                    <button onclick="spLeerePapierkorb()" class="px-3 py-2 ${pk.anzahl ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} rounded-xl text-xs font-bold" ${pk.anzahl ? '' : 'disabled'}>Papierkorb leeren</button>
-                </div>`;
-        }
 
-        async function spLeerePapierkorb() {
-            const pk = spBasis && spBasis.papierkorb ? spBasis.papierkorb : { anzahl: 0, bytes: 0 };
-            if (!confirm(`Den Papierkorb endgültig leeren?\n\n${pk.anzahl === 1 ? '1 Objekt' : pk.anzahl + ' Objekte'}, ${formatBytes(pk.bytes)}.\nDas lässt sich nicht rückgängig machen.`)) return;
-            showLoading('Papierkorb leeren', 'Der Finder leert den Papierkorb …');
-            try {
-                const res = await fetch('/api/speicher/papierkorb_leeren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-                spBasis.papierkorb = data.papierkorb;
-                spZeichnePapierkorb(data.papierkorb);
-                spZeichnePlatte(data.platte);
-                alert(`✓ Papierkorb geleert: ${formatBytes(data.vorher_bytes)} freigegeben.`);
-            } catch (e) {
-                alert('Fehler: ' + e.message);
-            } finally {
-                hideLoading();
-            }
+                </div>`;
         }
 
         function spSetzePfad(kodiert) {
@@ -3508,7 +3490,7 @@
                         </div>
                         <div class="flex items-center gap-2">${knopf('baum', 'Ordner')}${knopf('dateien', 'Größte Dateien')}</div>
                     </div>
-                    ${spFreiBytes ? `<div class="mt-3 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">Seit der Messung freigegeben: <b>${formatBytes(spFreiBytes)}</b>. Die Summen oben stammen vom Zeitpunkt der Messung – ein neuer Durchlauf zeigt den aktuellen Stand.</div>` : ''}
+                    ${spFreiBytes ? `<div class="mt-3 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">Seit der Messung in den Papierkorb gelegt: <b>${formatBytes(spFreiBytes)}</b>. Die Summen oben stammen vom Zeitpunkt der Messung – ein neuer Durchlauf zeigt den aktuellen Stand.</div>` : ''}
                 </div>`;
 
             if (spAnsicht === 'baum') {
@@ -3570,7 +3552,7 @@
                         </div>
                         ${zeigeHinweis ? `<div class="text-[11px] text-slate-500 mt-0.5">${escHtml(eintrag.hinweis)}</div>` : ''}
                     </div>
-                    <div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2 hidden sm:block"><div class="h-1.5 ${eintrag.stufe === 'gefahrlos' ? 'bg-emerald-400' : 'bg-slate-400'}" style="width:${prozent}%"></div></div>
+                    <div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2 hidden sm:block"><div class="h-1.5 bg-slate-400" style="width:${prozent}%"></div></div>
                     <span class="text-xs font-mono text-slate-600 w-20 text-right mt-1">${formatBytes(eintrag.bytes)}</span>
                     <button onclick="revealInFinder('${kodiert}')" class="text-[11px] text-blue-600 hover:underline whitespace-nowrap mt-1" title="Im Finder zeigen">Im Finder</button>
                 </div>`;
@@ -3657,16 +3639,14 @@
                 badge.classList.add('hidden');
                 return;
             }
-            let bytes = 0, eigene = 0;
-            spAuswahl.forEach(v => { bytes += v.bytes; if (v.stufe !== 'gefahrlos') eigene++; });
+            let bytes = 0;
+            spAuswahl.forEach(v => { bytes += v.bytes; });
             leiste.classList.remove('hidden');
             badge.innerText = spAuswahl.size;
             badge.classList.remove('hidden');
             document.getElementById('sp-leiste-summe').innerText =
-                `${formatBytes(bytes)} werden frei · ${spAuswahl.size === 1 ? '1 Eintrag' : spAuswahl.size + ' Einträge'} ausgewählt`;
-            document.getElementById('sp-leiste-info').innerText = eigene
-                ? `${eigene} davon sind eigene Dateien – bitte vorher im Finder ansehen.`
-                : 'Alle ausgewählten Einträge sind bekannte Zwischenspeicher.';
+                `${formatBytes(bytes)} für den Papierkorb · ${spAuswahl.size === 1 ? '1 Eintrag' : spAuswahl.size + ' Einträge'} ausgewählt`;
+            document.getElementById('sp-leiste-info').innerText = 'Prüfe den Inhalt deiner Auswahl vor dem Verschieben.';
         }
 
         let spInstaller = null;     // Ergebnis der Suche nach Installationsdateien
@@ -3734,9 +3714,72 @@
             spZeichneLeiste();
         }
 
+        async function wartungApi(params) {
+            const res = await fetch('/api/speicher/wartung', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(params)
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || 'Die Anfrage ist fehlgeschlagen.');
+            return data;
+        }
+
+        async function wartungStart(modus, app) {
+            const feld = document.getElementById('wartung-ausgabe');
+            feld.onchange = null;
+            feld.replaceChildren();
+            showLoading('Suche läuft', 'Die Auswahl wird geprüft …');
+            try {
+                const plan = await wartungApi({modus, app});
+                if (plan.programme) {
+                    if (!plan.programme.length) {
+                        feld.textContent = 'Keine passenden Programme gefunden.';
+                        return;
+                    }
+                    feld.innerHTML = '<label>Programm <select class="border rounded p-1"><option value="">Bitte wählen …</option>' +
+                        plan.programme.map(p => `<option value="${escHtml(p.id)}">${escHtml(p.name)} (${escHtml(p.id)})</option>`).join('') + '</select></label>';
+                    feld.querySelector('select').onchange = e => { if (e.target.value) wartungStart('app', e.target.value); };
+                    return;
+                }
+                feld.innerHTML = plan.hinweise.map(h => `<p>${escHtml(h)}</p>`).join('');
+                if (!plan.eintraege.length) {
+                    if (modus === 'cache') feld.insertAdjacentHTML('beforeend', '<p>Keine passenden geschlossenen Zwischenspeicher gefunden.</p>');
+                    return;
+                }
+                if (modus === 'app') feld.insertAdjacentHTML('beforeend', '<p>Wähle zusätzliche Daten einzeln aus. Programmdaten können eigene Dokumente enthalten. Gemeinsame Herstellerordner und Systemerweiterungen bleiben erhalten.</p>');
+                feld.insertAdjacentHTML('beforeend', plan.eintraege.map((z, i) => `
+                    <label class="flex gap-3 items-start border-t py-2">
+                        <input type="checkbox" value="${escHtml(z.id)}" ${modus === 'app' && i === 0 ? 'checked disabled' : ''}>
+                        <span class="min-w-0"><b>${escHtml(z.titel)}</b> · ${escHtml(formatBytes(z.bytes))}<br>
+                        ${escHtml(z.grund)}<br><small class="break-all">${escHtml(z.pfad)}</small></span>
+                    </label>`).join(''));
+                const knopf = document.createElement('button');
+                knopf.textContent = 'Auswahl in den Papierkorb legen';
+                knopf.className = 'px-3 py-2 rounded-xl text-sm bg-slate-800 text-white disabled:opacity-40';
+                const auswahl = () => Array.from(feld.querySelectorAll('input:checked'), box => box.value);
+                feld.onchange = () => { knopf.disabled = !auswahl().length; };
+                knopf.disabled = !auswahl().length;
+                feld.append(knopf);
+                knopf.onclick = async () => {
+                    const ids = auswahl();
+                    if (!confirm(plan.eintraege.filter(z => ids.includes(z.id)).map(z => z.pfad).join('\n') + '\n\nIn den Papierkorb legen?')) return;
+                    knopf.disabled = true;
+                    showLoading('In den Papierkorb legen', 'Die Auswahl wird erneut geprüft …');
+                    try {
+                        const data = await wartungApi({modus, app, auswahl: ids});
+                        feld.textContent = `${data.erledigt} von ${ids.length} Einträgen im Papierkorb (${data.lesbar}). ` +
+                            data.fehlgeschlagen.map(f => f.pfad + ' – ' + f.grund).join(' ');
+                        if (data.erledigt) feld.append(' Zurückholen unter „Protokoll & Rückgängig“.');
+                        await ladeSpeicherBasis();
+                    } catch (e) { feld.textContent = e.message; }
+                    finally { hideLoading(); }
+                };
+            } catch (e) { feld.textContent = e.message; }
+            finally { hideLoading(); }
+        }
+
         async function spVorschau() {
             if (!spAuswahl.size) return;
-            const modus = document.getElementById('sp-modus').value;
+            const modus = 'papierkorb';
             showLoading('Vorschau', 'Die Auswahl wird gemessen …');
             try {
                 const res = await fetch('/api/speicher/vorschau', {
@@ -3748,7 +3791,7 @@
                 spVorschauDaten = data;
 
                 document.getElementById('sp-vorschau-titel').innerText =
-                    modus === 'papierkorb' ? 'In den Papierkorb legen' : 'Endgültig löschen';
+                    'In den Papierkorb legen';
                 document.getElementById('sp-vorschau-unter').innerText = data.papierkorb_hinweis;
                 document.getElementById('sp-vorschau-inhalt').innerHTML = data.eintraege.map(x => `
                     <div class="flex items-start gap-2 p-3 rounded-xl border border-slate-200">
@@ -3770,34 +3813,12 @@
                 document.getElementById('sp-vorschau-summe').innerText =
                     `${data.gesamt_lesbar} · ${data.gesamt_dateien === 1 ? '1 Datei' : data.gesamt_dateien + ' Dateien'}`;
 
-                const wrap = document.getElementById('sp-vorschau-bestaetigung-wrap');
-                const box = document.getElementById('sp-vorschau-bestaetigung');
-                box.checked = false;
-                if (data.braucht_bestaetigung) {
-                    document.getElementById('sp-vorschau-bestaetigung-text').innerText =
-                        `Ich habe verstanden: ${data.gesamt_dateien === 1 ? '1 Datei' : data.gesamt_dateien + ' Dateien'} mit ${data.gesamt_lesbar} werden endgültig gelöscht und sind nicht wiederherstellbar.`;
-                    wrap.classList.remove('hidden');
-                } else {
-                    wrap.classList.add('hidden');
-                }
-                spPruefeBestaetigung();
                 document.getElementById('sp-vorschau-modal').classList.remove('hidden');
             } catch (e) {
                 alert('Fehler: ' + e.message);
             } finally {
                 hideLoading();
             }
-        }
-
-        function spPruefeBestaetigung() {
-            const knopf = document.getElementById('sp-vorschau-knopf');
-            const noetig = spVorschauDaten && spVorschauDaten.braucht_bestaetigung;
-            const bestaetigt = document.getElementById('sp-vorschau-bestaetigung').checked;
-            knopf.disabled = !!(noetig && !bestaetigt);
-            knopf.classList.toggle('opacity-40', knopf.disabled);
-            knopf.classList.toggle('cursor-not-allowed', knopf.disabled);
-            knopf.innerText = spVorschauDaten && spVorschauDaten.modus === 'papierkorb'
-                ? 'In den Papierkorb legen' : 'Endgültig löschen';
         }
 
         function spSchliesseVorschau() {
@@ -3807,17 +3828,17 @@
         async function spFreigeben() {
             if (!spVorschauDaten) return;
             const modus = spVorschauDaten.modus;
-            const bestaetigt = document.getElementById('sp-vorschau-bestaetigung').checked;
-            showLoading(modus === 'papierkorb' ? 'In den Papierkorb legen' : 'Endgültig löschen', 'Bitte warten …');
+            showLoading('In den Papierkorb legen', 'Bitte warten …');
             try {
                 const res = await fetch('/api/speicher/freigeben', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ pfade: [...spAuswahl.keys()], modus, bestaetigt })
+                    body: JSON.stringify({ pfade: spVorschauDaten.eintraege.map(x => x.pfad), modus })
                 });
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
-                spVorschauDaten.eintraege.forEach(x => spWeg.add(x.pfad));
+                const fehlend = new Set(data.fehlgeschlagen.map(x => x.pfad));
+                spVorschauDaten.eintraege.filter(x => !fehlend.has(x.pfad)).forEach(x => spWeg.add(x.pfad));
                 spFreiBytes += data.bytes || 0;
                 spAuswahl.clear();
                 spSchliesseVorschau();
@@ -3825,7 +3846,7 @@
                 spZeichneInstaller();
                 await ladeSpeicherBasis();
 
-                let text = `✓ ${data.lesbar} freigegeben (${data.erledigt === 1 ? '1 Eintrag' : data.erledigt + ' Einträge'}).\n\n${data.hinweis}`;
+                let text = `${data.lesbar} in den Papierkorb gelegt (${data.erledigt === 1 ? '1 Eintrag' : data.erledigt + ' Einträge'}).\n\n${data.hinweis}`;
                 if (data.manifest) text += `\n\nIm Protokoll: ${data.manifest}`;
                 if (data.fehlgeschlagen && data.fehlgeschlagen.length) {
                     text += `\n\nNicht möglich bei ${data.fehlgeschlagen.length === 1 ? 'einem Eintrag' : data.fehlgeschlagen.length + ' Einträgen'}:\n` +

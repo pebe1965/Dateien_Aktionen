@@ -1,7 +1,7 @@
 {
   "slug": "dateien-aktionen",
   "github_repo": "pebe1965/Dateien_Aktionen",
-  "description": "Ordner katalogisieren, Dubletten finden, Dokumente, Fotos und Medien per Texterkennung und KI umbenennen, taggen und in ein festes Ordnungssystem aus Eingang, Projekten, Ablage und Archiv einsortieren – dazu Datensicherung auf Festplatte, NAS oder in die Cloud und ein Aufräumer, der zeigt, was den Speicherplatz belegt. Mit Vorschau vor jeder Änderung, Rückgängig und Handbuch.",
+  "description": "Katalogisiere und sortiere Dateien, finde Dubletten und sichere deine Ordner auf Festplatte, NAS oder in der Cloud. Im Reiter Speicherplatz findest du große Dateien, räumst geprüfte Zwischenspeicher auf und entfernst Programme mit einzeln auswählbaren zugehörigen Daten.",
   "integrations": [
     {
       "module": "Katalog & Dubletten",
@@ -25,7 +25,7 @@
     },
     {
       "module": "Speicherplatz",
-      "description": "Zeigt, was die Platte füllt: größte Ordner und Dateien, versteckte Zwischenspeicher inbegriffen, dazu Installationsdateien längst installierter Programme. Jeder Fund ist eingeordnet und geht nach einer Vorschau in den Papierkorb."
+      "description": "Findet große Dateien, alte Installationsdateien und geprüfte Netzwerk- und Grafik-Zwischenspeicher. Entfernt Programme mit einzeln wählbaren zugehörigen Daten über den Papierkorb."
     },
     {
       "module": "Sicherung",

@@ -11,7 +11,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Anwendungs-Version & GitHub Repository für automatische Updates
-APP_VERSION = "1.10.1"
+APP_VERSION = "1.11.0"
 GITHUB_REPO = "pebe1965/Dateien_Aktionen"
 
 # --- DATEN DES NUTZERS ---
@@ -233,49 +233,6 @@ SPEICHER_BAUM_MINDEST_BYTES = 10 * 1024 * 1024
 # … oder diesen Anteil des Startordners ausmacht
 SPEICHER_BAUM_MINDEST_ANTEIL = 0.01
 
-# Stufe „Gefahrlos“: Ordnernamen bekannter Zwischenspeicher, die sich von
-# selbst neu aufbauen. Der Hinweis steht so in der Oberfläche.
-# Achtung: Ein Treffer allein genügt nicht — enthält der Ordner eigene Fotos,
-# Videos, Musik oder Dokumente, wird er zu „Ihre Entscheidung“ (Fall CapCut).
-GEFAHRLOS_NAMEN = {
-    "node_modules": "Pakete eines Projekts. „npm install“ lädt sie wieder.",
-    ".next": "Build-Ausgabe von Next.js. Baut sich beim nächsten Build neu auf.",
-    ".nuxt": "Build-Ausgabe von Nuxt. Baut sich beim nächsten Build neu auf.",
-    ".turbo": "Zwischenspeicher von Turborepo. Baut sich neu auf.",
-    ".parcel-cache": "Zwischenspeicher von Parcel. Baut sich neu auf.",
-    ".vite": "Zwischenspeicher von Vite. Baut sich neu auf.",
-    ".svelte-kit": "Build-Ausgabe von SvelteKit. Baut sich neu auf.",
-    ".angular": "Zwischenspeicher von Angular. Baut sich neu auf.",
-    ".pio": "Zwischenspeicher von PlatformIO. Baut sich neu auf.",
-    "__pycache__": "Zwischendateien von Python. Entstehen bei Bedarf neu.",
-    ".pytest_cache": "Zwischenspeicher von pytest.",
-    ".mypy_cache": "Zwischenspeicher von mypy.",
-    ".ruff_cache": "Zwischenspeicher von Ruff.",
-    ".gradle": "Zwischenspeicher von Gradle. Lädt bei Bedarf neu.",
-    "deriveddata": "Build-Ordner von Xcode. Xcode legt ihn neu an.",
-    ".sass-cache": "Zwischenspeicher von Sass.",
-    "cache": "Heißt „Cache“ — meist ein Zwischenspeicher.",
-    "caches": "Heißt „Caches“ — meist ein Zwischenspeicher.",
-}
-
-# Stufe „Gefahrlos“ nach Lage: Es gilt die längste passende Regel, deshalb
-# zählt „~/Library/Caches“ stärker als die Auffangregel „~/Library“.
-GEFAHRLOS_PFADE = [
-    ("~/.npm", "Zwischenspeicher von npm. Lädt bei Bedarf neu."),
-    ("~/.cache", "Zwischenspeicher verschiedener Programme."),
-    ("~/.yarn/cache", "Zwischenspeicher von Yarn."),
-    ("~/.pnpm-store", "Zwischenspeicher von pnpm."),
-    ("~/Library/pnpm/store", "Zwischenspeicher von pnpm. Lädt bei Bedarf neu."),
-    ("~/.bun/install/cache", "Zwischenspeicher von Bun."),
-    ("~/.gradle", "Zwischenspeicher von Gradle."),
-    ("~/.cocoapods", "Zwischenspeicher von CocoaPods."),
-    ("~/Library/Caches", "Zwischenspeicher eines Programms. Wird neu angelegt."),
-    ("~/Library/Developer/Xcode/DerivedData", "Build-Ordner von Xcode. Xcode legt ihn neu an."),
-    ("~/Library/Developer/Xcode/iOS DeviceSupport", "Hilfsdateien für angeschlossene Geräte. Werden bei Bedarf neu geladen."),
-    ("~/Library/Logs", "Protokolle von Programmen."),
-    ("~/.Trash", "Der Papierkorb."),
-]
-
 # Stufe „Nicht anfassen“: wird angezeigt, aber ohne Knopf zum Löschen.
 # Der Hinweis sagt, wo man es stattdessen aufräumt.
 NICHT_ANFASSEN_PFADE = [
@@ -328,6 +285,3 @@ SPEICHER_EIGENE_DOKUMENT_ENDUNGEN = {
 }
 SPEICHER_MEDIEN_MINDEST_BYTES = 2 * 1024 * 1024
 SPEICHER_DOKUMENT_MINDEST_BYTES = 100 * 1024
-# Ab so viel eigenen Dateien gilt ein Zwischenspeicher als „Ihre Entscheidung“
-SPEICHER_EIGENE_SCHWELLE_BYTES = 20 * 1024 * 1024
-SPEICHER_EIGENE_SCHWELLE_ANTEIL = 0.10

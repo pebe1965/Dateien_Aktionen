@@ -1,6 +1,7 @@
-## Neu in 1.10.1
+## Neu in 1.11.0
 
-* **Rückfragen und Meldungen erscheinen wieder:** Im eigenen Fenster des Programms wurde keine Rückfrage mehr angezeigt – ein Klick auf „Papierkorb leeren“ sah aus, als täte sich nichts. Dasselbe galt für „Rückgängig machen“, das Löschen von Duplikaten und alle Erfolgsmeldungen nach einer Aktion. Sie waren nicht wirkungslos, sie wurden nur nicht angezeigt. Jetzt erscheinen sie wieder als Hinweisfenster mit „OK“ und „Abbrechen“.
-* Wer das Programm im Browser geöffnet hatte, war davon nicht betroffen.
+- **Sicher aufräumen:** Im Reiter „Speicherplatz“ findest du bekannte Netzwerk- und Browser-Grafikzwischenspeicher. Die Vorschau zeigt dir Programm, Speicherort und Größe. Laufende Programme werden ausgelassen.
+- **App deinstallieren:** Wähle ein Programm und entscheide einzeln, ob auch Einstellungen, Protokolle oder lokale Programmdaten in den Papierkorb sollen. Erkennt die App einen Deinstallierer des Herstellers, zeigt sie dir seinen Speicherort.
+- **Rückgängig:** Die Speicherbereinigung verschiebt deine Auswahl in den Papierkorb. Über „Protokoll & Rückgängig“ kannst du sie zurückholen, solange sie noch dort liegt und der ursprüngliche Platz frei ist. Den Papierkorb leerst du im Finder.
 
 Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.
