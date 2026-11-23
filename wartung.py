@@ -190,12 +190,13 @@ def _vorschau(modus, app_id):
     library = speicher.HOME / "Library"
     zeilen, hinweise = [], []
     if modus == "cache":
+        ausgelassen = set()
         for key, (kennung, app) in apps.items():
             datei = library / "Caches" / kennung / "Cache.db"
             if not datei.is_file():
                 continue
             if _aktiv(key, app, laufende):
-                hinweise.append(f"{app.stem} läuft. Sein Netzwerk-Zwischenspeicher wird ausgelassen.")
+                ausgelassen.add(app.stem)
             elif _netzwerkcache(datei):
                 zeilen.append(_eintrag(datei, app.stem, "Netzwerk-Zwischenspeicher. "
                                        "Die App kann die Inhalte erneut abrufen.", ["cache", key], app))
@@ -205,9 +206,6 @@ def _vorschau(modus, app_id):
                 continue
             app = apps[key][1]
             name = app.stem
-            if _aktiv(key, app, laufende):
-                hinweise.append(f"{name} läuft. Beende das Programm für die Suche.")
-                continue
             basis = library / "Application Support" / relativ
             if not _direkt(basis) or not basis.is_dir():
                 continue
@@ -215,11 +213,16 @@ def _vorschau(modus, app_id):
                 if not re.fullmatch(r"Default|Profile [0-9]+", profil.name):
                     continue
                 pfad = profil / "GPUCache"
+                if _aktiv(key, app, laufende):
+                    if _direkt(pfad) and pfad.is_dir():
+                        ausgelassen.add(name)
+                    continue
                 teile = _grafikcache(pfad)
                 if teile:
                     zeilen.append(_eintrag(pfad, name + " · " + profil.name,
                                           "Grafik-Zwischenspeicher. Der Browser baut ihn neu auf.",
                                           ["cache", key], app, teile))
+        return {"eintraege": zeilen, "hinweise": [], "laufende_programme": sorted(ausgelassen)}
     elif modus == "app" and isinstance(app_id, str) and app_id in apps:
         kennung, app = apps[app_id]
         if _aktiv(app_id, app, laufende):

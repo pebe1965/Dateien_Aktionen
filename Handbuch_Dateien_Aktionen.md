@@ -590,7 +590,7 @@ Installationsdateien von Programmen, die du gar nicht installiert hast, bleiben 
 
 ### Papierkorb leeren
 
-Die Kachel **Papierkorb leeren** öffnet die Bestätigung für den gesamten Mac-Papierkorb. Der Ring oben zeigt den belegten Anteil des Laufwerks.
+Die Kachel **Papierkorb leeren** öffnet die Bestätigung für den gesamten Mac-Papierkorb. Nach erfolgreichem Leeren wird auch die Auswahl in der schwarzen Leiste aufgehoben. Dateien, die du nur angehakt hast, bleiben an ihrem Ort. Der Ring oben zeigt den belegten Anteil des Laufwerks.
 
 1. Klicke auf **Papierkorb leeren**.
 2. Klicke auf **Endgültig leeren**, wenn du den gesamten Inhalt entfernen möchtest.
@@ -729,16 +729,15 @@ Lies den Grund unter den drei Kacheln. Bei einer laufenden App beende sie und st
 
 ### Die Systemreinigung findet nichts
 
-Beende den Browser oder das betroffene Programm vollständig und starte **Sicher aufräumen** erneut. Unbekannte Cache-Formate, Verknüpfungen und Datenbanken mit Begleitdateien werden ausgelassen. Der allgemeine Ordnerscan zeigt dir weitere Speicherbelegung.
+Unter **Ausgelassene laufende Programme** siehst du bei Bedarf, welche Programme bei dieser Suche übersprungen wurden. Für eine erneute Prüfung kannst du diese Programme beenden und **Sicher aufräumen** erneut anklicken. Unbekannte Cache-Formate, Verknüpfungen und Datenbanken mit Begleitdateien werden ausgelassen. Der allgemeine Ordnerscan zeigt dir weitere Speicherbelegung.
 
 ### Der Speicherplatz zeigt weniger an, als die Festplatte belegt
 
-Dann darf das Programm Teile deines Benutzerordners nicht lesen. Im Reiter steht in diesem Fall ein gelber Hinweis, und am Ende der Ergebnisse stehen die übersprungenen Ordner.
+Unter **Leserechte** siehst du, welche Ordner die laufende App bei der Prüfung öffnen konnte. Auch mit erteiltem Festplattenvollzugriff kann macOS einzelne Ordner sperren. Das Ergebnis des Ordnerscans führt die tatsächlich übersprungenen Ordner auf.
 
-1. Öffne die Systemeinstellungen und dort „Datenschutz & Sicherheit“.
-2. Wähle **Festplattenvollzugriff**.
-3. Schalte **Dateien_Aktionen** ein.
-4. Starte das Programm neu und suche erneut.
+1. Klicke im Reiter **Speicherplatz** auf **Aktualisieren**.
+2. Klappe **Leserechte** auf.
+3. Prüfe die angezeigten Pfade. Falls du die Freigabe geändert hast, beende die App vollständig und öffne sie erneut.
 
 Übersprungen werden außerdem Ordner, die auf einem anderen Laufwerk liegen – etwa eine eingebundene externe Platte. Sie zählen nicht mit; durchsuche sie bei Bedarf einzeln.
 

@@ -187,34 +187,23 @@ def platte(pfad=None) -> dict:
     }
 
 
-# Diese Orte darf nur lesen, wer „Festplattenvollzugriff“ hat. Keiner von
-# ihnen löst eine Nachfrage von macOS aus — es ist eine stille Prüfung.
-_VOLLZUGRIFF_PROBEN = [
-    HOME / ".Trash",
-    HOME / "Library" / "Application Support" / "com.apple.TCC",
-    HOME / "Library" / "Mail",
-]
-
-
 def hat_vollzugriff() -> dict:
-    """Ob die App den ganzen Benutzerordner sehen darf.
-
-    Ohne „Festplattenvollzugriff“ bleiben Teile unsichtbar (und der Papierkorb
-    unlesbar). Das sagt die App beim ersten Scan, statt stillschweigend zu
-    wenig zu melden.
-    """
-    gesperrt = []
-    for probe in _VOLLZUGRIFF_PROBEN:
-        if not probe.exists():
-            continue
+    """Prüft das Öffnen relevanter Ordner im laufenden Backend, ohne Dateien zu lesen."""
+    lesbar, gesperrt, unbekannt = [], [], []
+    for probe in (HOME / ".Trash", HOME / "Library/Caches", HOME / "Library/Application Support"):
         try:
-            with os.scandir(probe) as it:
-                next(iter(it), None)
+            with os.scandir(probe) as eintraege:
+                next(eintraege, None)
+        except FileNotFoundError:
+            continue
         except PermissionError:
             gesperrt.append(str(probe))
         except OSError:
-            pass
-    return {"ok": not gesperrt, "gesperrt": gesperrt}
+            unbekannt.append(str(probe))
+        else:
+            lesbar.append(str(probe))
+    ok = False if gesperrt else (True if lesbar and not unbekannt else None)
+    return {"ok": ok, "lesbar": lesbar, "gesperrt": gesperrt, "unbekannt": unbekannt}
 
 
 def _finder_frage(befehl: str, grenze: int = 25):

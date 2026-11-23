@@ -69,7 +69,7 @@ Der Reiter „Speicherplatz“ beantwortet die Frage, warum die Platte voll ist 
 * **Einordnen:** Geschützte Ordner und Pakete haben Vorrang. Im allgemeinen Scan prüft der Nutzer alle übrigen Funde selbst.
 * **Freigeben:** Nach der Vorschau verschiebt macOS die Auswahl in den Papierkorb. Der tatsächliche Zielpfad wird für „Rückgängig“ protokolliert.
 * **Installationsdateien:** `.dmg`/`.pkg` in Downloads und auf dem Schreibtisch werden gegen die installierten Programme in `/Applications` und `~/Applications` abgeglichen (Namenskern ohne Version und Füllwörter, Versionsvergleich über die `Info.plist`). Nur eindeutige Treffer werden angeboten; eine neuere Version in der Datei wird als „Bitte prüfen“ markiert.
-* **Ohne „Festplattenvollzugriff“** bleiben Teile unsichtbar; das Programm erkennt das und erklärt es.
+* **Leserechte:** Die laufende App prüft den Zugriff auf Papierkorb und Programmordner in der Benutzer-Library. Die Detailansicht nennt die geprüften Pfade.
 
 ---
 

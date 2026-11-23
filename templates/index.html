@@ -831,7 +831,7 @@
                     <button onclick="ladeSpeicherBasis()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200">Aktualisieren</button>
                 </div>
                 <div id="sp-platte" class="mt-4 text-sm text-slate-500">Lade …</div>
-                <div id="sp-vollzugriff" class="hidden mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
+                <div id="sp-vollzugriff" class="mt-3 text-xs text-slate-600"></div>
             </div>
 
             <section class="wartung-panel" aria-label="Systemreinigung und Deinstallation">
@@ -3336,12 +3336,18 @@
                     .then(spZeichnePapierkorb).catch(() => spZeichnePapierkorb(null));
 
                 const warnung = document.getElementById('sp-vollzugriff');
-                if (data.vollzugriff && data.vollzugriff.ok === false) {
-                    warnung.innerHTML = '<b>Teile des Benutzerordners bleiben unsichtbar.</b> Ohne die Freigabe „Festplattenvollzugriff“ darf das Programm manche Ordner nicht lesen – die Summen sind dann zu niedrig. Du erteilst sie in den Systemeinstellungen unter „Datenschutz &amp; Sicherheit → Festplattenvollzugriff“, indem du dort „Dateien_Aktionen“ einschaltest und das Programm neu startest.';
-                    warnung.classList.remove('hidden');
-                } else {
-                    warnung.classList.add('hidden');
-                }
+                const rechte = data.vollzugriff;
+                const status = rechte.ok === true ? 'Geprüfte Ordner lesbar'
+                    : rechte.gesperrt.length ? 'Einzelne Ordner sind gesperrt' : 'Lesetest ohne eindeutiges Ergebnis';
+                const zeilen = [
+                    ...rechte.lesbar.map(p => 'Lesbar · ' + p),
+                    ...rechte.gesperrt.map(p => 'Zugriff verweigert · ' + p),
+                    ...rechte.unbekannt.map(p => 'Prüfung nicht möglich · ' + p)
+                ];
+                warnung.innerHTML = `<details><summary class="cursor-pointer font-semibold">Leserechte · ${escHtml(status)}</summary>
+                    <p class="mt-2">Geprüft durch die laufende App. „Aktualisieren“ wiederholt den Test.</p>
+                    ${zeilen.map(z => `<p class="break-all">${escHtml(z)}</p>`).join('')}
+                    ${rechte.gesperrt.length ? '<p>Ein Ordner kann auch bei aktiviertem Festplattenvollzugriff gesperrt sein.</p>' : ''}</details>`;
 
                 const vor = document.getElementById('sp-vorschlaege');
                 vor.innerHTML = (data.vorschlaege || []).map(v =>
@@ -3399,6 +3405,7 @@
                 showLoading('Papierkorb leeren', 'Warte auf den Finder …');
                 try {
                     const data = await wartungApi({bestaetigt: true}, '/api/speicher/papierkorb_leeren');
+                    spAuswahlLeeren();
                     wartungMeldung(data.meldung);
                 } catch (e) { wartungMeldung(e.message, true); }
                 finally { hideLoading(); }
@@ -3653,6 +3660,7 @@
 
         function spAuswahlLeeren() {
             spAuswahl.clear();
+            spZeichneLeiste();
             spZeichneErgebnis();
             spZeichneInstaller();
         }
@@ -3688,8 +3696,13 @@
                 });
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
+                const aktuellePfade = new Set(data.eintraege.map(e => e.pfad));
+                for (const alt of spInstaller?.eintraege || []) {
+                    if (!aktuellePfade.has(alt.pfad)) spAuswahl.delete(alt.pfad);
+                }
                 spInstaller = data;
                 spZeichneInstaller();
+                spZeichneLeiste();
             } catch (e) {
                 liste.innerHTML = `<p class="text-xs text-rose-600">Fehler: ${escHtml(e.message)}</p>`;
             } finally {
@@ -3777,8 +3790,14 @@
                     return;
                 }
                 feld.innerHTML = plan.hinweise.map(h => `<p>${escHtml(h)}</p>`).join('');
+                if (modus === 'cache') {
+                    const laufend = plan.laufende_programme || [];
+                    const summe = plan.eintraege.reduce((n, z) => n + z.bytes, 0);
+                    const text = plan.eintraege.length ? `${formatBytes(summe)} zur Auswahl · ${plan.eintraege.length} Funde` : 'Aktuell nichts zum sicheren Aufräumen gefunden.';
+                    feld.insertAdjacentHTML('beforeend', `<p class="font-semibold">${escHtml(text)}</p>`);
+                    if (laufend.length) feld.insertAdjacentHTML('beforeend', `<details class="text-xs text-slate-600"><summary class="cursor-pointer">Ausgelassene laufende Programme (${escHtml(laufend.length)})</summary><p>${escHtml(laufend.join(', '))}</p><p>Für diese Programme kannst du die Suche nach dem Beenden wiederholen.</p></details>`);
+                }
                 if (!plan.eintraege.length) {
-                    if (modus === 'cache') feld.insertAdjacentHTML('beforeend', '<p>Keine passenden geschlossenen Zwischenspeicher gefunden.</p>');
                     return;
                 }
                 if (modus === 'app') feld.insertAdjacentHTML('beforeend', '<p>Wähle zusätzliche Daten einzeln aus. Programmdaten können eigene Dokumente enthalten. Gemeinsame Herstellerordner und Systemerweiterungen bleiben erhalten.</p>');
@@ -3897,10 +3916,8 @@
                 const fehlend = new Set(data.fehlgeschlagen.map(x => x.pfad));
                 spVorschauDaten.eintraege.filter(x => !fehlend.has(x.pfad)).forEach(x => spWeg.add(x.pfad));
                 spFreiBytes += data.bytes || 0;
-                spAuswahl.clear();
                 spSchliesseVorschau();
-                spZeichneErgebnis();
-                spZeichneInstaller();
+                spAuswahlLeeren();
                 await ladeSpeicherBasis();
 
                 let text = `${data.lesbar} in den Papierkorb gelegt (${data.erledigt === 1 ? '1 Eintrag' : data.erledigt + ' Einträge'}).\n\n${data.hinweis}`;

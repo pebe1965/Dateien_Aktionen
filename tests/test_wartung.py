@@ -142,6 +142,29 @@ class WartungTest(unittest.TestCase):
         self.assertEqual(res["erledigt"], 0)
         self.assertEqual(res["fehlgeschlagen"], [{"pfad": str(self.app), "grund": "Zugriff verweigert (-54)"}])
 
+    def test_lesetest_unterscheidet_fehlende_und_gesperrte_ordner(self):
+        with patch.object(speicher.os, "scandir", side_effect=FileNotFoundError):
+            self.assertIsNone(speicher.hat_vollzugriff()["ok"])
+        scandir = os.scandir
+        def pruefe(pfad):
+            if pfad.name == ".Trash":
+                raise PermissionError()
+            return scandir(pfad)
+        with patch.object(speicher.os, "scandir", side_effect=pruefe):
+            ergebnis = speicher.hat_vollzugriff()
+        self.assertEqual(ergebnis["gesperrt"], [str(self.heim / ".Trash")])
+        self.assertEqual(len(ergebnis["lesbar"]), 2)
+        self.assertTrue(speicher.hat_vollzugriff()["ok"])
+
+    def test_laufende_cache_kandidaten_nur_einmal(self):
+        self.laufende.add(self.kennung.lower())
+        plan = wartung.bearbeite({"modus": "cache"})
+        self.assertEqual(plan["laufende_programme"], [self.app.stem])
+        self.assertEqual(plan["eintraege"], [])
+        self.cache.rename(self.cache.with_name("anderer-Ordner"))
+        self.db.rename(self.db.with_name("andere-Datei"))
+        self.assertEqual(wartung.bearbeite({"modus": "cache"})["laufende_programme"], [])
+
     def test_gesperrte_auswahl(self):
         with self.assertRaises(speicher.SpeicherFehler):
             wartung.bearbeite({"modus": "cache", "auswahl": [str(self.heim)]})
