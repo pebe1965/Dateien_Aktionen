@@ -71,7 +71,7 @@ Der Mac schützt Ordner wie „Dokumente“, „Schreibtisch“ und „Downloads
 
 ## 3. Die Oberfläche
 
-Oben steht immer die **Ordnerauswahl** mit den beiden Knöpfen „1. Katalogisieren“ und „2. KI-Vorschau“. Darunter liegen die Reiter:
+Oben steht immer die **Ordnerauswahl** mit den beiden Knöpfen „1. Katalogisieren“ und „2. KI-Vorschau“. Darunter findest du die Werkzeugübersicht mit den Gruppen **Dateien ordnen**, **Verwalten & sichern** und **Verlauf & Hilfe**. Jede Schaltfläche erklärt kurz ihre Aufgabe. Ein Klick öffnet den Bereich unter der Übersicht. Der farbige Rahmen zeigt deine aktuelle Auswahl. In schmalen Fenstern stehen die Gruppen untereinander.
 
 | Reiter | Inhalt |
 | --- | --- |

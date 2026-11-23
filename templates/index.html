@@ -34,6 +34,25 @@
         .wartung-meldung.problem { background:#fff1e9; color:#823519 }
         .wartung-gefahr,.wartung-abbrechen { padding:7px 11px; margin-top:8px; border-radius:8px; border:1px solid #abb9bb; background:white }
         .wartung-gefahr { background:#923e22; color:white; border-color:#923e22 }
+        .werkzeuge { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr)); gap:12px; margin-bottom:24px }
+        .werkzeuge section { --akzent:#285487; --ton:#eaf2fc; min-width:0; background:#fff; border:1px solid #d9e2eb; border-radius:14px; padding:12px }
+        .werkzeuge section:nth-child(2) { --akzent:#216252; --ton:#e4f4ee }
+        .werkzeuge section:nth-child(3) { --akzent:#654786; --ton:#f3eef9 }
+        .werkzeuge h2 { margin:0 6px 7px; font-size:.94rem; font-weight:700; color:#27394c }
+        .werkzeuge .tab-btn { width:100%; min-width:0; display:flex; align-items:center; gap:10px; padding:8px; border:1px solid transparent; border-radius:9px; background:transparent; text-align:left; line-height:1.3 }
+        .werkzeuge .tab-btn:hover { background:#f4f7f9 }
+        .werkzeuge .tab-btn[aria-current="page"] { background:var(--ton); border-color:var(--akzent); box-shadow:inset 3px 0 var(--akzent) }
+        .werkzeuge .tab-btn:focus-visible { outline:2px solid #215eb3; outline-offset:1px }
+        .werkzeug-icon { width:28px; height:28px; flex:none; display:grid; place-items:center; border-radius:7px; background:var(--ton); color:var(--akzent); font-size:1.15rem }
+        .werkzeug-text { min-width:0; flex:1; overflow-wrap:anywhere }
+        .werkzeug-text strong,.werkzeug-text small { display:block }
+        .werkzeug-text strong { font-size:.9rem; color:#203347 }
+        .werkzeug-text small { font-size:.8rem; color:#495e70; margin-top:2px }
+        @media (max-width:760px) {
+            body > header { position:static }
+            body > header > div,#status-badges { flex-wrap:wrap; gap:8px }
+            #folder-path { min-width:0; flex:1 }
+        }
         .truncate-text {
             overflow: hidden;
             text-overflow: ellipsis;
@@ -121,48 +140,67 @@
             </div>
         </div>
 
-        <!-- Tabs Navigation -->
-        <div class="flex border-b border-slate-200 mb-6 gap-2 overflow-x-auto">
-            <button onclick="openTab('catalog')" id="tab-btn-catalog" class="tab-btn active px-4 py-2.5 font-medium text-sm border-b-2 border-blue-600 text-blue-600 whitespace-nowrap flex items-center gap-2">
-                <span>📊 Dateikatalog</span>
-                <span id="tab-badge-files" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">0</span>
-            </button>
-            <button onclick="openTab('duplicates')" id="tab-btn-duplicates" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
-                <span>⚠️ Duplikate-Manager</span>
-                <span id="tab-badge-dups" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">0</span>
-            </button>
-            <button onclick="openTab('preview')" id="tab-btn-preview" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
-                ✨ KI-Umbenennung & Vorschau
-            </button>
-            <button onclick="openTab('autopilot')" id="tab-btn-autopilot" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
-                <span>⚡ Autopilot / Wächter</span>
-                <span id="tab-badge-autopilot" class="w-2 h-2 rounded-full bg-slate-300" title="Autopilot Status"></span>
-            </button>
-            <button onclick="openTab('projekte')" id="tab-btn-projekte" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
-                <span>📌 Projekte</span>
-                <span id="tab-badge-projekte" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">0</span>
-            </button>
-            <button onclick="openTab('steuer')" id="tab-btn-steuer" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
-                🧾 Steuer
-            </button>
-            <button onclick="openTab('sicherung')" id="tab-btn-sicherung" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
-                <span>💾 Sicherung</span>
-                <span id="tab-badge-sicherung" class="hidden w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Sicherung läuft"></span>
-            </button>
-            <button onclick="openTab('speicher')" id="tab-btn-speicher" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center gap-2">
-                <span>🗄️ Speicherplatz</span>
-                <span id="tab-badge-speicher" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">0</span>
-            </button>
-            <button onclick="openTab('handbuch')" id="tab-btn-handbuch" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
-                📖 Handbuch
-            </button>
-            <button onclick="openTab('history')" id="tab-btn-history" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
-                🕒 Protokoll & Rückgängig
-            </button>
-            <button onclick="openTab('settings')" id="tab-btn-settings" class="tab-btn px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
-                ⚙️ Einstellungen
-            </button>
-        </div>
+        <nav class="werkzeuge" aria-label="Werkzeuge">
+            <section aria-labelledby="werkzeug-gruppe-0">
+                <h2 id="werkzeug-gruppe-0">Dateien ordnen</h2>
+                <button type="button" class="tab-btn" id="tab-btn-catalog" onclick="openTab('catalog')" aria-current="page">
+                    <span class="werkzeug-icon" aria-hidden="true">▤</span>
+                    <span class="werkzeug-text"><strong>Dateikatalog</strong><small>Eingelesene Dateien filtern und ansehen.</small></span>
+                    <span id="tab-badge-files" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">0</span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-duplicates" onclick="openTab('duplicates')">
+                    <span class="werkzeug-icon" aria-hidden="true">◫</span>
+                    <span class="werkzeug-text"><strong>Duplikate-Manager</strong><small>Doppelte Dateien und ähnliche Fotos prüfen.</small></span>
+                    <span id="tab-badge-dups" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">0</span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-preview" onclick="openTab('preview')">
+                    <span class="werkzeug-icon" aria-hidden="true">✧</span>
+                    <span class="werkzeug-text"><strong>KI-Umbenennung &amp; Vorschau</strong><small>Neue Namen und Zielordner vorab prüfen.</small></span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-autopilot" onclick="openTab('autopilot')">
+                    <span class="werkzeug-icon" aria-hidden="true">↻</span>
+                    <span class="werkzeug-text"><strong>Autopilot / Wächter</strong><small>Neue Dateien automatisch einsortieren.</small></span>
+                    <span id="tab-badge-autopilot" class="w-2 h-2 rounded-full bg-slate-300" title="Autopilot Status"></span>
+                </button>
+            </section>
+            <section aria-labelledby="werkzeug-gruppe-1">
+                <h2 id="werkzeug-gruppe-1">Verwalten &amp; sichern</h2>
+                <button type="button" class="tab-btn" id="tab-btn-projekte" onclick="openTab('projekte')">
+                    <span class="werkzeug-icon" aria-hidden="true">▣</span>
+                    <span class="werkzeug-text"><strong>Projekte</strong><small>Projektordner anlegen und abschließen.</small></span>
+                    <span id="tab-badge-projekte" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">0</span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-steuer" onclick="openTab('steuer')">
+                    <span class="werkzeug-icon" aria-hidden="true">≡</span>
+                    <span class="werkzeug-text"><strong>Steuer</strong><small>Markierte Belege nach Steuerjahr sammeln.</small></span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-sicherung" onclick="openTab('sicherung')">
+                    <span class="werkzeug-icon" aria-hidden="true">↥</span>
+                    <span class="werkzeug-text"><strong>Sicherung</strong><small>Kopien sichern und Dateien wiederherstellen.</small></span>
+                    <span id="tab-badge-sicherung" class="hidden w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Sicherung läuft"></span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-speicher" onclick="openTab('speicher')">
+                    <span class="werkzeug-icon" aria-hidden="true">◔</span>
+                    <span class="werkzeug-text"><strong>Speicherplatz</strong><small>Platzbelegung prüfen, Caches und Apps entfernen.</small></span>
+                    <span id="tab-badge-speicher" class="hidden px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">0</span>
+                </button>
+            </section>
+            <section aria-labelledby="werkzeug-gruppe-2">
+                <h2 id="werkzeug-gruppe-2">Verlauf &amp; Hilfe</h2>
+                <button type="button" class="tab-btn" id="tab-btn-history" onclick="openTab('history')">
+                    <span class="werkzeug-icon" aria-hidden="true">↶</span>
+                    <span class="werkzeug-text"><strong>Protokoll &amp; Rückgängig</strong><small>Frühere Aktionen prüfen und zurücknehmen.</small></span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-handbuch" onclick="openTab('handbuch')">
+                    <span class="werkzeug-icon" aria-hidden="true">▥</span>
+                    <span class="werkzeug-text"><strong>Handbuch</strong><small>Anleitungen zu allen Werkzeugen lesen.</small></span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-btn-settings" onclick="openTab('settings')">
+                    <span class="werkzeug-icon" aria-hidden="true">⚙</span>
+                    <span class="werkzeug-text"><strong>Einstellungen</strong><small>KI-Zugang, Ablage und Updates verwalten.</small></span>
+                </button>
+            </section>
+        </nav>
 
         <!-- ==================== TAB 1: KATALOG & DATEILISTE ==================== -->
         <div id="tab-catalog" class="tab-content">
@@ -1434,16 +1472,9 @@
         function openTab(tabId) {
             currentActiveTab = tabId;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('border-blue-600', 'text-blue-600');
-                btn.classList.add('border-transparent', 'text-slate-500');
-            });
+            document.querySelectorAll('.tab-btn[aria-current]').forEach(btn => btn.removeAttribute('aria-current'));
             document.getElementById('tab-' + tabId).classList.remove('hidden');
-            const activeBtn = document.getElementById('tab-btn-' + tabId);
-            if (activeBtn) {
-                activeBtn.classList.remove('border-transparent', 'text-slate-500');
-                activeBtn.classList.add('border-blue-600', 'text-blue-600');
-            }
+            document.getElementById('tab-btn-' + tabId).setAttribute('aria-current', 'page');
 
             if (tabId === 'history') loadHistory();
             if (tabId === 'projekte') ladeProjekte();
@@ -1453,6 +1484,18 @@
             if (tabId === 'handbuch') ladeHandbuch();
             if (tabId === 'autopilot') loadAutopilotStatus(true);
         }
+
+        document.querySelector('.werkzeuge').addEventListener('click', event => {
+            const button = event.target.closest('.tab-btn');
+            if (!button) return;
+            const panel = document.getElementById(button.id.replace('tab-btn-', 'tab-'));
+            if (panel.getBoundingClientRect().top > window.innerHeight * 0.75) {
+                panel.style.scrollMarginTop = document.querySelector('header').offsetHeight + 'px';
+                panel.setAttribute('tabindex', '-1');
+                panel.focus({preventScroll:true});
+                panel.scrollIntoView({block:'start'});
+            }
+        });
 
         async function fetchStatus() {
             try {

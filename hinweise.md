@@ -1,6 +1,6 @@
-## Neu in 1.12.2
+## Neu in 1.13.0
 
-- „Sicher aufräumen“ setzt die Suche fort, wenn macOS den Zugriff auf einen Speicherort verweigert, etwa auf den Profilordner von Google Chrome. Andere geprüfte Zwischenspeicher bleiben auswählbar.
-- Unter „Nicht vollständig prüfbare Speicherorte“ kannst du nachsehen, welche Pfade ausgelassen wurden.
+- Die Werkzeugübersicht ersetzt die seitlich scrollende Reiterleiste. Du findest alle elf Bereiche in den Gruppen „Dateien ordnen“, „Verwalten & sichern“ und „Verlauf & Hilfe“.
+- Unter jedem Werkzeug steht, was du dort tun kannst. Der farbige Rahmen kennzeichnet den geöffneten Bereich. In schmalen Fenstern ordnen sich die Gruppen untereinander an.
 
 Installation: DMG öffnen, App in „Programme“ ziehen (bei Nachfrage „Ersetzen“). Einstellungen, Verlauf und Zugangscode bleiben erhalten.
